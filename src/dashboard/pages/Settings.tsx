@@ -221,6 +221,38 @@ export default function SettingsPage() {
         </button>
       </div>
 
+      {/* New Tab Settings */}
+      <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
+        <h2 className="text-lg font-semibold mb-4">New Tab</h2>
+        <div className="space-y-4">
+          <div>
+            <label className="block font-medium mb-1">Display Name</label>
+            <p className="text-sm text-gray-500 mb-2">
+              Your name for the greeting on new tabs
+            </p>
+            <input
+              type="text"
+              value={settings.displayName}
+              onChange={(e) => setSettings({ ...settings, displayName: e.target.value })}
+              placeholder="Enter your name"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
+          <p className="text-sm text-gray-500">
+            Quick links can be added and removed directly on the new tab page.
+          </p>
+        </div>
+
+        <button
+          onClick={saveSettings}
+          disabled={saving}
+          className="mt-6 flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white px-4 py-2 rounded-lg transition-colors"
+        >
+          <Save className="w-4 h-4" />
+          {saving ? 'Saving...' : 'Save Settings'}
+        </button>
+      </div>
+
       {/* Master Password */}
       <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
         <h2 className="text-lg font-semibold mb-4">Master Password</h2>

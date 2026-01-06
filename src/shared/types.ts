@@ -40,6 +40,15 @@ export interface Settings {
   theme: 'light' | 'dark' | 'system';
   retentionDays: number; // how long to keep history
   idleThreshold: number; // seconds before considered idle (0 = disabled)
+  displayName: string; // user's name for greeting
+  quickLinks: QuickLink[]; // bookmarks for new tab
+}
+
+export interface QuickLink {
+  id: string;
+  name: string;
+  url: string;
+  icon?: string; // emoji or URL
 }
 
 export interface StorageData {
@@ -59,6 +68,8 @@ export const DEFAULT_SETTINGS: Settings = {
   theme: 'system',
   retentionDays: 30,
   idleThreshold: 60, // 60 seconds default
+  displayName: '',
+  quickLinks: [],
 };
 
 export type MessageType =

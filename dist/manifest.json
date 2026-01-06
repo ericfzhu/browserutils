@@ -22,6 +22,9 @@
   "action": {
     "default_popup": "popup.html"
   },
+  "chrome_url_overrides": {
+    "newtab": "newtab.html"
+  },
   "declarative_net_request": {
     "rule_resources": [{
       "id": "block_rules",
