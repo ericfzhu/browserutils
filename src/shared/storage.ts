@@ -55,8 +55,12 @@ export async function updateSettings(settings: Partial<Settings>): Promise<Setti
   return updated;
 }
 
+function getLocalDateString(d: Date = new Date()): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 export async function getDailyStats(date?: string): Promise<DailyStats> {
-  const targetDate = date || new Date().toISOString().split('T')[0];
+  const targetDate = date || getLocalDateString();
   const result = await chrome.storage.local.get(STORAGE_KEYS.DAILY_STATS);
   const allStats = result[STORAGE_KEYS.DAILY_STATS] || {};
   return allStats[targetDate] || {
@@ -81,14 +85,14 @@ export async function updateDailyStats(date: string, stats: DailyStats): Promise
 }
 
 export async function incrementBlockedAttempt(_domain: string): Promise<void> {
-  const today = new Date().toISOString().split('T')[0];
+  const today = getLocalDateString();
   const stats = await getDailyStats(today);
   stats.blockedAttempts++;
   await updateDailyStats(today, stats);
 }
 
 export async function recordVisit(domain: string, duration: number): Promise<void> {
-  const today = new Date().toISOString().split('T')[0];
+  const today = getLocalDateString();
   const stats = await getDailyStats(today);
   stats.totalTime += duration;
   stats.sites[domain] = (stats.sites[domain] || 0) + duration;

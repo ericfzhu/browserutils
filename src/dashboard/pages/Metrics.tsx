@@ -59,14 +59,18 @@ export default function Metrics() {
     );
   }
 
-  // Get dates for selected period
+  // Get dates for selected period (using local timezone)
   const today = new Date();
   const periodDays = selectedPeriod === 'week' ? 7 : 30;
   const dates: string[] = [];
   for (let i = periodDays - 1; i >= 0; i--) {
     const date = new Date(today);
     date.setDate(date.getDate() - i);
-    dates.push(date.toISOString().split('T')[0]);
+    // Use local date format instead of UTC
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    dates.push(`${year}-${month}-${day}`);
   }
 
   // Calculate stats for period
@@ -94,7 +98,10 @@ export default function Metrics() {
   for (let i = periodDays * 2 - 1; i >= periodDays; i--) {
     const date = new Date(today);
     date.setDate(date.getDate() - i);
-    prevDates.push(date.toISOString().split('T')[0]);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    prevDates.push(`${year}-${month}-${day}`);
   }
   const prevStats = prevDates.map((date) => allStats[date] || { totalTime: 0 });
   const prevTotalTime = prevStats.reduce((sum, s) => sum + s.totalTime, 0);

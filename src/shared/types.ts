@@ -81,4 +81,8 @@ export type MessageType =
   | { type: 'GET_BLOCKED_SITES' }
   | { type: 'GET_SETTINGS' }
   | { type: 'UPDATE_SETTINGS'; payload: Partial<Settings> }
-  | { type: 'CHECK_SITE'; payload: { url: string } };
+  | { type: 'CHECK_SITE'; payload: { url: string } }
+  // Content script messages
+  | { type: 'HEARTBEAT'; payload: { url: string; timestamp: number } }
+  | { type: 'VISIBILITY_CHANGE'; payload: { visible: boolean; url: string; timestamp: number } }
+  | { type: 'CONTENT_SCRIPT_READY'; payload: { visible: boolean; url: string; timestamp: number } };
