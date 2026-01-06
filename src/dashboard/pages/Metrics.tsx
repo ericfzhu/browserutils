@@ -34,7 +34,7 @@ export default function Metrics() {
   const [allStats, setAllStats] = useState<Record<string, DailyStats>>({});
   const [selectedPeriod, setSelectedPeriod] = useState<'week' | 'month'>('week');
   const [loading, setLoading] = useState(true);
-  const [hoveredSegment, setHoveredSegment] = useState<{ date: string; domain: string; time: number } | null>(null);
+  const [hoveredSegment, setHoveredSegment] = useState<{ date: string; domain: string; time: number; percent: number } | null>(null);
 
   useEffect(() => {
     loadStats();
@@ -196,6 +196,7 @@ export default function Metrics() {
               <span className="font-medium">{hoveredSegment.domain}</span>
               <span className="text-gray-300">•</span>
               <span>{formatTime(hoveredSegment.time)}</span>
+              <span className="text-gray-400">({hoveredSegment.percent.toFixed(1)}%)</span>
             </div>
           )}
         </div>
@@ -220,7 +221,12 @@ export default function Metrics() {
                           key={domain}
                           className={`h-full ${DOMAIN_COLORS[colorIndex % DOMAIN_COLORS.length]} hover:opacity-80 transition-opacity cursor-pointer`}
                           style={{ width: `${widthPercent}%` }}
-                          onMouseEnter={() => setHoveredSegment({ date: stats.date, domain, time })}
+                          onMouseEnter={() => setHoveredSegment({
+                            date: stats.date,
+                            domain,
+                            time,
+                            percent: (time / stats.totalTime) * 100
+                          })}
                           onMouseLeave={() => setHoveredSegment(null)}
                         />
                       );
