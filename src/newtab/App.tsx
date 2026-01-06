@@ -65,13 +65,32 @@ function formatDate(): string {
   });
 }
 
+function getFaviconUrl(url: string): string {
+  try {
+    const urlObj = new URL(url.startsWith('http') ? url : `https://${url}`);
+    return `https://www.google.com/s2/favicons?domain=${urlObj.hostname}&sz=64`;
+  } catch {
+    return '';
+  }
+}
+
+function extractDomain(url: string): string {
+  try {
+    const urlObj = new URL(url.startsWith('http') ? url : `https://${url}`);
+    // Remove www. prefix and return hostname
+    return urlObj.hostname.replace(/^www\./, '');
+  } catch {
+    return url;
+  }
+}
+
 export default function App() {
   const [time, setTime] = useState(formatClock());
   const [greeting] = useState(getGreeting());
   const [settings, setSettings] = useState<SettingsType | null>(null);
   const [stats, setStats] = useState<DailyStats | null>(null);
   const [showAddLink, setShowAddLink] = useState(false);
-  const [newLink, setNewLink] = useState({ name: '', url: '', icon: '' });
+  const [newLinkUrl, setNewLinkUrl] = useState('');
 
   useEffect(() => {
     loadData();
@@ -99,13 +118,15 @@ export default function App() {
   }
 
   async function addQuickLink() {
-    if (!settings || !newLink.name || !newLink.url) return;
+    if (!settings || !newLinkUrl) return;
+
+    const fullUrl = newLinkUrl.startsWith('http') ? newLinkUrl : `https://${newLinkUrl}`;
+    const domain = extractDomain(newLinkUrl);
 
     const link: QuickLink = {
       id: crypto.randomUUID(),
-      name: newLink.name,
-      url: newLink.url.startsWith('http') ? newLink.url : `https://${newLink.url}`,
-      icon: newLink.icon || undefined,
+      name: domain.split('.')[0].charAt(0).toUpperCase() + domain.split('.')[0].slice(1), // Capitalize first part of domain
+      url: fullUrl,
     };
 
     const updatedSettings = {
@@ -119,7 +140,7 @@ export default function App() {
     });
 
     setSettings(updatedSettings);
-    setNewLink({ name: '', url: '', icon: '' });
+    setNewLinkUrl('');
     setShowAddLink(false);
   }
 
@@ -190,8 +211,17 @@ export default function App() {
                 >
                   <X className="w-3 h-3" />
                 </button>
-                <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center text-2xl">
-                  {link.icon || link.name.charAt(0).toUpperCase()}
+                <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center overflow-hidden">
+                  <img
+                    src={getFaviconUrl(link.url)}
+                    alt={link.name}
+                    className="w-8 h-8"
+                    onError={(e) => {
+                      // Fallback to first letter if favicon fails
+                      e.currentTarget.style.display = 'none';
+                      e.currentTarget.parentElement!.innerHTML = `<span class="text-2xl text-gray-400">${link.name.charAt(0).toUpperCase()}</span>`;
+                    }}
+                  />
                 </div>
                 <span className="text-sm text-gray-600">{link.name}</span>
               </a>
@@ -248,45 +278,32 @@ export default function App() {
       {/* Add Link Modal */}
       {showAddLink && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-md mx-4 shadow-xl">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-sm mx-4 shadow-xl">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Add Quick Link</h2>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm text-gray-600 mb-1">Name</label>
                 <input
                   type="text"
-                  value={newLink.name}
-                  onChange={(e) => setNewLink({ ...newLink, name: e.target.value })}
-                  placeholder="e.g., Gmail"
+                  value={newLinkUrl}
+                  onChange={(e) => setNewLinkUrl(e.target.value)}
+                  placeholder="Enter URL (e.g., github.com)"
                   className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && newLinkUrl) {
+                      addQuickLink();
+                    }
+                  }}
                 />
+                <p className="text-xs text-gray-400 mt-2">
+                  Favicon and name will be auto-detected
+                </p>
               </div>
-              <div>
-                <label className="block text-sm text-gray-600 mb-1">URL</label>
-                <input
-                  type="text"
-                  value={newLink.url}
-                  onChange={(e) => setNewLink({ ...newLink, url: e.target.value })}
-                  placeholder="e.g., gmail.com"
-                  className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-              <div>
-                <label className="block text-sm text-gray-600 mb-1">Icon (emoji, optional)</label>
-                <input
-                  type="text"
-                  value={newLink.icon}
-                  onChange={(e) => setNewLink({ ...newLink, icon: e.target.value })}
-                  placeholder="e.g., 📧"
-                  className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  maxLength={2}
-                />
-              </div>
-              <div className="flex justify-end gap-3 pt-2">
+              <div className="flex justify-end gap-3">
                 <button
                   onClick={() => {
                     setShowAddLink(false);
-                    setNewLink({ name: '', url: '', icon: '' });
+                    setNewLinkUrl('');
                   }}
                   className="px-4 py-2 text-gray-600 hover:text-gray-900 transition-colors"
                 >
@@ -294,10 +311,10 @@ export default function App() {
                 </button>
                 <button
                   onClick={addQuickLink}
-                  disabled={!newLink.name || !newLink.url}
+                  disabled={!newLinkUrl}
                   className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg transition-colors"
                 >
-                  Add Link
+                  Add
                 </button>
               </div>
             </div>
