@@ -36,13 +36,13 @@ A Chrome extension for tracking website usage and blocking distracting sites.
 ## Installation
 
 1. Clone or download this repository
-2. Install dependencies: `yarn install`
-3. Build the extension: `yarn build`
-4. Open Chrome and go to `chrome://extensions`
-5. Enable "Developer mode"
-6. Click "Load unpacked" and select the `dist` folder
+2. Open Chrome and go to `chrome://extensions`
+3. Enable "Developer mode"
+4. Click "Load unpacked" and select the `dist` folder
 
 ## Development
+
+If you want to modify the extension:
 
 ```bash
 # Install dependencies
@@ -50,9 +50,6 @@ yarn install
 
 # Build for production
 yarn build
-
-# Development build with watch (if configured)
-yarn dev
 ```
 
 ## Tech Stack
