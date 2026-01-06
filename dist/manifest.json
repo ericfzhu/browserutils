@@ -1,0 +1,32 @@
+{
+  "manifest_version": 3,
+  "name": "BrowserUtils",
+  "version": "1.0.0",
+  "description": "Track website usage and block distracting sites with password or timer protection",
+  "permissions": [
+    "storage",
+    "tabs",
+    "webNavigation",
+    "alarms",
+    "idle",
+    "declarativeNetRequest",
+    "declarativeNetRequestFeedback"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "declarative_net_request": {
+    "rule_resources": [{
+      "id": "block_rules",
+      "enabled": true,
+      "path": "rules.json"
+    }]
+  }
+}
