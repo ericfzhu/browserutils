@@ -1,0 +1,89 @@
+import { useState } from 'react';
+import { Routes, Route, NavLink } from 'react-router-dom';
+import { BarChart3, Shield, Settings, LayoutDashboard } from 'lucide-react';
+import Overview from './pages/Overview';
+import BlockedSites from './pages/BlockedSites';
+import Metrics from './pages/Metrics';
+import SettingsPage from './pages/Settings';
+
+const navItems = [
+  { to: '/', icon: LayoutDashboard, label: 'Overview' },
+  { to: '/blocked', icon: Shield, label: 'Blocked Sites' },
+  { to: '/metrics', icon: BarChart3, label: 'Metrics' },
+  { to: '/settings', icon: Settings, label: 'Settings' },
+];
+
+export default function App() {
+  const [isHovered, setIsHovered] = useState(false);
+
+  return (
+    <div className="min-h-screen bg-gray-50 flex">
+      {/* Sidebar */}
+      <nav className="w-64 bg-white border-r border-gray-200 p-4 flex flex-col">
+        <div
+          className="flex items-center gap-2 mb-8 cursor-default"
+          onMouseEnter={() => setIsHovered(true)}
+          onMouseLeave={() => setIsHovered(false)}
+        >
+          <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center">
+            <Shield className="w-6 h-6 text-white" />
+          </div>
+          <div>
+            <h1 className="font-bold text-gray-900 relative overflow-hidden h-6">
+              <span
+                className={`inline-block transition-all duration-300 ${
+                  isHovered ? 'opacity-0 -translate-y-full' : 'opacity-100 translate-y-0'
+                }`}
+              >
+                BrowserUtils
+              </span>
+              <span
+                className={`absolute left-0 top-0 transition-all duration-300 ${
+                  isHovered ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-full'
+                }`}
+              >
+                Boyoung😘Utils
+              </span>
+            </h1>
+            <p className="text-xs text-gray-500">Focus & Productivity</p>
+          </div>
+        </div>
+
+        <div className="space-y-1">
+          {navItems.map(({ to, icon: Icon, label }) => (
+            <NavLink
+              key={to}
+              to={to}
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
+                  isActive
+                    ? 'bg-blue-50 text-blue-700'
+                    : 'text-gray-600 hover:bg-gray-100'
+                }`
+              }
+            >
+              <Icon className="w-5 h-5" />
+              {label}
+            </NavLink>
+          ))}
+        </div>
+
+        <div className="mt-auto pt-4 border-t">
+          <p className="text-xs text-gray-400 text-center">
+            v1.0.0
+          </p>
+        </div>
+      </nav>
+
+      {/* Main content */}
+      <main className="flex-1 p-8 overflow-auto">
+        <Routes>
+          <Route path="/" element={<Overview />} />
+          <Route path="/blocked" element={<BlockedSites />} />
+          <Route path="/metrics" element={<Metrics />} />
+          <Route path="/settings" element={<SettingsPage />} />
+        </Routes>
+      </main>
+    </div>
+  );
+}
