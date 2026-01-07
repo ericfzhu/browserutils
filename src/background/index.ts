@@ -245,6 +245,16 @@ async function handleMessage(message: MessageType, sender?: chrome.runtime.Messa
     case 'CHECK_SITE': {
       return checkIfBlocked(message.payload.url);
     }
+    case 'CHECK_SITE_WITH_REDIRECT': {
+      const result = await checkIfBlocked(message.payload.url);
+      if (result.blocked && result.site) {
+        return {
+          blocked: true,
+          redirectUrl: chrome.runtime.getURL(`blocked.html?site=${result.site.id}`),
+        };
+      }
+      return { blocked: false };
+    }
     case 'INCREMENT_BLOCKED_ATTEMPT': {
       await incrementBlockedAttempt(message.payload.domain);
       return { success: true };
@@ -486,6 +496,20 @@ async function updateBlockingRules(): Promise<void> {
     // Skip if temporarily unlocked
     if (site.unlockType === 'timer' && site.timerUnlockedUntil) {
       if (Date.now() < site.timerUnlockedUntil) {
+        continue;
+      }
+    }
+
+    // Skip if outside scheduled blocking period
+    if (site.unlockType === 'schedule' && site.schedule) {
+      const now = new Date();
+      const day = now.getDay();
+      const time = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+
+      const isBlockingDay = site.schedule.days.includes(day);
+      const isBlockingTime = time >= site.schedule.startTime && time <= site.schedule.endTime;
+
+      if (!isBlockingDay || !isBlockingTime) {
         continue;
       }
     }

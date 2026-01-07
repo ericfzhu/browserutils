@@ -82,6 +82,7 @@ export type MessageType =
   | { type: 'GET_SETTINGS' }
   | { type: 'UPDATE_SETTINGS'; payload: Partial<Settings> }
   | { type: 'CHECK_SITE'; payload: { url: string } }
+  | { type: 'CHECK_SITE_WITH_REDIRECT'; payload: { url: string } }
   | { type: 'INCREMENT_BLOCKED_ATTEMPT'; payload: { domain: string } }
   // Content script messages
   | { type: 'HEARTBEAT'; payload: { url: string; timestamp: number } }
