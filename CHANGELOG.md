@@ -8,12 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.9.0] - 2026-01-08
 
 ### Added
-- Path-based site blocking - block specific URL paths like `reddit.com/r/funny/*`
-- URL input normalization - automatically strips `https://` and formats patterns correctly
+- Path-based site blocking - block specific URL paths like reddit.com/r/funny/*
+- URL input normalization - automatically strips https:// and formats patterns correctly
 
 ### Changed
-- Entering `https://example.com/` now normalizes to `example.com`
-- Entering `https://example.com/path/` now normalizes to `example.com/path/*`
+- Entering https://example.com/ now normalizes to example.com
+- Entering https://example.com/path/ now normalizes to example.com/path/*
 
 ## [0.8.2] - 2026-01-08
 
@@ -22,7 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Sites can now be reordered within folders by dragging in Blocked Sites
 
 ### Changed
-- Folder headers in Blocked Sites can now be clicked anywhere to expand/collapse (not just the chevron)
+- Folder headers in Blocked Sites can now be clicked anywhere to expand/collapse
 
 ### Fixed
 - Fixed missing gap between YouTube Channels section and other sections in Overview and Metrics tabs
@@ -31,11 +31,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.8.1] - 2026-01-07
 
-### Added
-- Dark mode with Light, Dark, and System theme options
+### Changed
+- YouTube tracking now uses Media Session API for more reliable channel detection
+- YouTube watch time now tracks actual playback (play/pause) instead of page open time
+- YouTube continues tracking when tab is in background (if video is still playing)
+- Overview progress bars now relative to top item for better visual comparison
 
 ### Fixed
-- YouTube tracking improvements
+- YouTube channel detection now works reliably across all video pages
+- Fixed false "channel changed" detection when channelId was intermittently available
+
+## [0.8.0] - 2026-01-07
+
+### Added
+- YouTube Channel Tracking - track which channels you watch on YouTube videos and Shorts
+- New setting to enable/disable YouTube tracking (off by default)
+- YouTube Channels section in Overview showing top watched channels
+- YouTube Channels section in Metrics with full channel breakdown
+
+## [0.7.0] - 2026-01-07
+
+### Added
+- Dark mode support with three options: Light, Dark, and System (follows OS preference)
+- Theme selector in Settings under new "Appearance" section
+- Automatic theme switching when OS preference changes (in System mode)
+
+### Fixed
+- Blocked sites list now properly follows dark mode theme
 
 ## [0.6.1] - 2026-01-07
 
@@ -45,16 +67,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.6.0] - 2026-01-07
 
 ### Added
-- Site Categories - domains automatically categorized (Social Media, Entertainment, News, Shopping, Productivity, Development, Education, Communication)
-- Category breakdown view in Metrics page showing time spent per category
-- Category summary on Overview page
+- Site Categories - domains automatically categorized (Social, Entertainment, News, etc.)
+- Category breakdown view in Metrics and Overview pages
 - Pre-built category mappings for ~300 popular domains
-- User can override category assignments
 - Daily Time Limits - set maximum daily browsing time per site
-- New "Daily Limits" page accessible from sidebar navigation
-- Configurable bypass options per limit: wait timer, password, or no bypass
-- Limits approaching warning on Overview page (shows limits >70% used)
-- Blocked page shows daily limit exceeded UI with time info and bypass options
+- New "Daily Limits" page for managing time limits
+- Bypass options for daily limits: wait timer, password, or no bypass
+- Limits approaching warning on Overview page
+- Blocked page shows daily limit exceeded UI with bypass options
 
 ## [0.5.1] - 2026-01-07
 
@@ -65,31 +85,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.5.0] - 2026-01-07
 
 ### Added
-- Multi-window session tracking - now tracks activity across all visible browser windows simultaneously
+- Multi-window session tracking - tracks activity across all visible browser windows
 - Activity Timeline visualization showing when sites were visited throughout the day
 - Timeline preview on Overview page with link to full view
-- Full timeline on Metrics page with:
-  - Date navigation (prev/next day arrows)
-  - Calendar picker for jumping to any date
-  - Date range mode to view aggregated data across multiple days
-  - Slide animations when navigating between dates
-- Sessions are recorded with start/end timestamps and window IDs
-- Time calculations now use interval union to avoid double-counting overlapping sessions
-- Multiple windows indicator (layers icon) on timeline rows
+- Full timeline on Metrics page with date navigation and calendar picker
+- Date range mode to view aggregated data across multiple days
+- Slide animations when navigating between dates
+- Multiple windows indicator on timeline rows
 
 ### Changed
 - Refactored time tracking from single-session to multi-session model
-- "Time today" now accurately represents union of all browsing sessions
+- "Time today" now represents union of all browsing sessions (no double-counting)
 
 ## [0.4.2] - 2026-01-07
 
 ### Added
-- Smooth expand/collapse animation for folder sections using CSS grid transitions
+- Smooth expand/collapse animation for folder sections
 
 ## [0.4.1] - 2026-01-07
 
 ### Changed
-- New tab greeting is now deterministic based on day of year (same greeting all day)
+- New tab greeting is now deterministic based on day of year
 
 ## [0.4.0] - 2026-01-07
 
@@ -105,18 +121,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.3.2] - 2026-01-07
 
+### Changed
+- Content script runs at document_start for faster blocking
+- Blocked attempts tracked from content script fallback
+
 ### Fixed
 - Scheduled blocking now correctly checks if current time is within the blocking window
-- Sites with service workers that bypass declarativeNetRequest are now blocked via content script fallback
-
-### Changed
-- Content script now runs at document_start for faster blocking
-- Blocked attempts are tracked from content script fallback
+- Sites with service workers that bypass declarativeNetRequest are now blocked
 
 ## [0.3.1] - 2026-01-07
 
 ### Fixed
-- Blocked site metrics now properly increment (counter was broken due to redirect timing)
+- Blocked site metrics now properly increment
 
 ## [0.3.0] - 2026-01-07
 
@@ -124,7 +140,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Content script heartbeat system for accurate time tracking
 - Page Visibility API integration for true visibility detection
 - Session state persistence across service worker restarts
-- Media detection - continues tracking when audio is playing (e.g., YouTube)
+- Media detection - continues tracking when audio is playing
 
 ### Fixed
 - UTC date bug - all date calculations now use local timezone
@@ -133,22 +149,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.2.1] - 2026-01-07
 
 ### Changed
-- Quick links now auto-fetch favicons from Google's favicon service
+- Quick links now auto-fetch favicons
 - Simplified add link modal - just enter URL
 - Auto-extract site name from domain
-- Enter key submits the add link form
 
 ## [0.2.0] - 2026-01-07
 
 ### Added
-- Custom new tab page with:
-  - Time-based greetings with varied phrases
-  - Personalized name display (configurable in settings)
-  - Large clock with date
-  - Quick links with emoji icons
-  - Today's browsing stats
-- Display name setting for new tab greeting
-- Quick links management
+- Custom new tab page with time-based greetings
+- Personalized name display in settings
+- Large clock with date on new tab
+- Quick links with emoji icons
 
 ## [0.1.1] - 2026-01-06
 
@@ -159,14 +170,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.0] - 2026-01-06
 
 ### Added
-- Initial release
 - Website time tracking with per-site breakdowns
-- Site blocking with multiple unlock methods:
-  - Password protection
-  - Timer-based temporary unlock
-  - Schedule-based blocking
+- Site blocking with password, timer, and schedule options
 - Dashboard with Overview and Metrics pages
 - Popup for quick stats access
-- Blocked page with unlock options
 - Settings for tracking, blocking, theme, and data retention
 - Idle detection to pause tracking when inactive

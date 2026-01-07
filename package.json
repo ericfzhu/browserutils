@@ -6,8 +6,10 @@
   "packageManager": "yarn@4.0.2",
   "scripts": {
     "dev": "vite build --watch",
+    "prebuild": "node scripts/generate-changelog.js",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "changelog": "node scripts/generate-changelog.js"
   },
   "dependencies": {
     "@hello-pangea/dnd": "^18.0.1",
