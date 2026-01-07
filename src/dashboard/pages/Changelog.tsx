@@ -2,7 +2,7 @@ import { Tag, Plus, Wrench, Bug, ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 // Changelog data - update this when releasing new versions
-const CURRENT_VERSION = '0.7.0';
+const CURRENT_VERSION = '0.8.1';
 
 interface ChangelogEntry {
   version: string;
@@ -14,12 +14,39 @@ interface ChangelogEntry {
 
 const changelog: ChangelogEntry[] = [
   {
+    version: '0.8.1',
+    date: '2026-01-07',
+    changed: [
+      'YouTube tracking now uses Media Session API for more reliable channel detection',
+      'YouTube watch time now tracks actual playback (play/pause) instead of page open time',
+      'YouTube continues tracking when tab is in background (if video is still playing)',
+      'Overview progress bars now relative to top item for better visual comparison',
+    ],
+    fixed: [
+      'YouTube channel detection now works reliably across all video pages',
+      'Fixed false "channel changed" detection when channelId was intermittently available',
+    ],
+  },
+  {
+    version: '0.8.0',
+    date: '2026-01-07',
+    added: [
+      'YouTube Channel Tracking - track which channels you watch on YouTube videos and Shorts',
+      'New setting to enable/disable YouTube tracking (off by default)',
+      'YouTube Channels section in Overview showing top watched channels',
+      'YouTube Channels section in Metrics with full channel breakdown',
+    ],
+  },
+  {
     version: '0.7.0',
     date: '2026-01-07',
     added: [
       'Dark mode support with three options: Light, Dark, and System (follows OS preference)',
       'Theme selector in Settings under new "Appearance" section',
       'Automatic theme switching when OS preference changes (in System mode)',
+    ],
+    fixed: [
+      'Blocked sites list now properly follows dark mode theme',
     ],
   },
   {

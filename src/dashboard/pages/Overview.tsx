@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Clock, Globe, Shield, TrendingUp, Layers, ArrowRight } from 'lucide-react';
-import { DailyStats, BlockedSite, SiteSession, SiteCategory, DailyLimit } from '../../shared/types';
+import { Clock, Globe, Shield, TrendingUp, Layers, ArrowRight, Youtube } from 'lucide-react';
+import { DailyStats, BlockedSite, SiteSession, SiteCategory, DailyLimit, Settings } from '../../shared/types';
 import { CATEGORIES, getCategoryForDomain, getCategoryInfo } from '../../shared/categories';
+import { computeYouTubeStatsFromSessions } from '../../shared/storage';
 
 function formatTime(seconds: number): string {
   const hours = Math.floor(seconds / 3600);
@@ -220,6 +221,7 @@ export default function Overview() {
   const [blockedSites, setBlockedSites] = useState<BlockedSite[]>([]);
   const [dailyLimits, setDailyLimits] = useState<DailyLimit[]>([]);
   const [domainCategories, setDomainCategories] = useState<Record<string, SiteCategory>>({});
+  const [settings, setSettings] = useState<Settings | null>(null);
   const [loading, setLoading] = useState(true);
 
   const today = getDateString(new Date());
@@ -230,16 +232,18 @@ export default function Overview() {
 
   async function loadData() {
     try {
-      const [stats, sites, limits, categories] = await Promise.all([
+      const [stats, sites, limits, categories, settingsResult] = await Promise.all([
         chrome.runtime.sendMessage({ type: 'GET_STATS', payload: { date: today } }),
         chrome.runtime.sendMessage({ type: 'GET_BLOCKED_SITES' }),
         chrome.runtime.sendMessage({ type: 'GET_DAILY_LIMITS' }),
         chrome.runtime.sendMessage({ type: 'GET_DOMAIN_CATEGORIES' }),
+        chrome.runtime.sendMessage({ type: 'GET_SETTINGS' }),
       ]);
       setTodayStats(stats);
       setBlockedSites(sites);
       setDailyLimits(limits || []);
       setDomainCategories(categories || {});
+      setSettings(settingsResult);
     } catch (err) {
       console.error('Failed to load data:', err);
     } finally {
@@ -368,25 +372,28 @@ export default function Overview() {
           <h2 className="text-lg font-semibold mb-4">Top Sites Today</h2>
           {topSites.length > 0 ? (
             <div className="space-y-3">
-              {topSites.map(([domain, time], index) => (
-                <div key={domain} className="flex items-center gap-3">
-                  <span className="text-sm text-gray-400 dark:text-gray-500 w-4">{index + 1}</span>
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-sm font-medium truncate">{domain}</span>
-                      <span className="text-sm text-gray-500 dark:text-gray-400">{formatTime(time)}</span>
-                    </div>
-                    <div className="h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-blue-600 rounded-full"
-                        style={{
-                          width: `${Math.min(100, (time / (todayStats?.totalTime || 1)) * 100)}%`,
-                        }}
-                      />
+              {(() => {
+                const maxSiteTime = topSites[0]?.[1] || 1;
+                return topSites.map(([domain, time], index) => (
+                  <div key={domain} className="flex items-center gap-3">
+                    <span className="text-sm text-gray-400 dark:text-gray-500 w-4">{index + 1}</span>
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-sm font-medium truncate">{domain}</span>
+                        <span className="text-sm text-gray-500 dark:text-gray-400">{formatTime(time)}</span>
+                      </div>
+                      <div className="h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-blue-600 rounded-full"
+                          style={{
+                            width: `${(time / maxSiteTime) * 100}%`,
+                          }}
+                        />
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                ));
+              })()}
             </div>
           ) : (
             <p className="text-gray-500 dark:text-gray-400 text-center py-8">No activity recorded yet</p>
@@ -401,10 +408,12 @@ export default function Overview() {
             if (categoryBreakdown.length === 0) {
               return <p className="text-gray-500 dark:text-gray-400 text-center py-8">No activity recorded yet</p>;
             }
+            const maxCategoryTime = categoryBreakdown[0]?.time || 1;
             return (
               <div className="space-y-3">
-                {categoryBreakdown.slice(0, 5).map(({ category, time, percent }) => {
+                {categoryBreakdown.slice(0, 5).map(({ category, time }) => {
                   const info = getCategoryInfo(category);
+                  const barWidth = (time / maxCategoryTime) * 100;
                   return (
                     <div key={category} className="flex items-center gap-3">
                       <div className={`w-3 h-3 rounded-full ${info.color}`} />
@@ -416,7 +425,7 @@ export default function Overview() {
                         <div className="h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
                           <div
                             className={`h-full ${info.color} transition-all`}
-                            style={{ width: `${percent}%` }}
+                            style={{ width: `${barWidth}%` }}
                           />
                         </div>
                       </div>
@@ -465,6 +474,63 @@ export default function Overview() {
         );
       })()}
 
+      {/* YouTube Channels - only shown when tracking is enabled */}
+      {settings?.youtubeTrackingEnabled && (
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold flex items-center gap-2">
+              <Youtube className="w-5 h-5 text-red-600" />
+              YouTube Channels
+            </h2>
+            <Link to="/metrics" className="text-sm text-blue-600 hover:text-blue-700">
+              View All
+            </Link>
+          </div>
+          {(() => {
+            const youtubeSessions = todayStats?.youtubeSessions || [];
+            if (youtubeSessions.length === 0) {
+              return (
+                <p className="text-gray-500 dark:text-gray-400 text-center py-8">
+                  No YouTube activity recorded today
+                </p>
+              );
+            }
+            const channelStats = computeYouTubeStatsFromSessions(youtubeSessions);
+            const sortedChannels = Object.entries(channelStats)
+              .sort((a, b) => b[1] - a[1])
+              .slice(0, 5);
+            const maxChannelTime = sortedChannels[0]?.[1] || 1;
+
+            return (
+              <div className="space-y-3">
+                {sortedChannels.map(([channel, time]) => {
+                  const barWidth = (time / maxChannelTime) * 100;
+                  return (
+                    <div key={channel}>
+                      <div className="flex justify-between text-sm mb-1">
+                        <span className="font-medium truncate">{channel}</span>
+                        <span className="text-gray-500 dark:text-gray-400">{formatTime(time)}</span>
+                      </div>
+                      <div className="h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-red-500 rounded-full transition-all"
+                          style={{ width: `${barWidth}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+                {Object.keys(channelStats).length > 5 && (
+                  <p className="text-sm text-gray-500 dark:text-gray-400 text-center pt-2">
+                    +{Object.keys(channelStats).length - 5} more channels
+                  </p>
+                )}
+              </div>
+            );
+          })()}
+        </div>
+      )}
+
       {/* Blocked Sites */}
       <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
         <div className="flex items-center justify-between mb-4">
@@ -484,8 +550,8 @@ export default function Overview() {
                 <span
                   className={`text-xs px-2 py-1 rounded-full flex-shrink-0 ${
                     site.enabled
-                      ? 'bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300'
-                      : 'bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300'
+                      ? 'bg-red-100 dark:bg-red-700/80 text-red-700 dark:text-red-200'
+                      : 'bg-gray-200 dark:bg-gray-600/80 text-gray-600 dark:text-gray-300'
                   }`}
                 >
                   {site.enabled ? 'On' : 'Off'}

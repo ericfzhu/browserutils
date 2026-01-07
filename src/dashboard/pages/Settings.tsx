@@ -197,6 +197,19 @@ export default function SettingsPage() {
             />
           </label>
 
+          <label className="flex items-center justify-between">
+            <div>
+              <span className="font-medium">YouTube Channel Tracking</span>
+              <p className="text-sm text-gray-500">Track which YouTube channels you watch</p>
+            </div>
+            <input
+              type="checkbox"
+              checked={settings.youtubeTrackingEnabled}
+              onChange={(e) => setSettings({ ...settings, youtubeTrackingEnabled: e.target.checked })}
+              className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
+          </label>
+
           <div>
             <label className="block font-medium mb-1">Data Retention</label>
             <p className="text-sm text-gray-500 mb-2">How long to keep tracking history</p>

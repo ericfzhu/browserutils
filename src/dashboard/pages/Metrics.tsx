@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Calendar, Clock, TrendingDown, TrendingUp, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Layers, CalendarDays, X } from 'lucide-react';
-import { DailyStats, SiteSession, SiteCategory } from '../../shared/types';
+import { Calendar, Clock, TrendingDown, TrendingUp, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Layers, CalendarDays, X, Youtube } from 'lucide-react';
+import { DailyStats, SiteSession, SiteCategory, Settings } from '../../shared/types';
 import { CATEGORIES, getCategoryForDomain, getCategoryInfo } from '../../shared/categories';
+import { computeYouTubeStatsFromSessions } from '../../shared/storage';
 
 function formatTime(seconds: number): string {
   const hours = Math.floor(seconds / 3600);
@@ -367,6 +368,7 @@ export default function Metrics() {
   const [loading, setLoading] = useState(true);
   const [hoveredSegment, setHoveredSegment] = useState<{ date: string; domain: string; time: number; percent: number } | null>(null);
   const [domainCategories, setDomainCategories] = useState<Record<string, SiteCategory>>({});
+  const [settings, setSettings] = useState<Settings | null>(null);
 
   // Timeline state
   const [selectedDate, setSelectedDate] = useState(() => getDateString(new Date()));
@@ -386,12 +388,14 @@ export default function Metrics() {
 
   async function loadStats() {
     try {
-      const [stats, categories] = await Promise.all([
+      const [stats, categories, settingsResult] = await Promise.all([
         chrome.runtime.sendMessage({ type: 'GET_STATS' }),
         chrome.runtime.sendMessage({ type: 'GET_DOMAIN_CATEGORIES' }),
+        chrome.runtime.sendMessage({ type: 'GET_SETTINGS' }),
       ]);
       setAllStats(stats);
       setDomainCategories(categories || {});
+      setSettings(settingsResult);
     } catch (err) {
       console.error('Failed to load stats:', err);
     } finally {
@@ -883,6 +887,67 @@ export default function Metrics() {
           Hover over segments to see domain details. Colors match the top sites list above.
         </p>
       </div>
+
+      {/* YouTube Channels - only shown when tracking is enabled */}
+      {settings?.youtubeTrackingEnabled && (
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+            <Youtube className="w-5 h-5 text-red-600" />
+            YouTube Channels
+          </h2>
+          {(() => {
+            // Aggregate YouTube sessions for the selected period
+            const allYouTubeSessions = periodStats.flatMap(s => s.youtubeSessions || []);
+
+            if (allYouTubeSessions.length === 0) {
+              return (
+                <p className="text-gray-500 dark:text-gray-400 text-center py-8">
+                  No YouTube activity recorded in this period
+                </p>
+              );
+            }
+
+            const channelStats = computeYouTubeStatsFromSessions(allYouTubeSessions);
+            const sortedChannels = Object.entries(channelStats).sort((a, b) => b[1] - a[1]);
+            const totalYouTubeTime = Object.values(channelStats).reduce((a, b) => a + b, 0);
+            const maxChannelTime = sortedChannels.length > 0 ? sortedChannels[0][1] : 0;
+
+            return (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between text-sm text-gray-600 dark:text-gray-400 mb-2">
+                  <span>{sortedChannels.length} channel{sortedChannels.length !== 1 ? 's' : ''}</span>
+                  <span>Total: {formatTime(totalYouTubeTime)}</span>
+                </div>
+                {sortedChannels.map(([channel, time], idx) => {
+                  const percent = totalYouTubeTime > 0 ? (time / totalYouTubeTime) * 100 : 0;
+                  const barWidth = maxChannelTime > 0 ? (time / maxChannelTime) * 100 : 0;
+
+                  return (
+                    <div key={channel}>
+                      <div className="flex justify-between text-sm mb-1">
+                        <span className="font-medium truncate flex items-center gap-2">
+                          <span className="text-gray-400">{idx + 1}.</span>
+                          {channel}
+                        </span>
+                        <span className="text-gray-500 dark:text-gray-400 flex items-center gap-2">
+                          {formatTime(time)}
+                          <span className="text-xs text-gray-400">({percent.toFixed(1)}%)</span>
+                        </span>
+                      </div>
+                      <div className="h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-red-500 rounded-full transition-all"
+                          style={{ width: `${barWidth}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
+        </div>
+      )}
     </div>
   );
 }

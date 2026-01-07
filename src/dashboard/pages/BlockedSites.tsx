@@ -292,15 +292,15 @@ export default function BlockedSites() {
         <div
           ref={provided.innerRef}
           {...provided.draggableProps}
-          className="flex items-center gap-3 px-4 py-3 bg-white border-b border-gray-100 last:border-b-0 hover:bg-gray-50"
+          className="flex items-center gap-3 px-4 py-3 bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700 last:border-b-0 hover:bg-gray-50 dark:hover:bg-gray-700/50"
         >
-          <div {...provided.dragHandleProps} className="text-gray-300 hover:text-gray-500 cursor-grab">
+          <div {...provided.dragHandleProps} className="text-gray-300 dark:text-gray-600 hover:text-gray-500 dark:hover:text-gray-400 cursor-grab">
             <GripVertical className="w-4 h-4" />
           </div>
           <div className="flex-1 min-w-0">
-            <span className="font-medium text-gray-900">{site.pattern}</span>
+            <span className="font-medium text-gray-900 dark:text-gray-100">{site.pattern}</span>
           </div>
-          <div className="flex items-center gap-2 text-gray-500 text-sm">
+          <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400 text-sm">
             {getUnlockIcon(site.unlockType)}
             <span className="hidden sm:inline">{getUnlockLabel(site)}</span>
           </div>
@@ -308,8 +308,8 @@ export default function BlockedSites() {
             onClick={() => toggleSite(site)}
             className={`text-xs px-2 py-1 rounded-full transition-colors ${
               site.enabled
-                ? 'bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-900'
-                : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                ? 'bg-red-100 dark:bg-red-700/80 text-red-700 dark:text-red-200 hover:bg-red-200 dark:hover:bg-red-700'
+                : 'bg-gray-100 dark:bg-gray-600/80 text-gray-500 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
             }`}
           >
             {site.enabled ? 'Blocking' : 'Disabled'}
@@ -346,9 +346,9 @@ export default function BlockedSites() {
             <button
               onClick={() => toggleFolderSitesEnabled(folderId, !allEnabled)}
               className={`text-xs px-2 py-1 rounded transition-colors ${
-                allEnabled ? 'bg-red-100 text-red-700 hover:bg-red-200' :
-                someEnabled ? 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200' :
-                'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                allEnabled ? 'bg-red-100 dark:bg-red-700/80 text-red-700 dark:text-red-200 hover:bg-red-200 dark:hover:bg-red-700' :
+                someEnabled ? 'bg-yellow-100 dark:bg-yellow-600/80 text-yellow-700 dark:text-yellow-200 hover:bg-yellow-200 dark:hover:bg-yellow-600' :
+                'bg-gray-100 dark:bg-gray-600/80 text-gray-500 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
               }`}
             >
               {allEnabled ? 'Disable All' : 'Enable All'}
@@ -356,10 +356,10 @@ export default function BlockedSites() {
           )}
           {folder && (
             <>
-              <button onClick={() => openEditFolderModal(folder)} className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded">
+              <button onClick={() => openEditFolderModal(folder)} className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded">
                 <Edit2 className="w-4 h-4" />
               </button>
-              <button onClick={() => deleteFolder(folder.id)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded">
+              <button onClick={() => deleteFolder(folder.id)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded">
                 <Trash2 className="w-4 h-4" />
               </button>
             </>

@@ -1,4 +1,4 @@
-import { BlockedSite, BlockedSiteFolder, DailyStats, SiteSession, ActiveSession, Settings, DEFAULT_SETTINGS, SiteCategory, DailyLimit } from './types';
+import { BlockedSite, BlockedSiteFolder, DailyStats, SiteSession, ActiveSession, Settings, DEFAULT_SETTINGS, SiteCategory, DailyLimit, YouTubeChannelSession, ActiveYouTubeSession } from './types';
 
 const STORAGE_KEYS = {
   BLOCKED_SITES: 'blockedSites',
@@ -6,6 +6,7 @@ const STORAGE_KEYS = {
   SETTINGS: 'settings',
   DAILY_STATS: 'dailyStats',
   ACTIVE_SESSIONS: 'activeSessions',
+  ACTIVE_YOUTUBE_SESSIONS: 'activeYouTubeSessions',
   DOMAIN_CATEGORIES: 'domainCategories',
   DAILY_LIMITS: 'dailyLimits',
 } as const;
@@ -202,6 +203,74 @@ export async function recordSession(session: SiteSession): Promise<void> {
   stats.sites = computed.sites;
 
   await updateDailyStats(dateStr, stats);
+}
+
+// Compute YouTube channel stats from sessions (aggregate time per channel)
+export function computeYouTubeStatsFromSessions(sessions: YouTubeChannelSession[]): Record<string, number> {
+  // Group intervals by channel (using channelId if available, else channelName)
+  const channelIntervals = new Map<string, { start: number; end: number }[]>();
+
+  for (const session of sessions) {
+    const key = session.channelId || session.channelName;
+    const intervals = channelIntervals.get(key) || [];
+    intervals.push({ start: session.startTime, end: session.endTime });
+    channelIntervals.set(key, intervals);
+  }
+
+  // Merge overlapping intervals and calculate time per channel
+  const channels: Record<string, number> = {};
+  for (const [key, intervals] of channelIntervals) {
+    const { totalSeconds } = mergeIntervals(intervals);
+    // Use the channel name from the first session with this key
+    const channelSession = sessions.find(s => (s.channelId || s.channelName) === key);
+    if (channelSession) {
+      channels[channelSession.channelName] = totalSeconds;
+    }
+  }
+
+  return channels;
+}
+
+export async function recordYouTubeSession(session: YouTubeChannelSession): Promise<void> {
+  const sessionDate = new Date(session.startTime);
+  const dateStr = getLocalDateString(sessionDate);
+  const stats = await getDailyStats(dateStr);
+
+  // Add YouTube session
+  if (!stats.youtubeSessions) stats.youtubeSessions = [];
+  stats.youtubeSessions.push(session);
+
+  await updateDailyStats(dateStr, stats);
+}
+
+// Active YouTube sessions management
+export async function getActiveYouTubeSessions(): Promise<Record<number, ActiveYouTubeSession>> {
+  const result = await chrome.storage.local.get(STORAGE_KEYS.ACTIVE_YOUTUBE_SESSIONS);
+  return result[STORAGE_KEYS.ACTIVE_YOUTUBE_SESSIONS] || {};
+}
+
+export async function setActiveYouTubeSessions(sessions: Record<number, ActiveYouTubeSession>): Promise<void> {
+  await chrome.storage.local.set({ [STORAGE_KEYS.ACTIVE_YOUTUBE_SESSIONS]: sessions });
+}
+
+export async function addActiveYouTubeSession(tabId: number, session: ActiveYouTubeSession): Promise<void> {
+  const sessions = await getActiveYouTubeSessions();
+  sessions[tabId] = session;
+  await setActiveYouTubeSessions(sessions);
+}
+
+export async function removeActiveYouTubeSession(tabId: number): Promise<ActiveYouTubeSession | undefined> {
+  const sessions = await getActiveYouTubeSessions();
+  const session = sessions[tabId];
+  if (session) {
+    delete sessions[tabId];
+    await setActiveYouTubeSessions(sessions);
+  }
+  return session;
+}
+
+export async function clearActiveYouTubeSessions(): Promise<void> {
+  await chrome.storage.local.remove(STORAGE_KEYS.ACTIVE_YOUTUBE_SESSIONS);
 }
 
 // Active sessions management (multiple windows)

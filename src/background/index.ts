@@ -28,6 +28,11 @@ import {
   updateDailyLimit,
   removeDailyLimit,
   checkDailyLimitForDomain,
+  recordYouTubeSession,
+  getActiveYouTubeSessions,
+  addActiveYouTubeSession,
+  removeActiveYouTubeSession,
+  clearActiveYouTubeSessions,
 } from '../shared/storage';
 import { BlockedSite, MessageType } from '../shared/types';
 
@@ -175,6 +180,7 @@ chrome.idle.onStateChanged.addListener(async (state) => {
       isUserIdle = true;
       await saveIdleState();
       await endAllSessions();
+      await endAllYouTubeSessions();
     }
   }
 });
@@ -294,6 +300,15 @@ async function handleMessage(message: MessageType, sender?: chrome.runtime.Messa
     }
     case 'CONTENT_SCRIPT_READY': {
       await handleContentScriptReady(message.payload, sender);
+      return { success: true };
+    }
+    // YouTube tracking messages
+    case 'YOUTUBE_CHANNEL_UPDATE': {
+      await handleYouTubeChannelUpdate(message.payload, sender);
+      return { success: true };
+    }
+    case 'YOUTUBE_VISIBILITY_CHANGE': {
+      await handleYouTubeVisibilityChange(message.payload, sender);
       return { success: true };
     }
     // Category operations
@@ -442,6 +457,155 @@ async function handleContentScriptReady(
 
   // Treat as visibility becoming true
   await handleVisibilityChange(payload, sender);
+}
+
+// Handle YouTube channel update from content script
+async function handleYouTubeChannelUpdate(
+  payload: { channelName: string; channelId?: string; url: string; timestamp: number },
+  sender?: chrome.runtime.MessageSender
+): Promise<void> {
+  console.log('[YouTube] Channel update received:', payload);
+
+  if (!sender?.tab?.id) {
+    console.log('[YouTube] No tab ID, ignoring');
+    return;
+  }
+
+  const settings = await getSettings();
+  if (!settings.youtubeTrackingEnabled) {
+    console.log('[YouTube] Tracking disabled in settings');
+    return;
+  }
+
+  const tabId = sender.tab.id;
+  const windowId = sender.tab.windowId ?? 0;
+  const now = Date.now();
+
+  // Get existing YouTube session for this tab
+  const activeYoutubeSessions = await getActiveYouTubeSessions();
+  const existingSession = activeYoutubeSessions[tabId];
+  console.log('[YouTube] Existing session:', existingSession);
+
+  if (existingSession) {
+    // Compare by name primarily, only use channelId if both have it
+    const nameChanged = existingSession.channelName !== payload.channelName;
+    const idChanged = existingSession.channelId && payload.channelId &&
+                      existingSession.channelId !== payload.channelId;
+    const channelChanged = nameChanged || idChanged;
+    if (channelChanged) {
+      console.log('[YouTube] Channel changed, ending previous session');
+      // Channel changed - end previous session and start new one
+      await endYouTubeSession(tabId);
+      // Start new session for new channel
+      await addActiveYouTubeSession(tabId, {
+        channelName: payload.channelName,
+        channelId: payload.channelId,
+        startTime: now,
+        tabId,
+        windowId,
+      });
+      console.log('[YouTube] Started new session for:', payload.channelName);
+    } else {
+      // Same channel - update channelId if we got it now but didn't have it before
+      if (payload.channelId && !existingSession.channelId) {
+        console.log('[YouTube] Updating session with channelId:', payload.channelId);
+        await addActiveYouTubeSession(tabId, {
+          ...existingSession,
+          channelId: payload.channelId,
+        });
+      } else {
+        console.log('[YouTube] Same channel, keeping session alive');
+      }
+    }
+    // Same channel - just keep the session alive, don't record yet
+    // Session will be recorded when user leaves or channel changes
+    return;
+  }
+
+  // No existing session - start new one
+  console.log('[YouTube] Starting new session for:', payload.channelName);
+  await addActiveYouTubeSession(tabId, {
+    channelName: payload.channelName,
+    channelId: payload.channelId,
+    startTime: now,
+    tabId,
+    windowId,
+  });
+}
+
+// Handle YouTube visibility change
+async function handleYouTubeVisibilityChange(
+  payload: { visible: boolean; channelName?: string; channelId?: string; url: string; timestamp: number },
+  sender?: chrome.runtime.MessageSender
+): Promise<void> {
+  console.log('[YouTube] Visibility change received:', payload);
+
+  if (!sender?.tab?.id) {
+    console.log('[YouTube] No tab ID, ignoring');
+    return;
+  }
+
+  const settings = await getSettings();
+  if (!settings.youtubeTrackingEnabled) {
+    console.log('[YouTube] Tracking disabled in settings');
+    return;
+  }
+
+  const tabId = sender.tab.id;
+
+  if (!payload.visible) {
+    console.log('[YouTube] Video paused/ended, ending session for tab:', tabId);
+    // Page became hidden - end YouTube session
+    await endYouTubeSession(tabId);
+  }
+}
+
+// End a YouTube session and record it
+async function endYouTubeSession(tabId: number): Promise<void> {
+  const session = await removeActiveYouTubeSession(tabId);
+  console.log('[YouTube] Ending session:', session);
+
+  if (session && session.startTime) {
+    const duration = Math.round((Date.now() - session.startTime) / 1000);
+    console.log('[YouTube] Session duration:', duration, 'seconds');
+    if (duration > 0) {
+      await recordYouTubeSession({
+        channelName: session.channelName,
+        channelId: session.channelId,
+        startTime: session.startTime,
+        endTime: Date.now(),
+        windowId: session.windowId,
+      });
+      console.log('[YouTube] Session recorded for:', session.channelName);
+    } else {
+      console.log('[YouTube] Duration too short, not recording');
+    }
+  } else {
+    console.log('[YouTube] No session to end');
+  }
+}
+
+// End all active YouTube sessions
+async function endAllYouTubeSessions(): Promise<void> {
+  const activeYoutubeSessions = await getActiveYouTubeSessions();
+  const now = Date.now();
+
+  for (const [, session] of Object.entries(activeYoutubeSessions)) {
+    if (session.startTime) {
+      const duration = Math.round((now - session.startTime) / 1000);
+      if (duration > 0) {
+        await recordYouTubeSession({
+          channelName: session.channelName,
+          channelId: session.channelId,
+          startTime: session.startTime,
+          endTime: now,
+          windowId: session.windowId,
+        });
+      }
+    }
+  }
+
+  await clearActiveYouTubeSessions();
 }
 
 async function unlockSite(id: string, password?: string): Promise<{ success: boolean; error?: string }> {
@@ -761,6 +925,7 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
 
 chrome.tabs.onRemoved.addListener(async (tabId) => {
   await endSession(tabId);
+  await endYouTubeSession(tabId);
 });
 
 chrome.windows.onFocusChanged.addListener(async (windowId) => {

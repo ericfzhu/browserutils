@@ -73,6 +73,14 @@ export interface SiteSession {
   windowId: number;
 }
 
+export interface YouTubeChannelSession {
+  channelName: string;
+  channelId?: string; // for deduplication (handle or ID)
+  startTime: number;  // timestamp (ms)
+  endTime: number;    // timestamp (ms)
+  windowId: number;
+}
+
 export interface DailyStats {
   date: string; // YYYY-MM-DD
   totalTime: number; // seconds (computed from sessions union)
@@ -80,11 +88,13 @@ export interface DailyStats {
   visits: number;
   blockedAttempts: number;
   sessions: SiteSession[]; // detailed session records
+  youtubeSessions?: YouTubeChannelSession[]; // YouTube channel watch sessions
 }
 
 export interface Settings {
   trackingEnabled: boolean;
   blockingEnabled: boolean;
+  youtubeTrackingEnabled: boolean; // track YouTube channel watch time
   passwordHash?: string; // master password for unlocking
   theme: 'light' | 'dark' | 'system';
   retentionDays: number; // how long to keep history
@@ -107,6 +117,14 @@ export interface ActiveSession {
   windowId: number;
 }
 
+export interface ActiveYouTubeSession {
+  channelName: string;
+  channelId?: string;
+  startTime: number;
+  tabId: number;
+  windowId: number;
+}
+
 export interface StorageData {
   blockedSites: BlockedSite[];
   blockedSiteFolders: BlockedSiteFolder[];
@@ -120,6 +138,7 @@ export interface StorageData {
 export const DEFAULT_SETTINGS: Settings = {
   trackingEnabled: true,
   blockingEnabled: true,
+  youtubeTrackingEnabled: false, // off by default
   theme: 'system',
   retentionDays: 30,
   idleThreshold: 60, // 60 seconds default
@@ -159,4 +178,7 @@ export type MessageType =
   | { type: 'UPDATE_DAILY_LIMIT'; payload: DailyLimit }
   | { type: 'REMOVE_DAILY_LIMIT'; payload: { id: string } }
   | { type: 'BYPASS_DAILY_LIMIT'; payload: { id: string; password?: string } }
-  | { type: 'CHECK_DAILY_LIMIT'; payload: { url: string } };
+  | { type: 'CHECK_DAILY_LIMIT'; payload: { url: string } }
+  // YouTube tracking messages
+  | { type: 'YOUTUBE_CHANNEL_UPDATE'; payload: { channelName: string; channelId?: string; url: string; timestamp: number } }
+  | { type: 'YOUTUBE_VISIBILITY_CHANGE'; payload: { visible: boolean; channelName?: string; channelId?: string; url: string; timestamp: number } };
