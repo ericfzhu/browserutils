@@ -2,7 +2,7 @@ import { Tag, Plus, Wrench, Bug, ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 // Changelog data - update this when releasing new versions
-const CURRENT_VERSION = '0.5.1';
+const CURRENT_VERSION = '0.6.1';
 
 interface ChangelogEntry {
   version: string;
@@ -13,6 +13,27 @@ interface ChangelogEntry {
 }
 
 const changelog: ChangelogEntry[] = [
+  {
+    version: '0.6.1',
+    date: '2026-01-07',
+    changed: [
+      'Activity timeline now merges overlapping sessions for cleaner visualization',
+    ],
+  },
+  {
+    version: '0.6.0',
+    date: '2026-01-07',
+    added: [
+      'Site Categories - domains automatically categorized (Social, Entertainment, News, etc.)',
+      'Category breakdown view in Metrics and Overview pages',
+      'Pre-built category mappings for ~300 popular domains',
+      'Daily Time Limits - set maximum daily browsing time per site',
+      'New "Daily Limits" page for managing time limits',
+      'Bypass options for daily limits: wait timer, password, or no bypass',
+      'Limits approaching warning on Overview page',
+      'Blocked page shows daily limit exceeded UI with bypass options',
+    ],
+  },
   {
     version: '0.5.1',
     date: '2026-01-07',

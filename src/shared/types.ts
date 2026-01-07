@@ -1,3 +1,33 @@
+// Site Categories
+export type SiteCategory =
+  | 'social'
+  | 'entertainment'
+  | 'news'
+  | 'shopping'
+  | 'productivity'
+  | 'development'
+  | 'education'
+  | 'communication'
+  | 'other';
+
+export interface CategoryInfo {
+  id: SiteCategory;
+  name: string;
+  color: string;  // Tailwind color class
+}
+
+// Daily Time Limits
+export interface DailyLimit {
+  id: string;
+  pattern: string;           // Domain pattern (like BlockedSite)
+  limitSeconds: number;      // Daily limit in seconds
+  enabled: boolean;
+  bypassType: 'password' | 'cooldown' | 'none';
+  passwordHash?: string;     // For password bypass
+  cooldownSeconds?: number;  // For cooldown bypass (default 30s)
+  bypassedUntil?: number;    // Timestamp when bypass expires
+}
+
 export interface BlockedSite {
   id: string;
   pattern: string; // e.g., "twitter.com", "*.reddit.com", "news.ycombinator.com"
@@ -83,6 +113,8 @@ export interface StorageData {
   settings: Settings;
   dailyStats: Record<string, DailyStats>; // date -> stats
   activeSessions: Record<number, ActiveSession>; // tabId -> session (multiple windows)
+  domainCategories: Record<string, SiteCategory>; // User category overrides
+  dailyLimits: DailyLimit[];
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -117,4 +149,14 @@ export type MessageType =
   // Content script messages
   | { type: 'HEARTBEAT'; payload: { url: string; timestamp: number } }
   | { type: 'VISIBILITY_CHANGE'; payload: { visible: boolean; url: string; timestamp: number } }
-  | { type: 'CONTENT_SCRIPT_READY'; payload: { visible: boolean; url: string; timestamp: number } };
+  | { type: 'CONTENT_SCRIPT_READY'; payload: { visible: boolean; url: string; timestamp: number } }
+  // Category operations
+  | { type: 'GET_DOMAIN_CATEGORIES' }
+  | { type: 'SET_DOMAIN_CATEGORY'; payload: { domain: string; category: SiteCategory | null } }
+  // Daily limit operations
+  | { type: 'GET_DAILY_LIMITS' }
+  | { type: 'ADD_DAILY_LIMIT'; payload: Omit<DailyLimit, 'id'> }
+  | { type: 'UPDATE_DAILY_LIMIT'; payload: DailyLimit }
+  | { type: 'REMOVE_DAILY_LIMIT'; payload: { id: string } }
+  | { type: 'BYPASS_DAILY_LIMIT'; payload: { id: string; password?: string } }
+  | { type: 'CHECK_DAILY_LIMIT'; payload: { url: string } };

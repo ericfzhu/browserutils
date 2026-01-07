@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Calendar, Clock, TrendingDown, TrendingUp, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Layers, CalendarDays, X } from 'lucide-react';
-import { DailyStats, SiteSession } from '../../shared/types';
+import { DailyStats, SiteSession, SiteCategory } from '../../shared/types';
+import { CATEGORIES, getCategoryForDomain, getCategoryInfo } from '../../shared/categories';
 
 function formatTime(seconds: number): string {
   const hours = Math.floor(seconds / 3600);
@@ -206,12 +207,30 @@ function Timeline({ sessions, sites, dateStr, animationDirection }: TimelineProp
   const sortedSites = Object.entries(sites).sort((a, b) => b[1] - a[1]);
   const displayedSites = expanded ? sortedSites : sortedSites.slice(0, INITIAL_DISPLAY);
 
-  const sessionsByDomain = new Map<string, SiteSession[]>();
+  // Group and merge overlapping sessions by domain
+  const sessionsByDomain = new Map<string, { start: number; end: number }[]>();
   sessions.forEach(session => {
     const existing = sessionsByDomain.get(session.domain) || [];
-    existing.push(session);
+    existing.push({ start: session.startTime, end: session.endTime });
     sessionsByDomain.set(session.domain, existing);
   });
+
+  // Merge overlapping intervals for each domain
+  for (const [domain, intervals] of sessionsByDomain) {
+    if (intervals.length <= 1) continue;
+    intervals.sort((a, b) => a.start - b.start);
+    const merged: { start: number; end: number }[] = [intervals[0]];
+    for (let i = 1; i < intervals.length; i++) {
+      const last = merged[merged.length - 1];
+      const current = intervals[i];
+      if (current.start <= last.end) {
+        last.end = Math.max(last.end, current.end);
+      } else {
+        merged.push(current);
+      }
+    }
+    sessionsByDomain.set(domain, merged);
+  }
 
   const hourMarkers: { hour: number; label: string; position: number }[] = [];
   const startHour = new Date(minTime).getHours();
@@ -268,9 +287,11 @@ function Timeline({ sessions, sites, dateStr, animationDirection }: TimelineProp
 
       <div className="space-y-2">
         {displayedSites.map(([domain, totalTime]) => {
-          const domainSessions = sessionsByDomain.get(domain) || [];
+          const domainIntervals = sessionsByDomain.get(domain) || [];
           const color = getDomainColor(domain);
-          const windowIds = new Set(domainSessions.map(s => s.windowId));
+          // Check if original sessions had multiple windows
+          const originalSessions = sessions.filter(s => s.domain === domain);
+          const windowIds = new Set(originalSessions.map(s => s.windowId));
           const hasMultipleWindows = windowIds.size > 1;
 
           return (
@@ -298,9 +319,9 @@ function Timeline({ sessions, sites, dateStr, animationDirection }: TimelineProp
                   />
                 ))}
 
-                {domainSessions.map((session, idx) => {
-                  const startPos = Math.max(0, ((session.startTime - minTime) / timeRange) * 100);
-                  const endPos = Math.min(100, ((session.endTime - minTime) / timeRange) * 100);
+                {domainIntervals.map((interval, idx) => {
+                  const startPos = Math.max(0, ((interval.start - minTime) / timeRange) * 100);
+                  const endPos = Math.min(100, ((interval.end - minTime) / timeRange) * 100);
                   const width = Math.max(0.5, endPos - startPos);
 
                   return (
@@ -308,7 +329,7 @@ function Timeline({ sessions, sites, dateStr, animationDirection }: TimelineProp
                       key={idx}
                       className={`absolute top-1 bottom-1 ${color} rounded-sm opacity-80 hover:opacity-100 transition-opacity cursor-default`}
                       style={{ left: `${startPos}%`, width: `${width}%` }}
-                      title={`${formatTimeOfDay(session.startTime)} - ${formatTimeOfDay(session.endTime)}`}
+                      title={`${formatTimeOfDay(interval.start)} - ${formatTimeOfDay(interval.end)}`}
                     />
                   );
                 })}
@@ -345,6 +366,7 @@ export default function Metrics() {
   const [selectedPeriod, setSelectedPeriod] = useState<'week' | 'month'>('week');
   const [loading, setLoading] = useState(true);
   const [hoveredSegment, setHoveredSegment] = useState<{ date: string; domain: string; time: number; percent: number } | null>(null);
+  const [domainCategories, setDomainCategories] = useState<Record<string, SiteCategory>>({});
 
   // Timeline state
   const [selectedDate, setSelectedDate] = useState(() => getDateString(new Date()));
@@ -364,13 +386,38 @@ export default function Metrics() {
 
   async function loadStats() {
     try {
-      const result = await chrome.runtime.sendMessage({ type: 'GET_STATS' });
-      setAllStats(result);
+      const [stats, categories] = await Promise.all([
+        chrome.runtime.sendMessage({ type: 'GET_STATS' }),
+        chrome.runtime.sendMessage({ type: 'GET_DOMAIN_CATEGORIES' }),
+      ]);
+      setAllStats(stats);
+      setDomainCategories(categories || {});
     } catch (err) {
       console.error('Failed to load stats:', err);
     } finally {
       setLoading(false);
     }
+  }
+
+  // Calculate time per category for the selected period
+  function getCategoryBreakdown(siteTotals: Record<string, number>): { category: SiteCategory; time: number; percent: number }[] {
+    const categoryTotals: Record<SiteCategory, number> = {} as Record<SiteCategory, number>;
+    let totalTime = 0;
+
+    for (const [domain, time] of Object.entries(siteTotals)) {
+      const category = getCategoryForDomain(domain, domainCategories);
+      categoryTotals[category] = (categoryTotals[category] || 0) + time;
+      totalTime += time;
+    }
+
+    return CATEGORIES
+      .map(cat => ({
+        category: cat.id,
+        time: categoryTotals[cat.id] || 0,
+        percent: totalTime > 0 ? ((categoryTotals[cat.id] || 0) / totalTime) * 100 : 0,
+      }))
+      .filter(item => item.time > 0)
+      .sort((a, b) => b.time - a.time);
   }
 
   // Navigation functions for timeline
@@ -712,27 +759,66 @@ export default function Metrics() {
         </div>
       </div>
 
-      {/* Top Sites - Full Width */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
-        <h2 className="text-lg font-semibold mb-4">Top Sites ({selectedPeriod})</h2>
-        {topSites.length > 0 ? (
-          <div className="grid grid-cols-2 gap-x-8 gap-y-3">
-            {topSites.map(([domain, time], index) => (
-              <div key={domain} className="flex items-center gap-3">
-                <div className={`w-3 h-3 rounded-full ${DOMAIN_COLORS[index % DOMAIN_COLORS.length]}`} />
-                <span className="text-sm text-gray-400 w-4">{index + 1}</span>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium truncate">{domain}</span>
-                    <span className="text-sm text-gray-500 ml-2">{formatTime(time)}</span>
+      {/* Top Sites and Category Breakdown - Two Columns */}
+      <div className="grid grid-cols-2 gap-6 mb-6">
+        {/* Top Sites */}
+        <div className="bg-white rounded-xl border border-gray-200 p-6">
+          <h2 className="text-lg font-semibold mb-4">Top Sites ({selectedPeriod})</h2>
+          {topSites.length > 0 ? (
+            <div className="space-y-3">
+              {topSites.slice(0, 8).map(([domain, time], index) => (
+                <div key={domain} className="flex items-center gap-3">
+                  <div className={`w-3 h-3 rounded-full ${DOMAIN_COLORS[index % DOMAIN_COLORS.length]}`} />
+                  <span className="text-sm text-gray-400 w-4">{index + 1}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium truncate">{domain}</span>
+                      <span className="text-sm text-gray-500 ml-2">{formatTime(time)}</span>
+                    </div>
                   </div>
                 </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-gray-500 text-center py-8">No data for this period</p>
+          )}
+        </div>
+
+        {/* Category Breakdown */}
+        <div className="bg-white rounded-xl border border-gray-200 p-6">
+          <h2 className="text-lg font-semibold mb-4">By Category ({selectedPeriod})</h2>
+          {(() => {
+            const categoryBreakdown = getCategoryBreakdown(siteTotals);
+            if (categoryBreakdown.length === 0) {
+              return <p className="text-gray-500 text-center py-8">No data for this period</p>;
+            }
+            return (
+              <div className="space-y-3">
+                {categoryBreakdown.map(({ category, time, percent }) => {
+                  const info = getCategoryInfo(category);
+                  return (
+                    <div key={category} className="flex items-center gap-3">
+                      <div className={`w-3 h-3 rounded-full ${info.color}`} />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-sm font-medium">{info.name}</span>
+                          <span className="text-sm text-gray-500">{formatTime(time)}</span>
+                        </div>
+                        <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full ${info.color} transition-all`}
+                            style={{ width: `${percent}%` }}
+                          />
+                        </div>
+                      </div>
+                      <span className="text-xs text-gray-400 w-12 text-right">{percent.toFixed(1)}%</span>
+                    </div>
+                  );
+                })}
               </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-gray-500 text-center py-8">No data for this period</p>
-        )}
+            );
+          })()}
+        </div>
       </div>
 
       {/* Daily Breakdown Chart */}

@@ -21,6 +21,13 @@ import {
   clearActiveSessions,
   verifyPassword,
   matchesPattern,
+  getDomainCategories,
+  setDomainCategory,
+  getDailyLimits,
+  addDailyLimit,
+  updateDailyLimit,
+  removeDailyLimit,
+  checkDailyLimitForDomain,
 } from '../shared/storage';
 import { BlockedSite, MessageType } from '../shared/types';
 
@@ -229,6 +236,7 @@ async function handleMessage(message: MessageType, sender?: chrome.runtime.Messa
       return checkIfBlocked(message.payload.url);
     }
     case 'CHECK_SITE_WITH_REDIRECT': {
+      // First check if site is blocked
       const result = await checkIfBlocked(message.payload.url);
       if (result.blocked && result.site) {
         return {
@@ -236,6 +244,19 @@ async function handleMessage(message: MessageType, sender?: chrome.runtime.Messa
           redirectUrl: chrome.runtime.getURL(`blocked.html?site=${result.site.id}`),
         };
       }
+
+      // Then check daily limits
+      const domain = getDomainFromUrl(message.payload.url);
+      if (domain) {
+        const limitResult = await checkDailyLimitForDomain(domain);
+        if (limitResult.exceeded && limitResult.limit) {
+          return {
+            blocked: true,
+            redirectUrl: chrome.runtime.getURL(`blocked.html?type=limit&limitId=${limitResult.limit.id}`),
+          };
+        }
+      }
+
       return { blocked: false };
     }
     case 'INCREMENT_BLOCKED_ATTEMPT': {
@@ -274,6 +295,38 @@ async function handleMessage(message: MessageType, sender?: chrome.runtime.Messa
     case 'CONTENT_SCRIPT_READY': {
       await handleContentScriptReady(message.payload, sender);
       return { success: true };
+    }
+    // Category operations
+    case 'GET_DOMAIN_CATEGORIES': {
+      return getDomainCategories();
+    }
+    case 'SET_DOMAIN_CATEGORY': {
+      await setDomainCategory(message.payload.domain, message.payload.category);
+      return { success: true };
+    }
+    // Daily limit operations
+    case 'GET_DAILY_LIMITS': {
+      return getDailyLimits();
+    }
+    case 'ADD_DAILY_LIMIT': {
+      const limit = await addDailyLimit(message.payload);
+      return limit;
+    }
+    case 'UPDATE_DAILY_LIMIT': {
+      await updateDailyLimit(message.payload);
+      return { success: true };
+    }
+    case 'REMOVE_DAILY_LIMIT': {
+      await removeDailyLimit(message.payload.id);
+      return { success: true };
+    }
+    case 'BYPASS_DAILY_LIMIT': {
+      return bypassDailyLimit(message.payload.id, message.payload.password);
+    }
+    case 'CHECK_DAILY_LIMIT': {
+      const domain = getDomainFromUrl(message.payload.url);
+      if (!domain) return { exceeded: false, timeSpent: 0, remaining: Infinity };
+      return checkDailyLimitForDomain(domain);
     }
     default:
       return { error: 'Unknown message type' };
@@ -416,6 +469,40 @@ async function unlockSite(id: string, password?: string): Promise<{ success: boo
   }
 
   await updateBlockingRules();
+  return { success: true };
+}
+
+// Bypass a daily limit temporarily
+async function bypassDailyLimit(id: string, password?: string): Promise<{ success: boolean; error?: string }> {
+  const limits = await getDailyLimits();
+  const limit = limits.find(l => l.id === id);
+
+  if (!limit) {
+    return { success: false, error: 'Limit not found' };
+  }
+
+  if (limit.bypassType === 'none') {
+    return { success: false, error: 'This limit cannot be bypassed' };
+  }
+
+  if (limit.bypassType === 'password') {
+    if (!password) {
+      return { success: false, error: 'Password required' };
+    }
+    if (!limit.passwordHash) {
+      return { success: false, error: 'No password set for this limit' };
+    }
+    const valid = await verifyPassword(password, limit.passwordHash);
+    if (!valid) {
+      return { success: false, error: 'Invalid password' };
+    }
+  }
+
+  // Grant 15 minutes bypass
+  const bypassDuration = 15 * 60 * 1000;
+  limit.bypassedUntil = Date.now() + bypassDuration;
+  await updateDailyLimit(limit);
+
   return { success: true };
 }
 

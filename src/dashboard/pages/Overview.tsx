@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Clock, Globe, Shield, TrendingUp, Layers, ArrowRight } from 'lucide-react';
-import { DailyStats, BlockedSite, SiteSession } from '../../shared/types';
+import { DailyStats, BlockedSite, SiteSession, SiteCategory, DailyLimit } from '../../shared/types';
+import { CATEGORIES, getCategoryForDomain, getCategoryInfo } from '../../shared/categories';
 
 function formatTime(seconds: number): string {
   const hours = Math.floor(seconds / 3600);
@@ -68,13 +69,30 @@ function TimelinePreview({ sessions, sites }: TimelinePreviewProps) {
   const sortedSites = Object.entries(sites).sort((a, b) => b[1] - a[1]);
   const displayedSites = sortedSites.slice(0, DISPLAY_COUNT);
 
-  // Group sessions by domain
-  const sessionsByDomain = new Map<string, SiteSession[]>();
+  // Group and merge overlapping sessions by domain
+  const sessionsByDomain = new Map<string, { start: number; end: number }[]>();
   sessions.forEach(session => {
     const existing = sessionsByDomain.get(session.domain) || [];
-    existing.push(session);
+    existing.push({ start: session.startTime, end: session.endTime });
     sessionsByDomain.set(session.domain, existing);
   });
+
+  // Merge overlapping intervals for each domain
+  for (const [domain, intervals] of sessionsByDomain) {
+    if (intervals.length <= 1) continue;
+    intervals.sort((a, b) => a.start - b.start);
+    const merged: { start: number; end: number }[] = [intervals[0]];
+    for (let i = 1; i < intervals.length; i++) {
+      const last = merged[merged.length - 1];
+      const current = intervals[i];
+      if (current.start <= last.end) {
+        last.end = Math.max(last.end, current.end);
+      } else {
+        merged.push(current);
+      }
+    }
+    sessionsByDomain.set(domain, merged);
+  }
 
   // Generate hour markers
   const hourMarkers: { hour: number; label: string; position: number }[] = [];
@@ -127,9 +145,11 @@ function TimelinePreview({ sessions, sites }: TimelinePreviewProps) {
       {/* Timeline rows */}
       <div className="space-y-1.5">
         {displayedSites.map(([domain, totalTime]) => {
-          const domainSessions = sessionsByDomain.get(domain) || [];
+          const domainIntervals = sessionsByDomain.get(domain) || [];
           const color = getDomainColor(domain);
-          const windowIds = new Set(domainSessions.map(s => s.windowId));
+          // Check if original sessions had multiple windows
+          const originalSessions = sessions.filter(s => s.domain === domain);
+          const windowIds = new Set(originalSessions.map(s => s.windowId));
           const hasMultipleWindows = windowIds.size > 1;
 
           return (
@@ -157,9 +177,9 @@ function TimelinePreview({ sessions, sites }: TimelinePreviewProps) {
                   />
                 ))}
 
-                {domainSessions.map((session, idx) => {
-                  const startPos = Math.max(0, ((session.startTime - minTime) / timeRange) * 100);
-                  const endPos = Math.min(100, ((session.endTime - minTime) / timeRange) * 100);
+                {domainIntervals.map((interval, idx) => {
+                  const startPos = Math.max(0, ((interval.start - minTime) / timeRange) * 100);
+                  const endPos = Math.min(100, ((interval.end - minTime) / timeRange) * 100);
                   const width = Math.max(0.5, endPos - startPos);
 
                   return (
@@ -167,7 +187,7 @@ function TimelinePreview({ sessions, sites }: TimelinePreviewProps) {
                       key={idx}
                       className={`absolute top-0.5 bottom-0.5 ${color} rounded-sm opacity-80`}
                       style={{ left: `${startPos}%`, width: `${width}%` }}
-                      title={`${formatTimeOfDay(session.startTime)} - ${formatTimeOfDay(session.endTime)}`}
+                      title={`${formatTimeOfDay(interval.start)} - ${formatTimeOfDay(interval.end)}`}
                     />
                   );
                 })}
@@ -198,6 +218,8 @@ function getDateString(date: Date): string {
 export default function Overview() {
   const [todayStats, setTodayStats] = useState<DailyStats | null>(null);
   const [blockedSites, setBlockedSites] = useState<BlockedSite[]>([]);
+  const [dailyLimits, setDailyLimits] = useState<DailyLimit[]>([]);
+  const [domainCategories, setDomainCategories] = useState<Record<string, SiteCategory>>({});
   const [loading, setLoading] = useState(true);
 
   const today = getDateString(new Date());
@@ -208,17 +230,60 @@ export default function Overview() {
 
   async function loadData() {
     try {
-      const [stats, sites] = await Promise.all([
+      const [stats, sites, limits, categories] = await Promise.all([
         chrome.runtime.sendMessage({ type: 'GET_STATS', payload: { date: today } }),
         chrome.runtime.sendMessage({ type: 'GET_BLOCKED_SITES' }),
+        chrome.runtime.sendMessage({ type: 'GET_DAILY_LIMITS' }),
+        chrome.runtime.sendMessage({ type: 'GET_DOMAIN_CATEGORIES' }),
       ]);
       setTodayStats(stats);
       setBlockedSites(sites);
+      setDailyLimits(limits || []);
+      setDomainCategories(categories || {});
     } catch (err) {
       console.error('Failed to load data:', err);
     } finally {
       setLoading(false);
     }
+  }
+
+  // Calculate category breakdown for today
+  function getCategoryBreakdown(): { category: SiteCategory; time: number; percent: number }[] {
+    if (!todayStats?.sites) return [];
+
+    const categoryTotals: Record<SiteCategory, number> = {} as Record<SiteCategory, number>;
+    let totalTime = 0;
+
+    for (const [domain, time] of Object.entries(todayStats.sites)) {
+      const category = getCategoryForDomain(domain, domainCategories);
+      categoryTotals[category] = (categoryTotals[category] || 0) + time;
+      totalTime += time;
+    }
+
+    return CATEGORIES
+      .map(cat => ({
+        category: cat.id,
+        time: categoryTotals[cat.id] || 0,
+        percent: totalTime > 0 ? ((categoryTotals[cat.id] || 0) / totalTime) * 100 : 0,
+      }))
+      .filter(item => item.time > 0)
+      .sort((a, b) => b.time - a.time);
+  }
+
+  // Get limits that are approaching (>70% used)
+  function getLimitsApproaching(): { limit: DailyLimit; timeSpent: number; percent: number }[] {
+    if (!todayStats?.sites) return [];
+
+    return dailyLimits
+      .filter(limit => limit.enabled)
+      .map(limit => {
+        const domain = limit.pattern.replace(/^www\./, '');
+        const timeSpent = todayStats.sites[domain] || todayStats.sites['www.' + domain] || todayStats.sites[limit.pattern] || 0;
+        const percent = (timeSpent / limit.limitSeconds) * 100;
+        return { limit, timeSpent, percent };
+      })
+      .filter(item => item.percent >= 70)
+      .sort((a, b) => b.percent - a.percent);
   }
 
   if (loading) {
@@ -297,7 +362,7 @@ export default function Overview() {
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-6">
+      <div className="grid grid-cols-2 gap-6 mb-6">
         {/* Top Sites Today */}
         <div className="bg-white rounded-xl border border-gray-200 p-6">
           <h2 className="text-lg font-semibold mb-4">Top Sites Today</h2>
@@ -328,38 +393,114 @@ export default function Overview() {
           )}
         </div>
 
-        {/* Blocked Sites */}
+        {/* By Category Today */}
         <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h2 className="text-lg font-semibold mb-4">Blocked Sites</h2>
-          {blockedSites.length > 0 ? (
+          <h2 className="text-lg font-semibold mb-4">By Category</h2>
+          {(() => {
+            const categoryBreakdown = getCategoryBreakdown();
+            if (categoryBreakdown.length === 0) {
+              return <p className="text-gray-500 text-center py-8">No activity recorded yet</p>;
+            }
+            return (
+              <div className="space-y-3">
+                {categoryBreakdown.slice(0, 5).map(({ category, time, percent }) => {
+                  const info = getCategoryInfo(category);
+                  return (
+                    <div key={category} className="flex items-center gap-3">
+                      <div className={`w-3 h-3 rounded-full ${info.color}`} />
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-sm font-medium">{info.name}</span>
+                          <span className="text-sm text-gray-500">{formatTime(time)}</span>
+                        </div>
+                        <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full ${info.color} transition-all`}
+                            style={{ width: `${percent}%` }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
+        </div>
+      </div>
+
+      {/* Limits Approaching Warning */}
+      {(() => {
+        const approaching = getLimitsApproaching();
+        if (approaching.length === 0) return null;
+        return (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6">
+            <h3 className="text-sm font-semibold text-amber-800 mb-2">Limits Approaching</h3>
             <div className="space-y-2">
-              {blockedSites.slice(0, 5).map((site) => (
-                <div
-                  key={site.id}
-                  className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-lg"
-                >
-                  <span className="text-sm font-medium">{site.pattern}</span>
-                  <span
-                    className={`text-xs px-2 py-1 rounded-full ${
-                      site.enabled
-                        ? 'bg-red-100 text-red-700'
-                        : 'bg-gray-200 text-gray-600'
-                    }`}
-                  >
-                    {site.enabled ? 'Blocking' : 'Disabled'}
+              {approaching.map(({ limit, timeSpent, percent }) => (
+                <div key={limit.id} className="flex items-center gap-3">
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-sm font-medium text-amber-900">{limit.pattern}</span>
+                      <span className="text-xs text-amber-700">
+                        {formatTime(timeSpent)} / {formatTime(limit.limitSeconds)}
+                      </span>
+                    </div>
+                    <div className="h-2 bg-amber-100 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all ${
+                          percent >= 100 ? 'bg-red-500' : percent >= 90 ? 'bg-orange-500' : 'bg-amber-500'
+                        }`}
+                        style={{ width: `${Math.min(100, percent)}%` }}
+                      />
+                    </div>
+                  </div>
+                  <span className={`text-xs font-medium ${percent >= 100 ? 'text-red-600' : 'text-amber-600'}`}>
+                    {percent >= 100 ? 'Exceeded' : `${percent.toFixed(0)}%`}
                   </span>
                 </div>
               ))}
-              {blockedSites.length > 5 && (
-                <p className="text-sm text-gray-500 text-center pt-2">
-                  +{blockedSites.length - 5} more
-                </p>
-              )}
             </div>
-          ) : (
-            <p className="text-gray-500 text-center py-8">No blocked sites configured</p>
-          )}
+          </div>
+        );
+      })()}
+
+      {/* Blocked Sites */}
+      <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold">Blocked Sites</h2>
+          <Link to="/blocked" className="text-sm text-blue-600 hover:text-blue-700">
+            Manage
+          </Link>
         </div>
+        {blockedSites.length > 0 ? (
+          <div className="grid grid-cols-2 gap-2">
+            {blockedSites.slice(0, 6).map((site) => (
+              <div
+                key={site.id}
+                className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-lg"
+              >
+                <span className="text-sm font-medium truncate">{site.pattern}</span>
+                <span
+                  className={`text-xs px-2 py-1 rounded-full flex-shrink-0 ${
+                    site.enabled
+                      ? 'bg-red-100 text-red-700'
+                      : 'bg-gray-200 text-gray-600'
+                  }`}
+                >
+                  {site.enabled ? 'On' : 'Off'}
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-gray-500 text-center py-8">No blocked sites configured</p>
+        )}
+        {blockedSites.length > 6 && (
+          <p className="text-sm text-gray-500 text-center pt-3">
+            +{blockedSites.length - 6} more
+          </p>
+        )}
       </div>
     </div>
   );

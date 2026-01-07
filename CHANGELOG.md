@@ -5,6 +5,25 @@ All notable changes to BrowserUtils will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.1] - 2026-01-07
+
+### Changed
+- Activity timeline now merges overlapping sessions for cleaner visualization
+
+## [0.6.0] - 2026-01-07
+
+### Added
+- Site Categories - domains automatically categorized (Social Media, Entertainment, News, Shopping, Productivity, Development, Education, Communication)
+- Category breakdown view in Metrics page showing time spent per category
+- Category summary on Overview page
+- Pre-built category mappings for ~300 popular domains
+- User can override category assignments
+- Daily Time Limits - set maximum daily browsing time per site
+- New "Daily Limits" page accessible from sidebar navigation
+- Configurable bypass options per limit: wait timer, password, or no bypass
+- Limits approaching warning on Overview page (shows limits >70% used)
+- Blocked page shows daily limit exceeded UI with time info and bypass options
+
 ## [0.5.1] - 2026-01-07
 
 ### Fixed

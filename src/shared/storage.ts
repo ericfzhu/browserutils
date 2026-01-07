@@ -1,4 +1,4 @@
-import { BlockedSite, BlockedSiteFolder, DailyStats, SiteSession, ActiveSession, Settings, DEFAULT_SETTINGS } from './types';
+import { BlockedSite, BlockedSiteFolder, DailyStats, SiteSession, ActiveSession, Settings, DEFAULT_SETTINGS, SiteCategory, DailyLimit } from './types';
 
 const STORAGE_KEYS = {
   BLOCKED_SITES: 'blockedSites',
@@ -6,6 +6,8 @@ const STORAGE_KEYS = {
   SETTINGS: 'settings',
   DAILY_STATS: 'dailyStats',
   ACTIVE_SESSIONS: 'activeSessions',
+  DOMAIN_CATEGORIES: 'domainCategories',
+  DAILY_LIMITS: 'dailyLimits',
 } as const;
 
 export async function getBlockedSites(): Promise<BlockedSite[]> {
@@ -263,4 +265,105 @@ export function matchesPattern(url: string, pattern: string): boolean {
   } catch {
     return false;
   }
+}
+
+// Domain category storage functions
+export async function getDomainCategories(): Promise<Record<string, SiteCategory>> {
+  const result = await chrome.storage.local.get(STORAGE_KEYS.DOMAIN_CATEGORIES);
+  return result[STORAGE_KEYS.DOMAIN_CATEGORIES] || {};
+}
+
+export async function setDomainCategory(domain: string, category: SiteCategory | null): Promise<void> {
+  const categories = await getDomainCategories();
+  if (category === null) {
+    delete categories[domain];
+  } else {
+    categories[domain] = category;
+  }
+  await chrome.storage.local.set({ [STORAGE_KEYS.DOMAIN_CATEGORIES]: categories });
+}
+
+// Daily limit storage functions
+export async function getDailyLimits(): Promise<DailyLimit[]> {
+  const result = await chrome.storage.local.get(STORAGE_KEYS.DAILY_LIMITS);
+  return result[STORAGE_KEYS.DAILY_LIMITS] || [];
+}
+
+export async function setDailyLimits(limits: DailyLimit[]): Promise<void> {
+  await chrome.storage.local.set({ [STORAGE_KEYS.DAILY_LIMITS]: limits });
+}
+
+export async function addDailyLimit(limit: Omit<DailyLimit, 'id'>): Promise<DailyLimit> {
+  const limits = await getDailyLimits();
+  const newLimit: DailyLimit = {
+    ...limit,
+    id: crypto.randomUUID(),
+  };
+  limits.push(newLimit);
+  await setDailyLimits(limits);
+  return newLimit;
+}
+
+export async function updateDailyLimit(limit: DailyLimit): Promise<void> {
+  const limits = await getDailyLimits();
+  const index = limits.findIndex(l => l.id === limit.id);
+  if (index !== -1) {
+    limits[index] = limit;
+    await setDailyLimits(limits);
+  }
+}
+
+export async function removeDailyLimit(id: string): Promise<void> {
+  const limits = await getDailyLimits();
+  const filtered = limits.filter(l => l.id !== id);
+  await setDailyLimits(filtered);
+}
+
+// Check if a domain has exceeded its daily limit
+export async function checkDailyLimitForDomain(domain: string): Promise<{
+  exceeded: boolean;
+  limit?: DailyLimit;
+  timeSpent: number;
+  remaining: number;
+}> {
+  const limits = await getDailyLimits();
+  const today = getLocalDateString();
+  const stats = await getDailyStats(today);
+
+  // Find matching limit
+  for (const limit of limits) {
+    if (!limit.enabled) continue;
+
+    // Check if bypassed
+    if (limit.bypassedUntil && Date.now() < limit.bypassedUntil) {
+      continue;
+    }
+
+    // Check if domain matches pattern
+    const normalizedDomain = domain.replace(/^www\./, '');
+    const pattern = limit.pattern.replace(/^www\./, '');
+
+    let matches = false;
+    if (pattern.startsWith('*.')) {
+      const baseDomain = pattern.slice(2);
+      matches = normalizedDomain === baseDomain || normalizedDomain.endsWith('.' + baseDomain);
+    } else {
+      matches = normalizedDomain === pattern;
+    }
+
+    if (matches) {
+      // Get time spent on this domain today
+      const timeSpent = stats.sites[domain] || stats.sites['www.' + domain] || stats.sites[normalizedDomain] || 0;
+      const remaining = Math.max(0, limit.limitSeconds - timeSpent);
+
+      return {
+        exceeded: timeSpent >= limit.limitSeconds,
+        limit,
+        timeSpent,
+        remaining,
+      };
+    }
+  }
+
+  return { exceeded: false, timeSpent: 0, remaining: Infinity };
 }
