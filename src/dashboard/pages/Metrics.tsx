@@ -826,7 +826,7 @@ export default function Metrics() {
       </div>
 
       {/* Daily Breakdown Chart */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 mb-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold">Daily Breakdown</h2>
           {hoveredSegment && (

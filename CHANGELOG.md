@@ -5,6 +5,20 @@ All notable changes to BrowserUtils will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.2] - 2026-01-08
+
+### Added
+- Folders can now be reordered by dragging in Blocked Sites
+- Sites can now be reordered within folders by dragging in Blocked Sites
+
+### Changed
+- Folder headers in Blocked Sites can now be clicked anywhere to expand/collapse (not just the chevron)
+
+### Fixed
+- Fixed missing gap between YouTube Channels section and other sections in Overview and Metrics tabs
+- Fixed drag and drop not working properly when folders are collapsed in Blocked Sites
+- Improved visual distinction between folder headers and site rows in Blocked Sites
+
 ## [0.6.1] - 2026-01-07
 
 ### Changed

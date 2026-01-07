@@ -2,7 +2,7 @@ import { Tag, Plus, Wrench, Bug, ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 // Changelog data - update this when releasing new versions
-const CURRENT_VERSION = '0.8.1';
+const CURRENT_VERSION = '0.8.2';
 
 interface ChangelogEntry {
   version: string;
@@ -13,6 +13,22 @@ interface ChangelogEntry {
 }
 
 const changelog: ChangelogEntry[] = [
+  {
+    version: '0.8.2',
+    date: '2026-01-08',
+    added: [
+      'Folders can now be reordered by dragging in Blocked Sites',
+      'Sites can now be reordered within folders by dragging in Blocked Sites',
+    ],
+    changed: [
+      'Folder headers in Blocked Sites can now be clicked anywhere to expand/collapse',
+    ],
+    fixed: [
+      'Fixed missing gap between YouTube Channels section and other sections in Overview and Metrics tabs',
+      'Fixed drag and drop not working properly when folders are collapsed in Blocked Sites',
+      'Improved visual distinction between folder headers and site rows in Blocked Sites',
+    ],
+  },
   {
     version: '0.8.1',
     date: '2026-01-07',

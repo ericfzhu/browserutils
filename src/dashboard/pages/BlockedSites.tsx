@@ -224,24 +224,101 @@ export default function BlockedSites() {
   async function handleDragEnd(result: DropResult) {
     if (!result.destination) return;
 
-    const { source, destination, draggableId } = result;
+    const { source, destination, type } = result;
 
-    // Moving site to a different folder
-    if (source.droppableId !== destination.droppableId) {
-      const newFolderId = destination.droppableId === 'uncategorized' ? undefined : destination.droppableId;
-      const site = sites.find(s => s.id === draggableId);
-      if (site) {
-        const updatedSite = { ...site, folderId: newFolderId };
-        await chrome.runtime.sendMessage({
-          type: 'UPDATE_BLOCKED_SITE',
-          payload: updatedSite,
-        });
-        await loadData();
-      }
+    // Reordering folders
+    if (type === 'folder') {
+      if (source.index === destination.index) return;
+
+      const reorderedFolders = Array.from(folders);
+      const [movedFolder] = reorderedFolders.splice(source.index, 1);
+      reorderedFolders.splice(destination.index, 0, movedFolder);
+
+      // Update order property
+      const updatedFolders = reorderedFolders.map((folder, index) => ({
+        ...folder,
+        order: index,
+      }));
+
+      setFolders(updatedFolders);
+      await chrome.runtime.sendMessage({
+        type: 'UPDATE_BLOCKED_SITE_FOLDERS',
+        payload: updatedFolders,
+      });
+      return;
+    }
+
+    // Handle site drag (reordering or moving between folders)
+    const sourceFolderId = source.droppableId === 'uncategorized' ? undefined : source.droppableId;
+    const destFolderId = destination.droppableId === 'uncategorized' ? undefined : destination.droppableId;
+
+    // Get sites in the source folder
+    const sourceFolderSites = sites
+      .filter(s => s.folderId === sourceFolderId)
+      .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
+    // Find the dragged site
+    const draggedSite = sourceFolderSites[source.index];
+    if (!draggedSite) return;
+
+    if (source.droppableId === destination.droppableId) {
+      // Reordering within the same folder
+      if (source.index === destination.index) return;
+
+      const reordered = Array.from(sourceFolderSites);
+      const [removed] = reordered.splice(source.index, 1);
+      reordered.splice(destination.index, 0, removed);
+
+      // Update order for all sites in this folder
+      const updatedSites = sites.map(site => {
+        if (site.folderId !== sourceFolderId) return site;
+        const newIndex = reordered.findIndex(s => s.id === site.id);
+        return { ...site, order: newIndex };
+      });
+
+      setSites(updatedSites);
+      await chrome.runtime.sendMessage({
+        type: 'UPDATE_BLOCKED_SITES',
+        payload: updatedSites,
+      });
+    } else {
+      // Moving site to a different folder
+      const destFolderSites = sites
+        .filter(s => s.folderId === destFolderId)
+        .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
+      // Remove from source, add to destination at the right position
+      const updatedSites = sites.map(site => {
+        if (site.id === draggedSite.id) {
+          // Move to new folder with new order
+          return { ...site, folderId: destFolderId, order: destination.index };
+        }
+        // Update order for sites in source folder (after removed item)
+        if (site.folderId === sourceFolderId) {
+          const currentIndex = sourceFolderSites.findIndex(s => s.id === site.id);
+          if (currentIndex > source.index) {
+            return { ...site, order: currentIndex - 1 };
+          }
+        }
+        // Update order for sites in destination folder (at and after insertion point)
+        if (site.folderId === destFolderId) {
+          const currentIndex = destFolderSites.findIndex(s => s.id === site.id);
+          if (currentIndex >= destination.index) {
+            return { ...site, order: currentIndex + 1 };
+          }
+        }
+        return site;
+      });
+
+      setSites(updatedSites);
+      await chrome.runtime.sendMessage({
+        type: 'UPDATE_BLOCKED_SITES',
+        payload: updatedSites,
+      });
     }
   }
 
-  // Group sites by folder
+  // Group sites by folder and sort by order
   const sitesByFolder = new Map<string | undefined, BlockedSite[]>();
   folders.forEach(f => sitesByFolder.set(f.id, []));
   sitesByFolder.set(undefined, []); // Uncategorized
@@ -251,6 +328,10 @@ export default function BlockedSites() {
     existing.push(site);
     sitesByFolder.set(folderId, existing);
   });
+  // Sort sites within each folder by order
+  for (const [, folderSites] of sitesByFolder) {
+    folderSites.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  }
 
   function getUnlockIcon(type: UnlockType) {
     switch (type) {
@@ -325,23 +406,33 @@ export default function BlockedSites() {
     </Draggable>
   );
 
-  const renderFolderSection = (folder: BlockedSiteFolder | null, folderSites: BlockedSite[]) => {
+  const renderFolderSection = (folder: BlockedSiteFolder | null, folderSites: BlockedSite[], index: number) => {
     const folderId = folder?.id;
     const isCollapsed = folder?.collapsed;
     const allEnabled = folderSites.length > 0 && folderSites.every(s => s.enabled);
     const someEnabled = folderSites.some(s => s.enabled);
 
-    return (
-      <div key={folderId || 'uncategorized'} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-        <div className={`flex items-center gap-2 px-4 py-3 bg-gray-50 dark:bg-gray-800/50 ${isCollapsed ? '' : 'border-b border-gray-200 dark:border-gray-700'}`}>
+    const content = (dragHandleProps?: React.HTMLAttributes<HTMLDivElement>) => (
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <div className={`flex items-center gap-2 px-4 py-3 bg-gray-100 dark:bg-gray-700 ${isCollapsed ? '' : 'border-b border-gray-200 dark:border-gray-600'}`}>
           {folder && (
-            <button onClick={() => toggleFolderCollapse(folder)} className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-transform duration-200">
-              <ChevronRight className={`w-5 h-5 transition-transform duration-200 ${isCollapsed ? '' : 'rotate-90'}`} />
-            </button>
+            <div {...dragHandleProps} className="text-gray-300 dark:text-gray-600 hover:text-gray-500 dark:hover:text-gray-400 cursor-grab">
+              <GripVertical className="w-4 h-4" />
+            </div>
           )}
-          <span className="font-semibold text-gray-900 dark:text-gray-100 flex-1">
-            {folder?.name || 'Uncategorized'} ({folderSites.length})
-          </span>
+          <div
+            className={`flex items-center gap-2 flex-1 ${folder ? 'cursor-pointer' : ''}`}
+            onClick={() => folder && toggleFolderCollapse(folder)}
+          >
+            {folder && (
+              <span className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-transform duration-200">
+                <ChevronRight className={`w-5 h-5 transition-transform duration-200 ${isCollapsed ? '' : 'rotate-90'}`} />
+              </span>
+            )}
+            <span className="font-semibold text-gray-900 dark:text-gray-100">
+              {folder?.name || 'Uncategorized'} ({folderSites.length})
+            </span>
+          </div>
           {folderSites.length > 0 && (
             <button
               onClick={() => toggleFolderSitesEnabled(folderId, !allEnabled)}
@@ -370,11 +461,11 @@ export default function BlockedSites() {
           style={{ gridTemplateRows: (!folder || !isCollapsed) ? '1fr' : '0fr' }}
         >
           <div className="overflow-hidden">
-            <Droppable droppableId={folderId || 'uncategorized'}>
+            <Droppable droppableId={folderId || 'uncategorized'} type="site" isDropDisabled={!!isCollapsed}>
               {(provided) => (
                 <div ref={provided.innerRef} {...provided.droppableProps} className="min-h-[48px]">
                   {folderSites.length > 0 ? (
-                    folderSites.map((site, index) => renderSiteRow(site, index))
+                    folderSites.map((site, idx) => renderSiteRow(site, idx))
                   ) : (
                     <div className="px-4 py-6 text-center text-gray-400 dark:text-gray-500 text-sm">
                       Drag sites here or add new ones
@@ -388,6 +479,21 @@ export default function BlockedSites() {
         </div>
       </div>
     );
+
+    // Folders are draggable, Uncategorized is not
+    if (folder) {
+      return (
+        <Draggable key={folder.id} draggableId={`folder-${folder.id}`} index={index}>
+          {(provided) => (
+            <div ref={provided.innerRef} {...provided.draggableProps}>
+              {content(provided.dragHandleProps || undefined)}
+            </div>
+          )}
+        </Draggable>
+      );
+    }
+
+    return <div key="uncategorized">{content()}</div>;
   };
 
   return (
@@ -414,10 +520,15 @@ export default function BlockedSites() {
 
       {/* Grouped Sites */}
       <DragDropContext onDragEnd={handleDragEnd}>
-        <div className="space-y-4">
-          {folders.map(folder => renderFolderSection(folder, sitesByFolder.get(folder.id) || []))}
-          {renderFolderSection(null, sitesByFolder.get(undefined) || [])}
-        </div>
+        <Droppable droppableId="folders" type="folder">
+          {(provided) => (
+            <div ref={provided.innerRef} {...provided.droppableProps} className="space-y-4">
+              {folders.map((folder, index) => renderFolderSection(folder, sitesByFolder.get(folder.id) || [], index))}
+              {provided.placeholder}
+              {renderFolderSection(null, sitesByFolder.get(undefined) || [], folders.length)}
+            </div>
+          )}
+        </Droppable>
       </DragDropContext>
 
       {sites.length === 0 && folders.length === 0 && (

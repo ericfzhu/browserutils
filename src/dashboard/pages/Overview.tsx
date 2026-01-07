@@ -476,7 +476,7 @@ export default function Overview() {
 
       {/* YouTube Channels - only shown when tracking is enabled */}
       {settings?.youtubeTrackingEnabled && (
-        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 mb-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold flex items-center gap-2">
               <Youtube className="w-5 h-5 text-red-600" />
