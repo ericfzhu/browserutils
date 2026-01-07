@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Plus, Trash2, Edit2, X, Shield, Clock, Calendar, Lock, FolderPlus, ChevronDown, ChevronRight, GripVertical } from 'lucide-react';
+import { Plus, Trash2, Edit2, X, Shield, Clock, Calendar, Lock, FolderPlus, ChevronRight, GripVertical } from 'lucide-react';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import { BlockedSite, BlockedSiteFolder } from '../../shared/types';
 import { hashPassword } from '../../shared/storage';
@@ -333,10 +333,10 @@ export default function BlockedSites() {
 
     return (
       <div key={folderId || 'uncategorized'} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <div className="flex items-center gap-2 px-4 py-3 bg-gray-50 border-b border-gray-200">
+        <div className={`flex items-center gap-2 px-4 py-3 bg-gray-50 ${isCollapsed ? '' : 'border-b border-gray-200'}`}>
           {folder && (
-            <button onClick={() => toggleFolderCollapse(folder)} className="text-gray-500 hover:text-gray-700">
-              {isCollapsed ? <ChevronRight className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+            <button onClick={() => toggleFolderCollapse(folder)} className="text-gray-500 hover:text-gray-700 transition-transform duration-200">
+              <ChevronRight className={`w-5 h-5 transition-transform duration-200 ${isCollapsed ? '' : 'rotate-90'}`} />
             </button>
           )}
           <span className="font-semibold text-gray-900 flex-1">
@@ -365,22 +365,27 @@ export default function BlockedSites() {
             </>
           )}
         </div>
-        {(!folder || !isCollapsed) && (
-          <Droppable droppableId={folderId || 'uncategorized'}>
-            {(provided) => (
-              <div ref={provided.innerRef} {...provided.droppableProps} className="min-h-[48px]">
-                {folderSites.length > 0 ? (
-                  folderSites.map((site, index) => renderSiteRow(site, index))
-                ) : (
-                  <div className="px-4 py-6 text-center text-gray-400 text-sm">
-                    Drag sites here or add new ones
-                  </div>
-                )}
-                {provided.placeholder}
-              </div>
-            )}
-          </Droppable>
-        )}
+        <div
+          className="grid transition-all duration-200 ease-in-out"
+          style={{ gridTemplateRows: (!folder || !isCollapsed) ? '1fr' : '0fr' }}
+        >
+          <div className="overflow-hidden">
+            <Droppable droppableId={folderId || 'uncategorized'}>
+              {(provided) => (
+                <div ref={provided.innerRef} {...provided.droppableProps} className="min-h-[48px]">
+                  {folderSites.length > 0 ? (
+                    folderSites.map((site, index) => renderSiteRow(site, index))
+                  ) : (
+                    <div className="px-4 py-6 text-center text-gray-400 text-sm">
+                      Drag sites here or add new ones
+                    </div>
+                  )}
+                  {provided.placeholder}
+                </div>
+              )}
+            </Droppable>
+          </div>
+        </div>
       </div>
     );
   };
