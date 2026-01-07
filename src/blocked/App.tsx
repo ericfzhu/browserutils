@@ -34,6 +34,14 @@ export default function App() {
       const sites = await chrome.runtime.sendMessage({ type: 'GET_BLOCKED_SITES' });
       const found = sites.find((s: BlockedSite) => s.id === siteId);
       setSite(found || null);
+
+      // Increment blocked attempt counter
+      if (found) {
+        await chrome.runtime.sendMessage({
+          type: 'INCREMENT_BLOCKED_ATTEMPT',
+          payload: { domain: found.pattern },
+        });
+      }
     } catch (err) {
       console.error('Failed to load site:', err);
     }

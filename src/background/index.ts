@@ -245,6 +245,10 @@ async function handleMessage(message: MessageType, sender?: chrome.runtime.Messa
     case 'CHECK_SITE': {
       return checkIfBlocked(message.payload.url);
     }
+    case 'INCREMENT_BLOCKED_ATTEMPT': {
+      await incrementBlockedAttempt(message.payload.domain);
+      return { success: true };
+    }
     // Content script messages
     case 'HEARTBEAT': {
       await handleHeartbeat(sender);
@@ -599,15 +603,6 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
 chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
   if (changeInfo.status === 'complete' && tab.active && tab.url) {
     await startSession(tabId, tab.url);
-
-    // Check if blocked and increment counter
-    const result = await checkIfBlocked(tab.url);
-    if (result.blocked) {
-      const domain = getDomainFromUrl(tab.url);
-      if (domain) {
-        await incrementBlockedAttempt(domain);
-      }
-    }
   }
 });
 
