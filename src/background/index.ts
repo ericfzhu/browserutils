@@ -757,7 +757,21 @@ async function updateBlockingRules(): Promise<void> {
 
     // Build URL filter
     let urlFilter: string;
-    if (site.pattern.startsWith('*.')) {
+    const patternHasPath = site.pattern.includes('/');
+
+    if (patternHasPath) {
+      // Pattern has a path component (e.g., domain.com/path/*)
+      let filterPattern = site.pattern;
+      // Remove trailing /* and replace with * for URL filter
+      if (filterPattern.endsWith('/*')) {
+        filterPattern = filterPattern.slice(0, -2) + '*';
+      }
+      if (filterPattern.startsWith('*.')) {
+        urlFilter = `||${filterPattern.slice(2)}`;
+      } else {
+        urlFilter = `||${filterPattern}`;
+      }
+    } else if (site.pattern.startsWith('*.')) {
       urlFilter = `||${site.pattern.slice(2)}`;
     } else {
       urlFilter = `||${site.pattern}`;

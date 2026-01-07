@@ -2,7 +2,7 @@ import { Tag, Plus, Wrench, Bug, ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 // Changelog data - update this when releasing new versions
-const CURRENT_VERSION = '0.8.2';
+const CURRENT_VERSION = '0.9.0';
 
 interface ChangelogEntry {
   version: string;
@@ -13,6 +13,18 @@ interface ChangelogEntry {
 }
 
 const changelog: ChangelogEntry[] = [
+  {
+    version: '0.9.0',
+    date: '2026-01-08',
+    added: [
+      'Path-based site blocking - block specific URL paths like reddit.com/r/funny/*',
+      'URL input normalization - automatically strips https:// and formats patterns correctly',
+    ],
+    changed: [
+      'Entering https://example.com/ now normalizes to example.com',
+      'Entering https://example.com/path/ now normalizes to example.com/path/*',
+    ],
+  },
   {
     version: '0.8.2',
     date: '2026-01-08',
@@ -113,21 +125,21 @@ const changelog: ChangelogEntry[] = [
   },
   {
     version: '0.4.2',
-    date: '2026-01-06',
+    date: '2026-01-07',
     added: [
       'Smooth expand/collapse animation for folder sections',
     ],
   },
   {
     version: '0.4.1',
-    date: '2026-01-06',
+    date: '2026-01-07',
     changed: [
       'New tab greeting is now deterministic based on day of year',
     ],
   },
   {
     version: '0.4.0',
-    date: '2026-01-06',
+    date: '2026-01-07',
     added: [
       'Folder organization for blocked sites',
       'Drag-and-drop support for moving sites between folders',
@@ -141,7 +153,7 @@ const changelog: ChangelogEntry[] = [
   },
   {
     version: '0.3.2',
-    date: '2026-01-05',
+    date: '2026-01-07',
     fixed: [
       'Scheduled blocking now correctly checks if current time is within the blocking window',
       'Sites with service workers that bypass declarativeNetRequest are now blocked',
@@ -153,14 +165,14 @@ const changelog: ChangelogEntry[] = [
   },
   {
     version: '0.3.1',
-    date: '2026-01-05',
+    date: '2026-01-07',
     fixed: [
       'Blocked site metrics now properly increment',
     ],
   },
   {
     version: '0.3.0',
-    date: '2026-01-04',
+    date: '2026-01-07',
     added: [
       'Content script heartbeat system for accurate time tracking',
       'Page Visibility API integration for true visibility detection',
@@ -174,7 +186,7 @@ const changelog: ChangelogEntry[] = [
   },
   {
     version: '0.2.1',
-    date: '2026-01-03',
+    date: '2026-01-07',
     changed: [
       'Quick links now auto-fetch favicons',
       'Simplified add link modal - just enter URL',
@@ -183,7 +195,7 @@ const changelog: ChangelogEntry[] = [
   },
   {
     version: '0.2.0',
-    date: '2026-01-02',
+    date: '2026-01-07',
     added: [
       'Custom new tab page with time-based greetings',
       'Personalized name display in settings',
@@ -194,7 +206,7 @@ const changelog: ChangelogEntry[] = [
   },
   {
     version: '0.1.1',
-    date: '2026-01-01',
+    date: '2026-01-06',
     added: [
       'Percentage display in daily breakdown hover tooltip',
       'Included dist folder for easy extension loading',
@@ -202,7 +214,7 @@ const changelog: ChangelogEntry[] = [
   },
   {
     version: '0.1.0',
-    date: '2026-01-01',
+    date: '2026-01-06',
     added: [
       'Website time tracking with per-site breakdowns',
       'Site blocking with password, timer, and schedule options',

@@ -19,6 +19,31 @@ interface FormData {
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
+function normalizeUrlPattern(input: string): string {
+  let pattern = input.trim().toLowerCase();
+
+  // Remove protocol (http:// or https://)
+  pattern = pattern.replace(/^https?:\/\//, '');
+
+  // Check if there's a path after the domain
+  const slashIndex = pattern.indexOf('/');
+  if (slashIndex !== -1) {
+    const path = pattern.slice(slashIndex + 1);
+    // If path is empty or just whitespace, remove trailing slash
+    if (!path || !path.trim()) {
+      pattern = pattern.slice(0, slashIndex);
+    } else {
+      // There's actual path content - remove trailing slash and add wildcard
+      pattern = pattern.replace(/\/+$/, '');
+      if (!pattern.endsWith('/*')) {
+        pattern = pattern + '/*';
+      }
+    }
+  }
+
+  return pattern;
+}
+
 const defaultFormData: FormData = {
   pattern: '',
   unlockType: 'none',
@@ -97,7 +122,7 @@ export default function BlockedSites() {
     e.preventDefault();
 
     const payload: Omit<BlockedSite, 'id' | 'createdAt'> = {
-      pattern: formData.pattern.toLowerCase().trim(),
+      pattern: normalizeUrlPattern(formData.pattern),
       enabled: true,
       unlockType: formData.unlockType,
       folderId: formData.folderId,

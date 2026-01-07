@@ -5,6 +5,16 @@ All notable changes to BrowserUtils will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0] - 2026-01-08
+
+### Added
+- Path-based site blocking - block specific URL paths like `reddit.com/r/funny/*`
+- URL input normalization - automatically strips `https://` and formats patterns correctly
+
+### Changed
+- Entering `https://example.com/` now normalizes to `example.com`
+- Entering `https://example.com/path/` now normalizes to `example.com/path/*`
+
 ## [0.8.2] - 2026-01-08
 
 ### Added
@@ -18,6 +28,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed missing gap between YouTube Channels section and other sections in Overview and Metrics tabs
 - Fixed drag and drop not working properly when folders are collapsed in Blocked Sites
 - Improved visual distinction between folder headers and site rows in Blocked Sites
+
+## [0.8.1] - 2026-01-07
+
+### Added
+- Dark mode with Light, Dark, and System theme options
+
+### Fixed
+- YouTube tracking improvements
 
 ## [0.6.1] - 2026-01-07
 
@@ -63,17 +81,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Refactored time tracking from single-session to multi-session model
 - "Time today" now accurately represents union of all browsing sessions
 
-## [0.4.2] - 2026-01-06
+## [0.4.2] - 2026-01-07
 
 ### Added
 - Smooth expand/collapse animation for folder sections using CSS grid transitions
 
-## [0.4.1] - 2026-01-06
+## [0.4.1] - 2026-01-07
 
 ### Changed
 - New tab greeting is now deterministic based on day of year (same greeting all day)
 
-## [0.4.0] - 2026-01-06
+## [0.4.0] - 2026-01-07
 
 ### Added
 - Folder organization for blocked sites
@@ -85,7 +103,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Blocked Sites page refactored from table to grouped folder view
 
-## [0.3.2] - 2026-01-05
+## [0.3.2] - 2026-01-07
 
 ### Fixed
 - Scheduled blocking now correctly checks if current time is within the blocking window
@@ -95,12 +113,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Content script now runs at document_start for faster blocking
 - Blocked attempts are tracked from content script fallback
 
-## [0.3.1] - 2026-01-05
+## [0.3.1] - 2026-01-07
 
 ### Fixed
 - Blocked site metrics now properly increment (counter was broken due to redirect timing)
 
-## [0.3.0] - 2026-01-04
+## [0.3.0] - 2026-01-07
 
 ### Added
 - Content script heartbeat system for accurate time tracking
@@ -112,7 +130,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - UTC date bug - all date calculations now use local timezone
 - Maximum tracking data loss reduced from 60+ seconds to ~15 seconds
 
-## [0.2.1] - 2026-01-03
+## [0.2.1] - 2026-01-07
 
 ### Changed
 - Quick links now auto-fetch favicons from Google's favicon service
@@ -120,7 +138,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Auto-extract site name from domain
 - Enter key submits the add link form
 
-## [0.2.0] - 2026-01-02
+## [0.2.0] - 2026-01-07
 
 ### Added
 - Custom new tab page with:
@@ -132,13 +150,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Display name setting for new tab greeting
 - Quick links management
 
-## [0.1.1] - 2026-01-01
+## [0.1.1] - 2026-01-06
 
 ### Added
 - Percentage display in daily breakdown hover tooltip
 - Included dist folder for easy extension loading
 
-## [0.1.0] - 2026-01-01
+## [0.1.0] - 2026-01-06
 
 ### Added
 - Initial release

@@ -322,15 +322,46 @@ export function matchesPattern(url: string, pattern: string): boolean {
   try {
     const urlObj = new URL(url);
     const hostname = urlObj.hostname;
+    const pathname = urlObj.pathname;
 
-    // Handle wildcard patterns like *.example.com
-    if (pattern.startsWith('*.')) {
-      const baseDomain = pattern.slice(2);
-      return hostname === baseDomain || hostname.endsWith('.' + baseDomain);
+    // Check if pattern includes a path (has / after domain part)
+    const patternHasPath = pattern.includes('/');
+    let patternDomain: string;
+    let patternPath: string | null = null;
+
+    if (patternHasPath) {
+      const slashIndex = pattern.indexOf('/');
+      patternDomain = pattern.slice(0, slashIndex);
+      patternPath = pattern.slice(slashIndex);
+      // Remove trailing /* for matching purposes
+      if (patternPath.endsWith('/*')) {
+        patternPath = patternPath.slice(0, -2);
+      }
+    } else {
+      patternDomain = pattern;
     }
 
-    // Exact domain match
-    return hostname === pattern || hostname === 'www.' + pattern;
+    // Handle wildcard patterns like *.example.com
+    let domainMatches = false;
+    if (patternDomain.startsWith('*.')) {
+      const baseDomain = patternDomain.slice(2);
+      domainMatches = hostname === baseDomain || hostname.endsWith('.' + baseDomain);
+    } else {
+      // Exact domain match
+      domainMatches = hostname === patternDomain || hostname === 'www.' + patternDomain;
+    }
+
+    if (!domainMatches) {
+      return false;
+    }
+
+    // If pattern has no path, domain match is sufficient
+    if (!patternPath) {
+      return true;
+    }
+
+    // Check path match (pathname must start with patternPath)
+    return pathname === patternPath || pathname.startsWith(patternPath + '/');
   } catch {
     return false;
   }
