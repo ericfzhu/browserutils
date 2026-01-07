@@ -66,7 +66,7 @@ export default function App() {
     : [];
 
   return (
-    <div className="w-80 bg-white">
+    <div className="w-80 bg-white dark:bg-gray-900">
       {/* Header */}
       <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-4">
         <div className="flex items-center justify-between">
@@ -109,44 +109,44 @@ export default function App() {
       </div>
 
       {/* Today's Stats */}
-      <div className="p-4 border-b">
-        <h2 className="text-sm font-medium text-gray-500 mb-3">Today</h2>
+      <div className="p-4 border-b dark:border-gray-700">
+        <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-3">Today</h2>
         <div className="grid grid-cols-3 gap-3">
           <div className="text-center">
             <div className="flex items-center justify-center mb-1">
-              <Clock className="w-4 h-4 text-blue-600" />
+              <Clock className="w-4 h-4 text-blue-600 dark:text-blue-400" />
             </div>
             <div className="text-lg font-semibold">
               {formatTime(stats?.totalTime || 0)}
             </div>
-            <div className="text-xs text-gray-500">Time</div>
+            <div className="text-xs text-gray-500 dark:text-gray-400">Time</div>
           </div>
           <div className="text-center">
             <div className="flex items-center justify-center mb-1">
-              <BarChart3 className="w-4 h-4 text-green-600" />
+              <BarChart3 className="w-4 h-4 text-green-600 dark:text-green-400" />
             </div>
             <div className="text-lg font-semibold">{stats?.visits || 0}</div>
-            <div className="text-xs text-gray-500">Visits</div>
+            <div className="text-xs text-gray-500 dark:text-gray-400">Visits</div>
           </div>
           <div className="text-center">
             <div className="flex items-center justify-center mb-1">
-              <Shield className="w-4 h-4 text-red-600" />
+              <Shield className="w-4 h-4 text-red-600 dark:text-red-400" />
             </div>
             <div className="text-lg font-semibold">{stats?.blockedAttempts || 0}</div>
-            <div className="text-xs text-gray-500">Blocked</div>
+            <div className="text-xs text-gray-500 dark:text-gray-400">Blocked</div>
           </div>
         </div>
       </div>
 
       {/* Top Sites */}
       {topSites.length > 0 && (
-        <div className="p-4 border-b">
-          <h2 className="text-sm font-medium text-gray-500 mb-2">Top Sites</h2>
+        <div className="p-4 border-b dark:border-gray-700">
+          <h2 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Top Sites</h2>
           <div className="space-y-2">
             {topSites.map(([domain, time]) => (
               <div key={domain} className="flex items-center justify-between">
                 <span className="text-sm truncate flex-1">{domain}</span>
-                <span className="text-sm text-gray-500 ml-2">{formatTime(time)}</span>
+                <span className="text-sm text-gray-500 dark:text-gray-400 ml-2">{formatTime(time)}</span>
               </div>
             ))}
           </div>
@@ -157,7 +157,7 @@ export default function App() {
       <div className="p-4">
         <button
           onClick={openDashboard}
-          className="w-full flex items-center justify-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 py-2 px-4 rounded-lg transition-colors"
+          className="w-full flex items-center justify-center gap-2 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 py-2 px-4 rounded-lg transition-colors"
         >
           <Settings className="w-4 h-4" />
           Open Dashboard

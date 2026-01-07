@@ -227,34 +227,34 @@ export default function App() {
   // Show limit exceeded UI
   if (blockType === 'limit' && limitInfo) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-8">
+      <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-50 dark:from-gray-900 dark:to-amber-950 flex items-center justify-center p-4">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-md w-full p-8">
           <div className="text-center mb-6">
-            <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Timer className="w-8 h-8 text-amber-600" />
+            <div className="w-16 h-16 bg-amber-100 dark:bg-amber-900/50 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Timer className="w-8 h-8 text-amber-600 dark:text-amber-400" />
             </div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">Daily Limit Reached</h1>
-            <p className="text-gray-500">
-              <span className="font-medium text-gray-700">{limitInfo.limit.pattern}</span>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">Daily Limit Reached</h1>
+            <p className="text-gray-500 dark:text-gray-400">
+              <span className="font-medium text-gray-700 dark:text-gray-300">{limitInfo.limit.pattern}</span>
             </p>
           </div>
 
           {/* Time Info */}
-          <div className="bg-amber-50 rounded-lg p-4 mb-6">
+          <div className="bg-amber-50 dark:bg-amber-900/20 rounded-lg p-4 mb-6">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-amber-800">Time spent today</span>
-              <span className="font-medium text-amber-900">{formatTime(limitInfo.timeSpent)}</span>
+              <span className="text-sm text-amber-800 dark:text-amber-300">Time spent today</span>
+              <span className="font-medium text-amber-900 dark:text-amber-200">{formatTime(limitInfo.timeSpent)}</span>
             </div>
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-amber-800">Daily limit</span>
-              <span className="font-medium text-amber-900">{formatTime(limitInfo.limit.limitSeconds)}</span>
+              <span className="text-sm text-amber-800 dark:text-amber-300">Daily limit</span>
+              <span className="font-medium text-amber-900 dark:text-amber-200">{formatTime(limitInfo.limit.limitSeconds)}</span>
             </div>
-            <div className="h-2 bg-amber-200 rounded-full overflow-hidden mt-3">
+            <div className="h-2 bg-amber-200 dark:bg-amber-900/50 rounded-full overflow-hidden mt-3">
               <div className="h-full bg-amber-500 rounded-full" style={{ width: '100%' }} />
             </div>
           </div>
 
-          <p className="text-sm text-gray-500 text-center mb-6">
+          <p className="text-sm text-gray-500 dark:text-gray-400 text-center mb-6">
             Limit resets in {getTimeUntilMidnight()}
           </p>
 
@@ -270,13 +270,13 @@ export default function App() {
                 </button>
               ) : countdown > 0 ? (
                 <div className="text-center py-4">
-                  <div className="text-4xl font-bold text-amber-600 mb-2">{countdown}</div>
-                  <p className="text-sm text-gray-500">Taking a moment to reconsider...</p>
+                  <div className="text-4xl font-bold text-amber-600 dark:text-amber-400 mb-2">{countdown}</div>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Taking a moment to reconsider...</p>
                 </div>
               ) : (
                 <div className="text-center py-4">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-600 mx-auto"></div>
-                  <p className="text-sm text-gray-500 mt-2">Granting access...</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">Granting access...</p>
                 </div>
               )}
             </div>
@@ -285,7 +285,7 @@ export default function App() {
           {/* Password Bypass */}
           {limitInfo.limit.bypassType === 'password' && (
             <form onSubmit={handleLimitPasswordBypass} className="space-y-4">
-              <div className="flex items-center gap-2 text-sm text-gray-600 mb-4">
+              <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 mb-4">
                 <Lock className="w-4 h-4" />
                 <span>Enter password to continue for 15 minutes</span>
               </div>
@@ -297,7 +297,7 @@ export default function App() {
                   setError('');
                 }}
                 placeholder="Enter password"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
+                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
                 autoFocus
               />
               {error && <p className="text-sm text-red-600">{error}</p>}
@@ -314,7 +314,7 @@ export default function App() {
           {/* No Bypass */}
           {limitInfo.limit.bypassType === 'none' && (
             <div className="text-center py-4">
-              <p className="text-gray-600">
+              <p className="text-gray-600 dark:text-gray-400">
                 This limit cannot be bypassed. Check back after midnight.
               </p>
             </div>
@@ -323,14 +323,14 @@ export default function App() {
           {/* Back Button */}
           <button
             onClick={goBack}
-            className="w-full mt-4 flex items-center justify-center gap-2 text-gray-600 hover:text-gray-900 py-2 transition-colors"
+            className="w-full mt-4 flex items-center justify-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 py-2 transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
             Go Back
           </button>
 
           {/* Dashboard Link */}
-          <div className="mt-6 pt-6 border-t text-center">
+          <div className="mt-6 pt-6 border-t dark:border-gray-700 text-center">
             <a
               href={chrome.runtime.getURL('dashboard.html#/limits')}
               className="text-sm text-amber-600 hover:text-amber-700"
@@ -346,33 +346,33 @@ export default function App() {
   // Show blocked site UI (original behavior)
   if (!site) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-red-50 to-orange-50 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-red-50 to-orange-50 dark:from-gray-900 dark:to-red-950 flex items-center justify-center p-4">
         <div className="text-center">
-          <Shield className="w-16 h-16 text-red-500 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Site Blocked</h1>
-          <p className="text-gray-600">This site has been blocked by BrowserUtils.</p>
+          <Shield className="w-16 h-16 text-red-500 dark:text-red-400 mx-auto mb-4" />
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">Site Blocked</h1>
+          <p className="text-gray-600 dark:text-gray-400">This site has been blocked by BrowserUtils.</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-red-50 to-orange-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-8">
+    <div className="min-h-screen bg-gradient-to-br from-red-50 to-orange-50 dark:from-gray-900 dark:to-red-950 flex items-center justify-center p-4">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-md w-full p-8">
         <div className="text-center mb-6">
-          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Shield className="w-8 h-8 text-red-600" />
+          <div className="w-16 h-16 bg-red-100 dark:bg-red-900/50 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Shield className="w-8 h-8 text-red-600 dark:text-red-400" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Site Blocked</h1>
-          <p className="text-gray-500">
-            <span className="font-medium text-gray-700">{site.pattern}</span> is blocked
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">Site Blocked</h1>
+          <p className="text-gray-500 dark:text-gray-400">
+            <span className="font-medium text-gray-700 dark:text-gray-300">{site.pattern}</span> is blocked
           </p>
         </div>
 
         {/* Password Unlock */}
         {site.unlockType === 'password' && (
           <form onSubmit={handlePasswordUnlock} className="space-y-4">
-            <div className="flex items-center gap-2 text-sm text-gray-600 mb-4">
+            <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 mb-4">
               <Lock className="w-4 h-4" />
               <span>Enter password to unlock temporarily</span>
             </div>
@@ -384,7 +384,7 @@ export default function App() {
                 setError('');
               }}
               placeholder="Enter password"
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               autoFocus
             />
             {error && <p className="text-sm text-red-600">{error}</p>}
@@ -401,7 +401,7 @@ export default function App() {
         {/* Timer Unlock */}
         {site.unlockType === 'timer' && (
           <div className="space-y-4">
-            <div className="flex items-center gap-2 text-sm text-gray-600 mb-4">
+            <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 mb-4">
               <Clock className="w-4 h-4" />
               <span>Wait {site.timerDuration} minutes to unlock</span>
             </div>
@@ -415,13 +415,13 @@ export default function App() {
               </button>
             ) : countdown > 0 ? (
               <div className="text-center py-4">
-                <div className="text-4xl font-bold text-blue-600 mb-2">{countdown}</div>
-                <p className="text-sm text-gray-500">Taking a moment to reconsider...</p>
+                <div className="text-4xl font-bold text-blue-600 dark:text-blue-400 mb-2">{countdown}</div>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Taking a moment to reconsider...</p>
               </div>
             ) : (
               <div className="text-center py-4">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-                <p className="text-sm text-gray-500 mt-2">Unlocking...</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">Unlocking...</p>
               </div>
             )}
           </div>
@@ -430,7 +430,7 @@ export default function App() {
         {/* Always Blocked */}
         {site.unlockType === 'none' && (
           <div className="text-center py-4">
-            <p className="text-gray-600">
+            <p className="text-gray-600 dark:text-gray-400">
               This site is permanently blocked. Go to the dashboard to change settings.
             </p>
           </div>
@@ -439,10 +439,10 @@ export default function App() {
         {/* Schedule Info */}
         {site.unlockType === 'schedule' && site.schedule && (
           <div className="text-center py-4">
-            <p className="text-gray-600 mb-2">
+            <p className="text-gray-600 dark:text-gray-400 mb-2">
               This site is blocked during scheduled hours.
             </p>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-gray-500 dark:text-gray-400">
               Blocked: {site.schedule.startTime} - {site.schedule.endTime}
             </p>
           </div>
@@ -451,14 +451,14 @@ export default function App() {
         {/* Back Button */}
         <button
           onClick={goBack}
-          className="w-full mt-4 flex items-center justify-center gap-2 text-gray-600 hover:text-gray-900 py-2 transition-colors"
+          className="w-full mt-4 flex items-center justify-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 py-2 transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
           Go Back
         </button>
 
         {/* Dashboard Link */}
-        <div className="mt-6 pt-6 border-t text-center">
+        <div className="mt-6 pt-6 border-t dark:border-gray-700 text-center">
           <a
             href={chrome.runtime.getURL('dashboard.html#/blocked')}
             className="text-sm text-blue-600 hover:text-blue-700"

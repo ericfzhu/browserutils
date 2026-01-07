@@ -20,9 +20,9 @@ export default function App() {
   const [isHovered, setIsHovered] = useState(false);
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex">
       {/* Sidebar */}
-      <nav className="w-64 bg-white border-r border-gray-200 p-4 flex flex-col h-screen sticky top-0">
+      <nav className="w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 p-4 flex flex-col h-screen sticky top-0">
         <div
           className="flex items-center gap-2 mb-8 cursor-default"
           onMouseEnter={() => setIsHovered(true)}
@@ -32,7 +32,7 @@ export default function App() {
             <Shield className="w-6 h-6 text-white" />
           </div>
           <div>
-            <h1 className="font-bold text-gray-900 relative overflow-hidden h-6">
+            <h1 className="font-bold text-gray-900 dark:text-gray-100 relative overflow-hidden h-6">
               <span
                 className={`inline-block transition-all duration-300 ${
                   isHovered ? 'opacity-0 -translate-y-full' : 'opacity-100 translate-y-0'
@@ -48,7 +48,7 @@ export default function App() {
                 Boyoung😘Utils
               </span>
             </h1>
-            <p className="text-xs text-gray-500">Focus & Productivity</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Focus & Productivity</p>
           </div>
         </div>
 
@@ -60,8 +60,8 @@ export default function App() {
               className={({ isActive }) =>
                 `flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
                   isActive
-                    ? 'bg-blue-50 text-blue-700'
-                    : 'text-gray-600 hover:bg-gray-100'
+                    ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+                    : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
                 }`
               }
             >
@@ -71,15 +71,15 @@ export default function App() {
           ))}
         </div>
 
-        <div className="mt-auto pt-4 border-t space-y-2">
+        <div className="mt-auto pt-4 border-t border-gray-200 dark:border-gray-700 space-y-2">
           <Link
             to="/changelog"
-            className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-700 rounded-lg transition-colors"
+            className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:text-blue-700 dark:hover:text-blue-300 rounded-lg transition-colors"
           >
             <Sparkles className="w-4 h-4" />
             What's New
           </Link>
-          <p className="text-xs text-gray-400 text-center">v{CURRENT_VERSION}</p>
+          <p className="text-xs text-gray-400 dark:text-gray-500 text-center">v{CURRENT_VERSION}</p>
         </div>
       </nav>
 

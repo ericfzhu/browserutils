@@ -107,17 +107,17 @@ function CalendarPicker({ selectedDate, onSelect, onClose, minDate, maxDate }: C
   const monthName = new Date(viewDate.year, viewDate.month).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
   return (
-    <div className="absolute top-full left-0 mt-2 bg-white rounded-xl shadow-lg border border-gray-200 p-4 z-50 w-72">
+    <div className="absolute top-full left-0 mt-2 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-4 z-50 w-72">
       <div className="flex items-center justify-between mb-4">
-        <button onClick={prevMonth} className="p-1 hover:bg-gray-100 rounded">
+        <button onClick={prevMonth} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded">
           <ChevronLeft className="w-5 h-5" />
         </button>
         <span className="font-medium">{monthName}</span>
-        <button onClick={nextMonth} className="p-1 hover:bg-gray-100 rounded">
+        <button onClick={nextMonth} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded">
           <ChevronRight className="w-5 h-5" />
         </button>
       </div>
-      <div className="grid grid-cols-7 gap-1 text-center text-xs text-gray-500 mb-2">
+      <div className="grid grid-cols-7 gap-1 text-center text-xs text-gray-500 dark:text-gray-400 mb-2">
         {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(d => <div key={d}>{d}</div>)}
       </div>
       <div className="grid grid-cols-7 gap-1">
@@ -137,10 +137,10 @@ function CalendarPicker({ selectedDate, onSelect, onClose, minDate, maxDate }: C
                 isSelected
                   ? 'bg-blue-600 text-white'
                   : isToday
-                  ? 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                  ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-900'
                   : isDisabled
-                  ? 'text-gray-300 cursor-not-allowed'
-                  : 'hover:bg-gray-100'
+                  ? 'text-gray-300 dark:text-gray-600 cursor-not-allowed'
+                  : 'hover:bg-gray-100 dark:hover:bg-gray-700'
               }`}
             >
               {day}
@@ -148,7 +148,7 @@ function CalendarPicker({ selectedDate, onSelect, onClose, minDate, maxDate }: C
           );
         })}
       </div>
-      <div className="flex justify-between mt-4 pt-4 border-t">
+      <div className="flex justify-between mt-4 pt-4 border-t dark:border-gray-700">
         <button
           onClick={() => onSelect(today)}
           className="text-sm text-blue-600 hover:text-blue-700"
@@ -157,7 +157,7 @@ function CalendarPicker({ selectedDate, onSelect, onClose, minDate, maxDate }: C
         </button>
         <button
           onClick={onClose}
-          className="text-sm text-gray-500 hover:text-gray-700"
+          className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
         >
           Close
         </button>
@@ -256,7 +256,7 @@ function Timeline({ sessions, sites, dateStr, animationDirection }: TimelineProp
 
   if (sortedSites.length === 0 && sessions.length === 0) {
     return (
-      <div className={`text-center py-8 text-gray-500 ${animationClass}`}>
+      <div className={`text-center py-8 text-gray-500 dark:text-gray-400 ${animationClass}`}>
         {isToday ? 'No activity recorded yet today' : 'No activity recorded on this day'}
       </div>
     );
@@ -264,7 +264,7 @@ function Timeline({ sessions, sites, dateStr, animationDirection }: TimelineProp
 
   if (sortedSites.length > 0 && sessions.length === 0) {
     return (
-      <div className={`text-center py-8 text-gray-500 ${animationClass}`}>
+      <div className={`text-center py-8 text-gray-500 dark:text-gray-400 ${animationClass}`}>
         <p>Timeline data not available for this day.</p>
         <p className="text-xs mt-2">Session tracking was enabled recently.</p>
       </div>
@@ -310,11 +310,11 @@ function Timeline({ sessions, sites, dateStr, animationDirection }: TimelineProp
                 <span className="text-xs text-gray-500">{formatTime(totalTime)}</span>
               </div>
 
-              <div className="flex-1 relative h-6 bg-gray-100 rounded overflow-hidden">
+              <div className="flex-1 relative h-6 bg-gray-100 dark:bg-gray-700 rounded overflow-hidden">
                 {hourMarkers.map(marker => (
                   <div
                     key={marker.hour}
-                    className="absolute top-0 bottom-0 w-px bg-gray-200"
+                    className="absolute top-0 bottom-0 w-px bg-gray-200 dark:bg-gray-600"
                     style={{ left: `${marker.position}%` }}
                   />
                 ))}
@@ -543,12 +543,12 @@ export default function Metrics() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Metrics</h1>
-        <div className="flex bg-gray-100 rounded-lg p-1">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Metrics</h1>
+        <div className="flex bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
           <button
             onClick={() => setSelectedPeriod('week')}
             className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
-              selectedPeriod === 'week' ? 'bg-white shadow text-gray-900' : 'text-gray-600'
+              selectedPeriod === 'week' ? 'bg-white dark:bg-gray-700 shadow text-gray-900 dark:text-gray-100' : 'text-gray-600 dark:text-gray-400'
             }`}
           >
             Week
@@ -556,7 +556,7 @@ export default function Metrics() {
           <button
             onClick={() => setSelectedPeriod('month')}
             className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
-              selectedPeriod === 'month' ? 'bg-white shadow text-gray-900' : 'text-gray-600'
+              selectedPeriod === 'month' ? 'bg-white dark:bg-gray-700 shadow text-gray-900 dark:text-gray-100' : 'text-gray-600 dark:text-gray-400'
             }`}
           >
             Month
@@ -566,10 +566,10 @@ export default function Metrics() {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-3 gap-4 mb-8">
-        <div className="bg-white rounded-xl p-6 border border-gray-200">
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm text-gray-500">Total Time</span>
-            <Clock className="w-5 h-5 text-gray-400" />
+            <span className="text-sm text-gray-500 dark:text-gray-400">Total Time</span>
+            <Clock className="w-5 h-5 text-gray-400 dark:text-gray-500" />
           </div>
           <p className="text-2xl font-bold">{formatTime(totalTime)}</p>
           <div className="flex items-center gap-1 mt-1">
@@ -584,27 +584,27 @@ export default function Metrics() {
           </div>
         </div>
 
-        <div className="bg-white rounded-xl p-6 border border-gray-200">
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm text-gray-500">Daily Average</span>
-            <Calendar className="w-5 h-5 text-gray-400" />
+            <span className="text-sm text-gray-500 dark:text-gray-400">Daily Average</span>
+            <Calendar className="w-5 h-5 text-gray-400 dark:text-gray-500" />
           </div>
           <p className="text-2xl font-bold">{formatTime(avgDailyTime)}</p>
-          <p className="text-sm text-gray-500 mt-1">per day</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">per day</p>
         </div>
 
-        <div className="bg-white rounded-xl p-6 border border-gray-200">
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm text-gray-500">Sites Blocked</span>
-            <TrendingDown className="w-5 h-5 text-gray-400" />
+            <span className="text-sm text-gray-500 dark:text-gray-400">Sites Blocked</span>
+            <TrendingDown className="w-5 h-5 text-gray-400 dark:text-gray-500" />
           </div>
           <p className="text-2xl font-bold">{totalBlocks}</p>
-          <p className="text-sm text-gray-500 mt-1">distractions avoided</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">distractions avoided</p>
         </div>
       </div>
 
       {/* Activity Timeline */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 mb-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold">Activity Timeline</h2>
           <div className="flex items-center gap-2">
@@ -619,8 +619,8 @@ export default function Metrics() {
               }}
               className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
                 dateRangeMode
-                  ? 'bg-blue-100 text-blue-700'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300'
+                  : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
               }`}
             >
               {dateRangeMode ? 'Date Range' : 'Single Day'}
@@ -633,7 +633,7 @@ export default function Metrics() {
           <div className="flex items-center justify-center gap-4 mb-6">
             <button
               onClick={goToPrevDay}
-              className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+              className="p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
             >
               <ChevronLeft className="w-5 h-5" />
             </button>
@@ -641,7 +641,7 @@ export default function Metrics() {
             <div className="relative">
               <button
                 onClick={() => setShowCalendar(!showCalendar)}
-                className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                className="flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
               >
                 <CalendarDays className="w-4 h-4 text-gray-500" />
                 <span className="font-medium">{formatDateLabel(selectedDate)}</span>
@@ -660,8 +660,8 @@ export default function Metrics() {
               disabled={selectedDate === today}
               className={`p-2 rounded-lg transition-colors ${
                 selectedDate === today
-                  ? 'text-gray-300 cursor-not-allowed'
-                  : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+                  ? 'text-gray-300 dark:text-gray-600 cursor-not-allowed'
+                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700'
               }`}
             >
               <ChevronRight className="w-5 h-5" />
@@ -762,35 +762,35 @@ export default function Metrics() {
       {/* Top Sites and Category Breakdown - Two Columns */}
       <div className="grid grid-cols-2 gap-6 mb-6">
         {/* Top Sites */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
           <h2 className="text-lg font-semibold mb-4">Top Sites ({selectedPeriod})</h2>
           {topSites.length > 0 ? (
             <div className="space-y-3">
               {topSites.slice(0, 8).map(([domain, time], index) => (
                 <div key={domain} className="flex items-center gap-3">
                   <div className={`w-3 h-3 rounded-full ${DOMAIN_COLORS[index % DOMAIN_COLORS.length]}`} />
-                  <span className="text-sm text-gray-400 w-4">{index + 1}</span>
+                  <span className="text-sm text-gray-400 dark:text-gray-500 w-4">{index + 1}</span>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
                       <span className="text-sm font-medium truncate">{domain}</span>
-                      <span className="text-sm text-gray-500 ml-2">{formatTime(time)}</span>
+                      <span className="text-sm text-gray-500 dark:text-gray-400 ml-2">{formatTime(time)}</span>
                     </div>
                   </div>
                 </div>
               ))}
             </div>
           ) : (
-            <p className="text-gray-500 text-center py-8">No data for this period</p>
+            <p className="text-gray-500 dark:text-gray-400 text-center py-8">No data for this period</p>
           )}
         </div>
 
         {/* Category Breakdown */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
           <h2 className="text-lg font-semibold mb-4">By Category ({selectedPeriod})</h2>
           {(() => {
             const categoryBreakdown = getCategoryBreakdown(siteTotals);
             if (categoryBreakdown.length === 0) {
-              return <p className="text-gray-500 text-center py-8">No data for this period</p>;
+              return <p className="text-gray-500 dark:text-gray-400 text-center py-8">No data for this period</p>;
             }
             return (
               <div className="space-y-3">
@@ -802,16 +802,16 @@ export default function Metrics() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between mb-1">
                           <span className="text-sm font-medium">{info.name}</span>
-                          <span className="text-sm text-gray-500">{formatTime(time)}</span>
+                          <span className="text-sm text-gray-500 dark:text-gray-400">{formatTime(time)}</span>
                         </div>
-                        <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                        <div className="h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
                           <div
                             className={`h-full ${info.color} transition-all`}
                             style={{ width: `${percent}%` }}
                           />
                         </div>
                       </div>
-                      <span className="text-xs text-gray-400 w-12 text-right">{percent.toFixed(1)}%</span>
+                      <span className="text-xs text-gray-400 dark:text-gray-500 w-12 text-right">{percent.toFixed(1)}%</span>
                     </div>
                   );
                 })}
@@ -822,7 +822,7 @@ export default function Metrics() {
       </div>
 
       {/* Daily Breakdown Chart */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold">Daily Breakdown</h2>
           {hoveredSegment && (
@@ -844,8 +844,8 @@ export default function Metrics() {
 
             return (
               <div key={stats.date} className="flex items-center gap-3">
-                <span className="text-xs text-gray-500 w-20">{formatDate(stats.date)}</span>
-                <div className="flex-1 h-8 bg-gray-100 rounded-lg overflow-hidden flex">
+                <span className="text-xs text-gray-500 dark:text-gray-400 w-20">{formatDate(stats.date)}</span>
+                <div className="flex-1 h-8 bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden flex">
                   {stats.totalTime > 0 ? (
                     sortedSites.map(([domain, time]) => {
                       const colorIndex = topDomainIndices.get(domain) ?? 9;
@@ -867,19 +867,19 @@ export default function Metrics() {
                       );
                     })
                   ) : (
-                    <div className="flex-1 flex items-center justify-center text-xs text-gray-400">
+                    <div className="flex-1 flex items-center justify-center text-xs text-gray-400 dark:text-gray-500">
                       No activity
                     </div>
                   )}
                 </div>
-                <span className="text-xs text-gray-600 w-14 text-right">
+                <span className="text-xs text-gray-600 dark:text-gray-400 w-14 text-right">
                   {formatTime(stats.totalTime)}
                 </span>
               </div>
             );
           })}
         </div>
-        <p className="text-xs text-gray-400 mt-4">
+        <p className="text-xs text-gray-400 dark:text-gray-500 mt-4">
           Hover over segments to see domain details. Colors match the top sites list above.
         </p>
       </div>

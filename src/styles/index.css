@@ -3,11 +3,7 @@
 @tailwind utilities;
 
 body {
-  @apply bg-gray-50 text-gray-900;
-}
-
-.dark body {
-  @apply bg-gray-900 text-gray-100;
+  @apply bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors;
 }
 
 /* Timeline animations */

@@ -170,13 +170,13 @@ export default function App() {
     : [];
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="max-w-4xl mx-auto px-4 py-16">
         {/* Header with settings */}
         <div className="absolute top-4 right-4">
           <button
             onClick={openDashboard}
-            className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-200 rounded-lg transition-colors"
+            className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors"
             title="Open Dashboard"
           >
             <Settings className="w-5 h-5" />
@@ -185,14 +185,14 @@ export default function App() {
 
         {/* Greeting & Time */}
         <div className="text-center mb-12">
-          <h1 className="text-4xl font-light text-gray-700 mb-2">
+          <h1 className="text-4xl font-light text-gray-700 dark:text-gray-300 mb-2">
             {greeting}
             {settings?.displayName && (
-              <span className="text-blue-600">, {settings.displayName}</span>
+              <span className="text-blue-600 dark:text-blue-400">, {settings.displayName}</span>
             )}
           </h1>
-          <div className="text-6xl font-extralight tracking-tight text-gray-900 mb-2">{time}</div>
-          <p className="text-gray-400">{formatDate()}</p>
+          <div className="text-6xl font-extralight tracking-tight text-gray-900 dark:text-gray-100 mb-2">{time}</div>
+          <p className="text-gray-400 dark:text-gray-500">{formatDate()}</p>
         </div>
 
         {/* Quick Links */}
@@ -202,7 +202,7 @@ export default function App() {
               <a
                 key={link.id}
                 href={link.url}
-                className="group relative flex flex-col items-center gap-2 p-4 bg-white hover:bg-gray-100 rounded-2xl transition-colors min-w-[100px] border border-gray-200 shadow-sm"
+                className="group relative flex flex-col items-center gap-2 p-4 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-2xl transition-colors min-w-[100px] border border-gray-200 dark:border-gray-700 shadow-sm"
               >
                 <button
                   onClick={(e) => {
@@ -214,7 +214,7 @@ export default function App() {
                 >
                   <X className="w-3 h-3" />
                 </button>
-                <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center overflow-hidden">
+                <div className="w-12 h-12 bg-gray-100 dark:bg-gray-700 rounded-xl flex items-center justify-center overflow-hidden">
                   <img
                     src={getFaviconUrl(link.url)}
                     alt={link.name}
@@ -222,53 +222,53 @@ export default function App() {
                     onError={(e) => {
                       // Fallback to first letter if favicon fails
                       e.currentTarget.style.display = 'none';
-                      e.currentTarget.parentElement!.innerHTML = `<span class="text-2xl text-gray-400">${link.name.charAt(0).toUpperCase()}</span>`;
+                      e.currentTarget.parentElement!.innerHTML = `<span class="text-2xl text-gray-400 dark:text-gray-500">${link.name.charAt(0).toUpperCase()}</span>`;
                     }}
                   />
                 </div>
-                <span className="text-sm text-gray-600">{link.name}</span>
+                <span className="text-sm text-gray-600 dark:text-gray-300">{link.name}</span>
               </a>
             ))}
 
             {/* Add Link Button */}
             <button
               onClick={() => setShowAddLink(true)}
-              className="flex flex-col items-center gap-2 p-4 bg-white hover:bg-gray-100 rounded-2xl transition-colors min-w-[100px] border-2 border-dashed border-gray-300"
+              className="flex flex-col items-center gap-2 p-4 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-2xl transition-colors min-w-[100px] border-2 border-dashed border-gray-300 dark:border-gray-600"
             >
               <div className="w-12 h-12 rounded-xl flex items-center justify-center">
-                <Plus className="w-6 h-6 text-gray-400" />
+                <Plus className="w-6 h-6 text-gray-400 dark:text-gray-500" />
               </div>
-              <span className="text-sm text-gray-400">Add</span>
+              <span className="text-sm text-gray-400 dark:text-gray-500">Add</span>
             </button>
           </div>
         </div>
 
         {/* Today's Stats */}
         <div className="max-w-sm mx-auto">
-          <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm">
-            <h2 className="text-sm font-medium text-gray-400 mb-4">Today</h2>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm">
+            <h2 className="text-sm font-medium text-gray-400 dark:text-gray-500 mb-4">Today</h2>
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-gray-500">Browsing time</span>
-                <span className="font-medium text-gray-900">{formatTime(stats?.totalTime || 0)}</span>
+                <span className="text-gray-500 dark:text-gray-400">Browsing time</span>
+                <span className="font-medium text-gray-900 dark:text-gray-100">{formatTime(stats?.totalTime || 0)}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-gray-500">Sites visited</span>
-                <span className="font-medium text-gray-900">{Object.keys(stats?.sites || {}).length}</span>
+                <span className="text-gray-500 dark:text-gray-400">Sites visited</span>
+                <span className="font-medium text-gray-900 dark:text-gray-100">{Object.keys(stats?.sites || {}).length}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-gray-500">Distractions blocked</span>
-                <span className="font-medium text-gray-900">{stats?.blockedAttempts || 0}</span>
+                <span className="text-gray-500 dark:text-gray-400">Distractions blocked</span>
+                <span className="font-medium text-gray-900 dark:text-gray-100">{stats?.blockedAttempts || 0}</span>
               </div>
 
               {topSites.length > 0 && (
                 <>
-                  <div className="border-t border-gray-100 my-3" />
-                  <p className="text-xs text-gray-400 mb-2">Top sites</p>
+                  <div className="border-t border-gray-100 dark:border-gray-700 my-3" />
+                  <p className="text-xs text-gray-400 dark:text-gray-500 mb-2">Top sites</p>
                   {topSites.map(([domain, siteTime]) => (
                     <div key={domain} className="flex items-center justify-between text-sm">
-                      <span className="text-gray-500 truncate">{domain}</span>
-                      <span className="text-gray-400">{formatTime(siteTime)}</span>
+                      <span className="text-gray-500 dark:text-gray-400 truncate">{domain}</span>
+                      <span className="text-gray-400 dark:text-gray-500">{formatTime(siteTime)}</span>
                     </div>
                   ))}
                 </>
@@ -281,8 +281,8 @@ export default function App() {
       {/* Add Link Modal */}
       {showAddLink && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-sm mx-4 shadow-xl">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Add Quick Link</h2>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-sm mx-4 shadow-xl">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Add Quick Link</h2>
             <div className="space-y-4">
               <div>
                 <input
@@ -290,7 +290,7 @@ export default function App() {
                   value={newLinkUrl}
                   onChange={(e) => setNewLinkUrl(e.target.value)}
                   placeholder="Enter URL (e.g., github.com)"
-                  className="w-full bg-gray-50 border border-gray-300 rounded-lg px-3 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   autoFocus
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && newLinkUrl) {
@@ -298,7 +298,7 @@ export default function App() {
                     }
                   }}
                 />
-                <p className="text-xs text-gray-400 mt-2">
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">
                   Favicon and name will be auto-detected
                 </p>
               </div>
@@ -308,7 +308,7 @@ export default function App() {
                     setShowAddLink(false);
                     setNewLinkUrl('');
                   }}
-                  className="px-4 py-2 text-gray-600 hover:text-gray-900 transition-colors"
+                  className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
                 >
                   Cancel
                 </button>

@@ -2,7 +2,7 @@ import { Tag, Plus, Wrench, Bug, ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 // Changelog data - update this when releasing new versions
-const CURRENT_VERSION = '0.6.1';
+const CURRENT_VERSION = '0.7.0';
 
 interface ChangelogEntry {
   version: string;
@@ -13,6 +13,15 @@ interface ChangelogEntry {
 }
 
 const changelog: ChangelogEntry[] = [
+  {
+    version: '0.7.0',
+    date: '2026-01-07',
+    added: [
+      'Dark mode support with three options: Light, Dark, and System (follows OS preference)',
+      'Theme selector in Settings under new "Appearance" section',
+      'Automatic theme switching when OS preference changes (in System mode)',
+    ],
+  },
   {
     version: '0.6.1',
     date: '2026-01-07',
@@ -172,13 +181,13 @@ export default function Changelog() {
       <div className="flex items-center gap-4 mb-6">
         <button
           onClick={() => navigate(-1)}
-          className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+          className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Changelog</h1>
-          <p className="text-sm text-gray-500">What's new in BrowserUtils</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Changelog</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400">What's new in BrowserUtils</p>
         </div>
       </div>
 
@@ -186,22 +195,22 @@ export default function Changelog() {
         {changelog.map((entry, index) => (
           <div
             key={entry.version}
-            className="bg-white rounded-xl border border-gray-200 p-6"
+            className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6"
           >
             <div className="flex items-center gap-3 mb-4">
-              <div className={`p-2 rounded-lg ${index === 0 ? 'bg-blue-100' : 'bg-gray-100'}`}>
-                <Tag className={`w-5 h-5 ${index === 0 ? 'text-blue-600' : 'text-gray-500'}`} />
+              <div className={`p-2 rounded-lg ${index === 0 ? 'bg-blue-100 dark:bg-blue-900/50' : 'bg-gray-100 dark:bg-gray-700'}`}>
+                <Tag className={`w-5 h-5 ${index === 0 ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400'}`} />
               </div>
               <div>
                 <div className="flex items-center gap-2">
                   <h2 className="text-lg font-semibold">v{entry.version}</h2>
                   {index === 0 && (
-                    <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs font-medium rounded-full">
+                    <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 text-xs font-medium rounded-full">
                       Current
                     </span>
                   )}
                 </div>
-                <p className="text-sm text-gray-500">{formatDate(entry.date)}</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">{formatDate(entry.date)}</p>
               </div>
             </div>
 
@@ -214,7 +223,7 @@ export default function Changelog() {
                   </div>
                   <ul className="space-y-1 ml-6">
                     {entry.added.map((item, i) => (
-                      <li key={i} className="text-sm text-gray-600 list-disc">
+                      <li key={i} className="text-sm text-gray-600 dark:text-gray-300 list-disc">
                         {item}
                       </li>
                     ))}
@@ -224,13 +233,13 @@ export default function Changelog() {
 
               {entry.changed && entry.changed.length > 0 && (
                 <div>
-                  <div className="flex items-center gap-2 text-amber-600 mb-2">
+                  <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 mb-2">
                     <Wrench className="w-4 h-4" />
                     <span className="text-sm font-medium">Changed</span>
                   </div>
                   <ul className="space-y-1 ml-6">
                     {entry.changed.map((item, i) => (
-                      <li key={i} className="text-sm text-gray-600 list-disc">
+                      <li key={i} className="text-sm text-gray-600 dark:text-gray-300 list-disc">
                         {item}
                       </li>
                     ))}
@@ -240,13 +249,13 @@ export default function Changelog() {
 
               {entry.fixed && entry.fixed.length > 0 && (
                 <div>
-                  <div className="flex items-center gap-2 text-red-600 mb-2">
+                  <div className="flex items-center gap-2 text-red-600 dark:text-red-400 mb-2">
                     <Bug className="w-4 h-4" />
                     <span className="text-sm font-medium">Fixed</span>
                   </div>
                   <ul className="space-y-1 ml-6">
                     {entry.fixed.map((item, i) => (
-                      <li key={i} className="text-sm text-gray-600 list-disc">
+                      <li key={i} className="text-sm text-gray-600 dark:text-gray-300 list-disc">
                         {item}
                       </li>
                     ))}

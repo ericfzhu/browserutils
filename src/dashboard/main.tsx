@@ -3,6 +3,10 @@ import ReactDOM from 'react-dom/client';
 import { HashRouter } from 'react-router-dom';
 import App from './App';
 import '../styles/index.css';
+import { initTheme } from '../shared/theme';
+
+// Initialize theme before render to avoid flash
+initTheme();
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Save, Trash2, AlertTriangle } from 'lucide-react';
+import { Save, Trash2, AlertTriangle, Sun, Moon, Monitor } from 'lucide-react';
 import { Settings as SettingsType } from '../../shared/types';
+import { applyTheme } from '../../shared/theme';
 
 export default function SettingsPage() {
   const [settings, setSettings] = useState<SettingsType | null>(null);
@@ -126,10 +127,48 @@ export default function SettingsPage() {
 
   return (
     <div className="max-w-2xl">
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">Settings</h1>
+      <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6">Settings</h1>
+
+      {/* Appearance */}
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 mb-6">
+        <h2 className="text-lg font-semibold mb-4">Appearance</h2>
+        <div className="space-y-4">
+          <div>
+            <label className="block font-medium mb-2">Theme</label>
+            <div className="flex gap-2">
+              {[
+                { value: 'light', label: 'Light', icon: Sun },
+                { value: 'dark', label: 'Dark', icon: Moon },
+                { value: 'system', label: 'System', icon: Monitor },
+              ].map(({ value, label, icon: Icon }) => (
+                <button
+                  key={value}
+                  onClick={() => {
+                    const newSettings = { ...settings!, theme: value as SettingsType['theme'] };
+                    setSettings(newSettings);
+                    applyTheme(value as SettingsType['theme']);
+                    chrome.runtime.sendMessage({
+                      type: 'UPDATE_SETTINGS',
+                      payload: { theme: value },
+                    });
+                  }}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-colors ${
+                    settings?.theme === value
+                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+                      : 'border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* General Settings */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 mb-6">
         <h2 className="text-lg font-semibold mb-4">General</h2>
         <div className="space-y-4">
           <label className="flex items-center justify-between">
@@ -164,7 +203,7 @@ export default function SettingsPage() {
             <select
               value={settings.retentionDays}
               onChange={(e) => setSettings({ ...settings, retentionDays: parseInt(e.target.value) })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             >
               <option value={7}>7 days</option>
               <option value={14}>14 days</option>
@@ -187,7 +226,7 @@ export default function SettingsPage() {
                 min={0}
                 max={3600}
                 step={15}
-                className="w-32 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-32 px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
               <span className="text-sm text-gray-500">seconds</span>
               <div className="flex gap-2 ml-auto">
@@ -198,8 +237,8 @@ export default function SettingsPage() {
                     onClick={() => setSettings({ ...settings, idleThreshold: val })}
                     className={`px-2 py-1 text-xs rounded ${
                       settings.idleThreshold === val
-                        ? 'bg-blue-100 text-blue-700'
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300'
+                        : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                     }`}
                   >
                     {val < 60 ? `${val}s` : `${val / 60}m`}
@@ -207,7 +246,7 @@ export default function SettingsPage() {
                 ))}
               </div>
             </div>
-            <p className="text-xs text-gray-400 mt-1">
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
               Minimum: 15 seconds (Chrome API limit). Tracking also pauses when windows are minimized.
             </p>
           </div>
@@ -224,7 +263,7 @@ export default function SettingsPage() {
       </div>
 
       {/* New Tab Settings */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 mb-6">
         <h2 className="text-lg font-semibold mb-4">New Tab</h2>
         <div className="space-y-4">
           <div>
@@ -237,7 +276,7 @@ export default function SettingsPage() {
               value={settings.displayName}
               onChange={(e) => setSettings({ ...settings, displayName: e.target.value })}
               placeholder="Enter your name"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
           <p className="text-sm text-gray-500">
@@ -256,7 +295,7 @@ export default function SettingsPage() {
       </div>
 
       {/* Master Password */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 mb-6">
         <h2 className="text-lg font-semibold mb-4">Master Password</h2>
         <p className="text-sm text-gray-500 mb-4">
           Set a master password for unlocking password-protected blocked sites.
@@ -274,7 +313,7 @@ export default function SettingsPage() {
               setPasswordError('');
             }}
             placeholder="New password"
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           />
           <input
             type="password"
@@ -284,14 +323,14 @@ export default function SettingsPage() {
               setPasswordError('');
             }}
             placeholder="Confirm password"
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           />
           {passwordError && (
             <p className="text-sm text-red-600">{passwordError}</p>
           )}
           <button
             onClick={setMasterPassword}
-            className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg transition-colors"
+            className="bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 px-4 py-2 rounded-lg transition-colors"
           >
             {settings.passwordHash ? 'Update Password' : 'Set Password'}
           </button>
@@ -299,18 +338,18 @@ export default function SettingsPage() {
       </div>
 
       {/* Data Management */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
         <h2 className="text-lg font-semibold mb-4">Data Management</h2>
 
         <div className="space-y-4">
           <div className="flex items-center gap-3">
             <button
               onClick={exportData}
-              className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg transition-colors"
+              className="bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 px-4 py-2 rounded-lg transition-colors"
             >
               Export Data
             </button>
-            <label className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg transition-colors cursor-pointer">
+            <label className="bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 px-4 py-2 rounded-lg transition-colors cursor-pointer">
               Import Data
               <input
                 type="file"
@@ -321,12 +360,12 @@ export default function SettingsPage() {
             </label>
           </div>
 
-          <div className="pt-4 border-t border-gray-200">
-            <div className="flex items-start gap-3 p-4 bg-red-50 rounded-lg">
-              <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+          <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+            <div className="flex items-start gap-3 p-4 bg-red-50 dark:bg-red-900/20 rounded-lg">
+              <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
               <div>
-                <h3 className="font-medium text-red-900">Danger Zone</h3>
-                <p className="text-sm text-red-700 mb-3">
+                <h3 className="font-medium text-red-900 dark:text-red-300">Danger Zone</h3>
+                <p className="text-sm text-red-700 dark:text-red-400 mb-3">
                   This will permanently delete all your data including tracking history, blocked sites, and settings.
                 </p>
                 <button
