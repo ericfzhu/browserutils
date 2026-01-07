@@ -1,11 +1,11 @@
-import { BlockedSite, BlockedSiteFolder, DailyStats, Settings, StorageData, DEFAULT_SETTINGS } from './types';
+import { BlockedSite, BlockedSiteFolder, DailyStats, SiteSession, ActiveSession, Settings, DEFAULT_SETTINGS } from './types';
 
 const STORAGE_KEYS = {
   BLOCKED_SITES: 'blockedSites',
   BLOCKED_SITE_FOLDERS: 'blockedSiteFolders',
   SETTINGS: 'settings',
   DAILY_STATS: 'dailyStats',
-  ACTIVE_SESSION: 'activeSession',
+  ACTIVE_SESSIONS: 'activeSessions',
 } as const;
 
 export async function getBlockedSites(): Promise<BlockedSite[]> {
@@ -113,6 +113,7 @@ export async function getDailyStats(date?: string): Promise<DailyStats> {
     sites: {},
     visits: 0,
     blockedAttempts: 0,
+    sessions: [],
   };
 }
 
@@ -135,26 +136,100 @@ export async function incrementBlockedAttempt(_domain: string): Promise<void> {
   await updateDailyStats(today, stats);
 }
 
-export async function recordVisit(domain: string, duration: number): Promise<void> {
-  const today = getLocalDateString();
-  const stats = await getDailyStats(today);
-  stats.totalTime += duration;
-  stats.sites[domain] = (stats.sites[domain] || 0) + duration;
-  stats.visits++;
-  await updateDailyStats(today, stats);
-}
+// Merge overlapping intervals and return total duration in seconds
+export function mergeIntervals(intervals: { start: number; end: number }[]): { merged: { start: number; end: number }[]; totalSeconds: number } {
+  if (intervals.length === 0) return { merged: [], totalSeconds: 0 };
 
-export async function getActiveSession(): Promise<StorageData['activeSession'] | undefined> {
-  const result = await chrome.storage.local.get(STORAGE_KEYS.ACTIVE_SESSION);
-  return result[STORAGE_KEYS.ACTIVE_SESSION];
-}
+  // Sort by start time
+  const sorted = [...intervals].sort((a, b) => a.start - b.start);
+  const merged: { start: number; end: number }[] = [sorted[0]];
 
-export async function setActiveSession(session: StorageData['activeSession'] | undefined): Promise<void> {
-  if (session) {
-    await chrome.storage.local.set({ [STORAGE_KEYS.ACTIVE_SESSION]: session });
-  } else {
-    await chrome.storage.local.remove(STORAGE_KEYS.ACTIVE_SESSION);
+  for (let i = 1; i < sorted.length; i++) {
+    const current = sorted[i];
+    const last = merged[merged.length - 1];
+
+    if (current.start <= last.end) {
+      // Overlapping - extend the end if needed
+      last.end = Math.max(last.end, current.end);
+    } else {
+      // Non-overlapping - add new interval
+      merged.push(current);
+    }
   }
+
+  const totalSeconds = merged.reduce((sum, interval) => sum + Math.round((interval.end - interval.start) / 1000), 0);
+  return { merged, totalSeconds };
+}
+
+// Compute stats from sessions (totalTime and sites using interval union)
+export function computeStatsFromSessions(sessions: SiteSession[]): { totalTime: number; sites: Record<string, number> } {
+  // Calculate total time using union of all intervals
+  const allIntervals = sessions.map(s => ({ start: s.startTime, end: s.endTime }));
+  const { totalSeconds } = mergeIntervals(allIntervals);
+
+  // Calculate per-site time using union of that site's intervals
+  const siteIntervals = new Map<string, { start: number; end: number }[]>();
+  for (const session of sessions) {
+    const intervals = siteIntervals.get(session.domain) || [];
+    intervals.push({ start: session.startTime, end: session.endTime });
+    siteIntervals.set(session.domain, intervals);
+  }
+
+  const sites: Record<string, number> = {};
+  for (const [domain, intervals] of siteIntervals) {
+    const { totalSeconds: siteSeconds } = mergeIntervals(intervals);
+    sites[domain] = siteSeconds;
+  }
+
+  return { totalTime: totalSeconds, sites };
+}
+
+export async function recordSession(session: SiteSession): Promise<void> {
+  const sessionDate = new Date(session.startTime);
+  const dateStr = getLocalDateString(sessionDate);
+  const stats = await getDailyStats(dateStr);
+
+  // Add session
+  if (!stats.sessions) stats.sessions = [];
+  stats.sessions.push(session);
+  stats.visits++;
+
+  // Recompute totals from sessions
+  const computed = computeStatsFromSessions(stats.sessions);
+  stats.totalTime = computed.totalTime;
+  stats.sites = computed.sites;
+
+  await updateDailyStats(dateStr, stats);
+}
+
+// Active sessions management (multiple windows)
+export async function getActiveSessions(): Promise<Record<number, ActiveSession>> {
+  const result = await chrome.storage.local.get(STORAGE_KEYS.ACTIVE_SESSIONS);
+  return result[STORAGE_KEYS.ACTIVE_SESSIONS] || {};
+}
+
+export async function setActiveSessions(sessions: Record<number, ActiveSession>): Promise<void> {
+  await chrome.storage.local.set({ [STORAGE_KEYS.ACTIVE_SESSIONS]: sessions });
+}
+
+export async function addActiveSession(tabId: number, session: ActiveSession): Promise<void> {
+  const sessions = await getActiveSessions();
+  sessions[tabId] = session;
+  await setActiveSessions(sessions);
+}
+
+export async function removeActiveSession(tabId: number): Promise<ActiveSession | undefined> {
+  const sessions = await getActiveSessions();
+  const session = sessions[tabId];
+  if (session) {
+    delete sessions[tabId];
+    await setActiveSessions(sessions);
+  }
+  return session;
+}
+
+export async function clearActiveSessions(): Promise<void> {
+  await chrome.storage.local.remove(STORAGE_KEYS.ACTIVE_SESSIONS);
 }
 
 // Password hashing using Web Crypto API

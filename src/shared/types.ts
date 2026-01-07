@@ -36,12 +36,20 @@ export interface SiteVisit {
   duration: number; // seconds spent on page
 }
 
+export interface SiteSession {
+  domain: string;
+  startTime: number; // timestamp (ms)
+  endTime: number;   // timestamp (ms)
+  windowId: number;
+}
+
 export interface DailyStats {
   date: string; // YYYY-MM-DD
-  totalTime: number; // seconds
-  sites: Record<string, number>; // domain -> seconds
+  totalTime: number; // seconds (computed from sessions union)
+  sites: Record<string, number>; // domain -> seconds (computed from sessions)
   visits: number;
   blockedAttempts: number;
+  sessions: SiteSession[]; // detailed session records
 }
 
 export interface Settings {
@@ -62,16 +70,19 @@ export interface QuickLink {
   icon?: string; // emoji or URL
 }
 
+export interface ActiveSession {
+  domain: string;
+  startTime: number;
+  tabId: number;
+  windowId: number;
+}
+
 export interface StorageData {
   blockedSites: BlockedSite[];
   blockedSiteFolders: BlockedSiteFolder[];
   settings: Settings;
   dailyStats: Record<string, DailyStats>; // date -> stats
-  activeSession?: {
-    domain: string;
-    startTime: number;
-    tabId: number;
-  };
+  activeSessions: Record<number, ActiveSession>; // tabId -> session (multiple windows)
 }
 
 export const DEFAULT_SETTINGS: Settings = {

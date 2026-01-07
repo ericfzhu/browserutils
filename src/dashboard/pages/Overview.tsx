@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Clock, Globe, Shield, TrendingUp } from 'lucide-react';
-import { DailyStats, BlockedSite } from '../../shared/types';
+import { Link } from 'react-router-dom';
+import { Clock, Globe, Shield, TrendingUp, Layers, ArrowRight } from 'lucide-react';
+import { DailyStats, BlockedSite, SiteSession } from '../../shared/types';
 
 function formatTime(seconds: number): string {
   const hours = Math.floor(seconds / 3600);
@@ -11,10 +12,195 @@ function formatTime(seconds: number): string {
   return `${minutes}m`;
 }
 
+function formatTimeOfDay(timestamp: number): string {
+  const date = new Date(timestamp);
+  return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+}
+
+// Generate a consistent color based on domain name
+function getDomainColor(domain: string): string {
+  const colors = [
+    'bg-blue-500', 'bg-green-500', 'bg-purple-500', 'bg-orange-500',
+    'bg-pink-500', 'bg-teal-500', 'bg-indigo-500', 'bg-red-500',
+    'bg-cyan-500', 'bg-amber-500', 'bg-lime-500', 'bg-emerald-500',
+  ];
+  let hash = 0;
+  for (let i = 0; i < domain.length; i++) {
+    hash = domain.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return colors[Math.abs(hash) % colors.length];
+}
+
+interface TimelinePreviewProps {
+  sessions: SiteSession[];
+  sites: Record<string, number>;
+}
+
+// Simplified timeline preview for Overview - shows top 5 sites, no navigation
+function TimelinePreview({ sessions, sites }: TimelinePreviewProps) {
+  const DISPLAY_COUNT = 5;
+
+  const now = new Date();
+  const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+  const dayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+
+  // Find actual time range from sessions
+  let minTime = dayEnd.getTime();
+  let maxTime = dayStart.getTime();
+  sessions.forEach(s => {
+    minTime = Math.min(minTime, s.startTime);
+    maxTime = Math.max(maxTime, s.endTime);
+  });
+
+  // Add 30 min padding
+  minTime = Math.max(dayStart.getTime(), minTime - 30 * 60 * 1000);
+  maxTime = Math.min(dayEnd.getTime(), maxTime + 30 * 60 * 1000);
+
+  // If no sessions, show 8am to current time
+  if (sessions.length === 0) {
+    minTime = dayStart.getTime() + 8 * 60 * 60 * 1000;
+    maxTime = now.getTime();
+  }
+
+  const timeRange = Math.max(maxTime - minTime, 1);
+
+  // Sort sites by total time, take top 5
+  const sortedSites = Object.entries(sites).sort((a, b) => b[1] - a[1]);
+  const displayedSites = sortedSites.slice(0, DISPLAY_COUNT);
+
+  // Group sessions by domain
+  const sessionsByDomain = new Map<string, SiteSession[]>();
+  sessions.forEach(session => {
+    const existing = sessionsByDomain.get(session.domain) || [];
+    existing.push(session);
+    sessionsByDomain.set(session.domain, existing);
+  });
+
+  // Generate hour markers
+  const hourMarkers: { hour: number; label: string; position: number }[] = [];
+  const startHour = new Date(minTime).getHours();
+  const endHour = new Date(maxTime).getHours();
+  for (let h = startHour; h <= endHour; h++) {
+    const markerTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, 0, 0).getTime();
+    if (markerTime >= minTime && markerTime <= maxTime) {
+      const position = ((markerTime - minTime) / timeRange) * 100;
+      hourMarkers.push({
+        hour: h,
+        label: h === 0 ? '12am' : h < 12 ? `${h}am` : h === 12 ? '12pm' : `${h - 12}pm`,
+        position,
+      });
+    }
+  }
+
+  if (sortedSites.length === 0 && sessions.length === 0) {
+    return (
+      <div className="text-center py-6 text-gray-500">
+        No activity recorded yet today
+      </div>
+    );
+  }
+
+  if (sortedSites.length > 0 && sessions.length === 0) {
+    return (
+      <div className="text-center py-6 text-gray-500">
+        <p>Timeline data will appear as you browse.</p>
+        <p className="text-xs mt-1">Session tracking has just been enabled.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      {/* Time axis header */}
+      <div className="relative h-5 mb-2 ml-32">
+        {hourMarkers.map(marker => (
+          <div
+            key={marker.hour}
+            className="absolute text-xs text-gray-400"
+            style={{ left: `${marker.position}%`, transform: 'translateX(-50%)' }}
+          >
+            {marker.label}
+          </div>
+        ))}
+      </div>
+
+      {/* Timeline rows */}
+      <div className="space-y-1.5">
+        {displayedSites.map(([domain, totalTime]) => {
+          const domainSessions = sessionsByDomain.get(domain) || [];
+          const color = getDomainColor(domain);
+          const windowIds = new Set(domainSessions.map(s => s.windowId));
+          const hasMultipleWindows = windowIds.size > 1;
+
+          return (
+            <div key={domain} className="flex items-center gap-2">
+              <div className="w-28 flex-shrink-0">
+                <div className="flex items-center gap-1">
+                  <span className="text-xs font-medium truncate" title={domain}>
+                    {domain.replace(/^www\./, '')}
+                  </span>
+                  {hasMultipleWindows && (
+                    <span title="Multiple windows">
+                      <Layers className="w-3 h-3 text-gray-400 flex-shrink-0" />
+                    </span>
+                  )}
+                </div>
+                <span className="text-xs text-gray-400">{formatTime(totalTime)}</span>
+              </div>
+
+              <div className="flex-1 relative h-5 bg-gray-100 rounded overflow-hidden">
+                {hourMarkers.map(marker => (
+                  <div
+                    key={marker.hour}
+                    className="absolute top-0 bottom-0 w-px bg-gray-200"
+                    style={{ left: `${marker.position}%` }}
+                  />
+                ))}
+
+                {domainSessions.map((session, idx) => {
+                  const startPos = Math.max(0, ((session.startTime - minTime) / timeRange) * 100);
+                  const endPos = Math.min(100, ((session.endTime - minTime) / timeRange) * 100);
+                  const width = Math.max(0.5, endPos - startPos);
+
+                  return (
+                    <div
+                      key={idx}
+                      className={`absolute top-0.5 bottom-0.5 ${color} rounded-sm opacity-80`}
+                      style={{ left: `${startPos}%`, width: `${width}%` }}
+                      title={`${formatTimeOfDay(session.startTime)} - ${formatTimeOfDay(session.endTime)}`}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Link to full timeline */}
+      {sortedSites.length > DISPLAY_COUNT && (
+        <Link
+          to="/metrics"
+          className="mt-3 flex items-center justify-center gap-1 text-sm text-blue-600 hover:text-blue-700"
+        >
+          View all {sortedSites.length} sites
+          <ArrowRight className="w-4 h-4" />
+        </Link>
+      )}
+    </div>
+  );
+}
+
+function getDateString(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
 export default function Overview() {
   const [todayStats, setTodayStats] = useState<DailyStats | null>(null);
   const [blockedSites, setBlockedSites] = useState<BlockedSite[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const today = getDateString(new Date());
 
   useEffect(() => {
     loadData();
@@ -22,8 +208,6 @@ export default function Overview() {
 
   async function loadData() {
     try {
-      const now = new Date();
-      const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
       const [stats, sites] = await Promise.all([
         chrome.runtime.sendMessage({ type: 'GET_STATS', payload: { date: today } }),
         chrome.runtime.sendMessage({ type: 'GET_BLOCKED_SITES' }),
@@ -96,6 +280,21 @@ export default function Overview() {
           </div>
           <p className="text-2xl font-bold">{blockedSites.filter(s => s.enabled).length}</p>
         </div>
+      </div>
+
+      {/* Activity Timeline Preview */}
+      <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold">Today's Activity</h2>
+          <Link to="/metrics" className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1">
+            Full timeline
+            <ArrowRight className="w-4 h-4" />
+          </Link>
+        </div>
+        <TimelinePreview
+          sessions={todayStats?.sessions || []}
+          sites={todayStats?.sites || {}}
+        />
       </div>
 
       <div className="grid grid-cols-2 gap-6">

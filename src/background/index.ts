@@ -14,8 +14,11 @@ import {
   getDailyStats,
   getAllDailyStats,
   incrementBlockedAttempt,
-  recordVisit,
-  setActiveSession,
+  recordSession,
+  getActiveSessions,
+  addActiveSession,
+  removeActiveSession,
+  clearActiveSessions,
   verifyPassword,
   matchesPattern,
 } from '../shared/storage';
@@ -23,100 +26,86 @@ import { BlockedSite, MessageType } from '../shared/types';
 
 // Session state keys for chrome.storage.session
 const SESSION_KEYS = {
-  ACTIVE_TAB_ID: 'activeTabId',
-  ACTIVE_TAB_DOMAIN: 'activeTabDomain',
-  ACTIVE_TAB_START_TIME: 'activeTabStartTime',
   IS_USER_IDLE: 'isUserIdle',
 } as const;
 
-// In-memory cache (restored from session storage on startup)
-let activeTabId: number | null = null;
-let activeTabDomain: string | null = null;
-let activeTabStartTime: number | null = null;
+// In-memory idle state (restored from session storage on startup)
 let isUserIdle = false;
 
 // Session state helpers
-async function saveSessionState(): Promise<void> {
+async function saveIdleState(): Promise<void> {
   await chrome.storage.session.set({
-    [SESSION_KEYS.ACTIVE_TAB_ID]: activeTabId,
-    [SESSION_KEYS.ACTIVE_TAB_DOMAIN]: activeTabDomain,
-    [SESSION_KEYS.ACTIVE_TAB_START_TIME]: activeTabStartTime,
     [SESSION_KEYS.IS_USER_IDLE]: isUserIdle,
   });
 }
 
-async function restoreSessionState(): Promise<void> {
-  const data = await chrome.storage.session.get([
-    SESSION_KEYS.ACTIVE_TAB_ID,
-    SESSION_KEYS.ACTIVE_TAB_DOMAIN,
-    SESSION_KEYS.ACTIVE_TAB_START_TIME,
-    SESSION_KEYS.IS_USER_IDLE,
-  ]);
-
-  activeTabId = data[SESSION_KEYS.ACTIVE_TAB_ID] ?? null;
-  activeTabDomain = data[SESSION_KEYS.ACTIVE_TAB_DOMAIN] ?? null;
-  activeTabStartTime = data[SESSION_KEYS.ACTIVE_TAB_START_TIME] ?? null;
+async function restoreIdleState(): Promise<void> {
+  const data = await chrome.storage.session.get([SESSION_KEYS.IS_USER_IDLE]);
   isUserIdle = data[SESSION_KEYS.IS_USER_IDLE] ?? false;
 }
 
-// Recover tracking session on service worker wake-up
+// Recover tracking sessions on service worker wake-up
 async function recoverSession(): Promise<void> {
-  await restoreSessionState();
+  await restoreIdleState();
 
-  // If we had an active session, verify the tab still exists and is active
-  if (activeTabId && activeTabStartTime) {
+  // Get all active sessions and verify they're still valid
+  const activeSessions = await getActiveSessions();
+
+  for (const [tabIdStr, session] of Object.entries(activeSessions)) {
+    const tabId = parseInt(tabIdStr);
     try {
-      const tab = await chrome.tabs.get(activeTabId);
+      const tab = await chrome.tabs.get(tabId);
 
-      // Check if tab is still active in a focused window
+      // Check if tab is still active in a visible window
       if (tab.active && tab.windowId) {
         const window = await chrome.windows.get(tab.windowId);
-        if (window.focused && window.state !== 'minimized') {
+        if (window.state !== 'minimized') {
           // Session is still valid, continue tracking
-          console.log('Recovered active session for:', activeTabDomain);
-          return;
+          console.log('Recovered active session for:', session.domain);
+          continue;
         }
       }
 
-      // Tab exists but isn't active anymore - save accumulated time and end session
-      if (activeTabDomain && activeTabStartTime) {
-        const duration = Math.round((Date.now() - activeTabStartTime) / 1000);
-        if (duration > 0) {
-          await recordVisit(activeTabDomain, duration);
-        }
-      }
+      // Tab exists but isn't active anymore - end the session
+      await endSession(tabId);
     } catch {
-      // Tab no longer exists - save what we have
-      if (activeTabDomain && activeTabStartTime) {
-        const duration = Math.round((Date.now() - activeTabStartTime) / 1000);
-        // Cap at reasonable max (10 minutes) in case of stale data
-        if (duration > 0 && duration < 600) {
-          await recordVisit(activeTabDomain, duration);
-        }
+      // Tab no longer exists - end the session (cap at 10 minutes for stale data)
+      const duration = Date.now() - session.startTime;
+      if (duration > 0 && duration < 600000) {
+        await recordSession({
+          domain: session.domain,
+          startTime: session.startTime,
+          endTime: Date.now(),
+          windowId: session.windowId,
+        });
       }
+      await removeActiveSession(tabId);
     }
-
-    // Clear the session
-    activeTabId = null;
-    activeTabDomain = null;
-    activeTabStartTime = null;
-    await saveSessionState();
-    await setActiveSession(undefined);
   }
 
-  // Check current active tab and start tracking if appropriate
+  // Start tracking for all visible windows if not idle
   if (!isUserIdle) {
-    try {
-      const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
-      if (tab?.url && tab.id) {
-        const window = await chrome.windows.get(tab.windowId!);
-        if (window.focused && window.state !== 'minimized') {
-          await startSession(tab.id, tab.url);
+    await startAllVisibleSessions();
+  }
+}
+
+// Start sessions for all visible (non-minimized) windows
+async function startAllVisibleSessions(): Promise<void> {
+  const settings = await getSettings();
+  if (!settings.trackingEnabled) return;
+
+  try {
+    const windows = await chrome.windows.getAll({ windowTypes: ['normal'] });
+    for (const window of windows) {
+      if (window.state !== 'minimized' && window.id) {
+        const [tab] = await chrome.tabs.query({ active: true, windowId: window.id });
+        if (tab?.url && tab.id) {
+          await startSession(tab.id, tab.url, window.id);
         }
       }
-    } catch {
-      // No active tab
     }
+  } catch {
+    // Failed to get windows
   }
 }
 
@@ -156,37 +145,20 @@ chrome.idle.onStateChanged.addListener(async (state) => {
     // User became active again
     if (isUserIdle) {
       isUserIdle = false;
-      await saveSessionState();
-      // Resume tracking if we have an active tab
-      if (activeTabId) {
-        try {
-          const tab = await chrome.tabs.get(activeTabId);
-          if (tab.url) {
-            await startSession(activeTabId, tab.url);
-          }
-        } catch {
-          // Tab no longer exists - find current active tab
-          try {
-            const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
-            if (tab?.url && tab.id) {
-              await startSession(tab.id, tab.url);
-            }
-          } catch {
-            // No active tab
-          }
-        }
-      }
+      await saveIdleState();
+      // Resume tracking for all visible windows
+      await startAllVisibleSessions();
     }
   } else {
     // User is idle or locked
     if (!isUserIdle) {
-      // Check if active tab is playing audio (e.g., YouTube video)
-      // If so, don't pause tracking
-      if (activeTabId) {
+      // Check if any active session is playing audio (e.g., YouTube video)
+      const activeSessions = await getActiveSessions();
+      for (const [tabIdStr] of Object.entries(activeSessions)) {
         try {
-          const tab = await chrome.tabs.get(activeTabId);
+          const tab = await chrome.tabs.get(parseInt(tabIdStr));
           if (tab.audible) {
-            // Tab is playing audio, continue tracking
+            // A tab is playing audio, continue tracking
             return;
           }
         } catch {
@@ -194,8 +166,8 @@ chrome.idle.onStateChanged.addListener(async (state) => {
         }
       }
       isUserIdle = true;
-      await saveSessionState();
-      await endCurrentSession();
+      await saveIdleState();
+      await endAllSessions();
     }
   }
 });
@@ -315,11 +287,9 @@ async function handleHeartbeat(sender?: chrome.runtime.MessageSender): Promise<v
   const settings = await getSettings();
   if (!settings.trackingEnabled) return;
 
-  // Restore session state if needed
-  await restoreSessionState();
-
   const tabId = sender.tab.id;
   const url = sender.tab.url;
+  const windowId = sender.tab.windowId ?? 0;
   const domain = getDomainFromUrl(url);
   if (!domain) return;
 
@@ -329,34 +299,41 @@ async function handleHeartbeat(sender?: chrome.runtime.MessageSender): Promise<v
   }
 
   const now = Date.now();
+  const activeSessions = await getActiveSessions();
+  const session = activeSessions[tabId];
 
-  // If this is the active session, save progress
-  if (activeTabId === tabId && activeTabDomain && activeTabStartTime) {
-    const duration = Math.round((now - activeTabStartTime) / 1000);
+  // If this tab has an active session, save progress
+  if (session) {
+    const duration = Math.round((now - session.startTime) / 1000);
     if (duration > 0) {
-      await recordVisit(activeTabDomain, duration);
-      activeTabStartTime = now;
-      await saveSessionState();
+      await recordSession({
+        domain: session.domain,
+        startTime: session.startTime,
+        endTime: now,
+        windowId: session.windowId,
+      });
+      // Reset session start time
+      await addActiveSession(tabId, {
+        domain: session.domain,
+        startTime: now,
+        tabId,
+        windowId: session.windowId,
+      });
     }
-  } else if (!activeTabId || !activeTabStartTime) {
-    // No active session - start one if this tab is active
-    if (sender.tab.active) {
-      try {
-        const window = await chrome.windows.get(sender.tab.windowId!);
-        if (window.focused && window.state !== 'minimized') {
-          activeTabId = tabId;
-          activeTabDomain = domain;
-          activeTabStartTime = now;
-          await saveSessionState();
-          await setActiveSession({
-            domain,
-            startTime: activeTabStartTime,
-            tabId,
-          });
-        }
-      } catch {
-        // Window doesn't exist
+  } else if (sender.tab.active && !isUserIdle) {
+    // No active session for this tab - start one if tab is active and visible
+    try {
+      const window = await chrome.windows.get(windowId);
+      if (window.state !== 'minimized') {
+        await addActiveSession(tabId, {
+          domain,
+          startTime: now,
+          tabId,
+          windowId,
+        });
       }
+    } catch {
+      // Window doesn't exist
     }
   }
 }
@@ -371,33 +348,25 @@ async function handleVisibilityChange(
   const settings = await getSettings();
   if (!settings.trackingEnabled) return;
 
-  await restoreSessionState();
-
   const tabId = sender.tab.id;
+  const windowId = sender.tab.windowId ?? 0;
   const domain = getDomainFromUrl(payload.url);
   if (!domain) return;
 
   if (payload.visible) {
-    // Page became visible - start tracking if this is the active tab
+    // Page became visible - start tracking if this is the active tab in a visible window
     if (sender.tab.active && !isUserIdle) {
       try {
-        const window = await chrome.windows.get(sender.tab.windowId!);
-        if (window.focused && window.state !== 'minimized') {
-          // End any existing session first
-          if (activeTabId && activeTabId !== tabId) {
-            await endCurrentSession();
-          }
-
-          // Start new session
-          if (activeTabId !== tabId) {
-            activeTabId = tabId;
-            activeTabDomain = domain;
-            activeTabStartTime = Date.now();
-            await saveSessionState();
-            await setActiveSession({
+        const window = await chrome.windows.get(windowId);
+        if (window.state !== 'minimized') {
+          const activeSessions = await getActiveSessions();
+          // Start new session if we don't have one for this tab
+          if (!activeSessions[tabId]) {
+            await addActiveSession(tabId, {
               domain,
-              startTime: activeTabStartTime,
+              startTime: Date.now(),
               tabId,
+              windowId,
             });
           }
         }
@@ -406,18 +375,8 @@ async function handleVisibilityChange(
       }
     }
   } else {
-    // Page became hidden - save progress and end session for this tab
-    if (activeTabId === tabId && activeTabDomain && activeTabStartTime) {
-      const duration = Math.round((Date.now() - activeTabStartTime) / 1000);
-      if (duration > 0) {
-        await recordVisit(activeTabDomain, duration);
-      }
-      activeTabId = null;
-      activeTabDomain = null;
-      activeTabStartTime = null;
-      await saveSessionState();
-      await setActiveSession(undefined);
-    }
+    // Page became hidden - end session for this tab
+    await endSession(tabId);
   }
 }
 
@@ -586,21 +545,46 @@ function getDomainFromUrl(url: string): string | null {
   }
 }
 
-async function endCurrentSession(): Promise<void> {
-  if (activeTabDomain && activeTabStartTime) {
-    const duration = Math.round((Date.now() - activeTabStartTime) / 1000);
+// End a specific session by tab ID
+async function endSession(tabId: number): Promise<void> {
+  const session = await removeActiveSession(tabId);
+  if (session && session.startTime) {
+    const duration = Math.round((Date.now() - session.startTime) / 1000);
     if (duration > 0) {
-      await recordVisit(activeTabDomain, duration);
+      await recordSession({
+        domain: session.domain,
+        startTime: session.startTime,
+        endTime: Date.now(),
+        windowId: session.windowId,
+      });
     }
   }
-  activeTabId = null;
-  activeTabDomain = null;
-  activeTabStartTime = null;
-  await saveSessionState();
-  await setActiveSession(undefined);
 }
 
-async function startSession(tabId: number, url: string): Promise<void> {
+// End all active sessions
+async function endAllSessions(): Promise<void> {
+  const activeSessions = await getActiveSessions();
+  const now = Date.now();
+
+  for (const [, session] of Object.entries(activeSessions)) {
+    if (session.startTime) {
+      const duration = Math.round((now - session.startTime) / 1000);
+      if (duration > 0) {
+        await recordSession({
+          domain: session.domain,
+          startTime: session.startTime,
+          endTime: now,
+          windowId: session.windowId,
+        });
+      }
+    }
+  }
+
+  await clearActiveSessions();
+}
+
+// Start a session for a specific tab
+async function startSession(tabId: number, url: string, windowId?: number): Promise<void> {
   const settings = await getSettings();
   if (!settings.trackingEnabled) return;
 
@@ -615,40 +599,67 @@ async function startSession(tabId: number, url: string): Promise<void> {
     return;
   }
 
-  // Check if window is minimized
-  try {
-    const tab = await chrome.tabs.get(tabId);
-    if (tab.windowId) {
-      const window = await chrome.windows.get(tab.windowId);
-      if (window.state === 'minimized') {
-        return; // Don't track minimized windows
+  // Get window ID if not provided
+  let actualWindowId = windowId;
+  if (!actualWindowId) {
+    try {
+      const tab = await chrome.tabs.get(tabId);
+      actualWindowId = tab.windowId;
+      if (actualWindowId) {
+        const window = await chrome.windows.get(actualWindowId);
+        if (window.state === 'minimized') {
+          return; // Don't track minimized windows
+        }
       }
+    } catch {
+      // Tab or window doesn't exist
+      return;
     }
-  } catch {
-    // Tab or window doesn't exist
-    return;
   }
 
-  await endCurrentSession();
+  if (!actualWindowId) return;
 
-  activeTabId = tabId;
-  activeTabDomain = domain;
-  activeTabStartTime = Date.now();
+  // Check if we already have a session for this tab
+  const activeSessions = await getActiveSessions();
+  const existingSession = activeSessions[tabId];
 
-  await saveSessionState();
-  await setActiveSession({
+  if (existingSession) {
+    // If domain changed, end current session and start new one
+    if (existingSession.domain !== domain) {
+      await endSession(tabId);
+    } else {
+      // Same domain, keep existing session
+      return;
+    }
+  }
+
+  // Start new session
+  await addActiveSession(tabId, {
     domain,
-    startTime: activeTabStartTime,
+    startTime: Date.now(),
     tabId,
+    windowId: actualWindowId,
   });
 }
 
 // Tab change listeners
 chrome.tabs.onActivated.addListener(async (activeInfo) => {
+  if (isUserIdle) return;
+
   try {
     const tab = await chrome.tabs.get(activeInfo.tabId);
+
+    // End the previous active tab's session in this window
+    const activeSessions = await getActiveSessions();
+    for (const [tabIdStr, session] of Object.entries(activeSessions)) {
+      if (session.windowId === tab.windowId && parseInt(tabIdStr) !== activeInfo.tabId) {
+        await endSession(parseInt(tabIdStr));
+      }
+    }
+
+    // Start session for newly activated tab
     if (tab.url) {
-      await startSession(activeInfo.tabId, tab.url);
+      await startSession(activeInfo.tabId, tab.url, tab.windowId);
     }
   } catch {
     // Tab might not exist
@@ -657,24 +668,26 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
 
 chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
   if (changeInfo.status === 'complete' && tab.active && tab.url) {
-    await startSession(tabId, tab.url);
+    await startSession(tabId, tab.url, tab.windowId);
   }
 });
 
 chrome.tabs.onRemoved.addListener(async (tabId) => {
-  if (tabId === activeTabId) {
-    await endCurrentSession();
-  }
+  await endSession(tabId);
 });
 
 chrome.windows.onFocusChanged.addListener(async (windowId) => {
-  if (windowId === chrome.windows.WINDOW_ID_NONE) {
-    await endCurrentSession();
-  } else {
+  // For multi-window tracking, we don't end sessions when focus changes
+  // Sessions continue in all visible windows
+  // Only start a session for the newly focused window's active tab if needed
+  if (windowId !== chrome.windows.WINDOW_ID_NONE && !isUserIdle) {
     try {
-      const [tab] = await chrome.tabs.query({ active: true, windowId });
-      if (tab?.url && tab.id) {
-        await startSession(tab.id, tab.url);
+      const window = await chrome.windows.get(windowId);
+      if (window.state !== 'minimized') {
+        const [tab] = await chrome.tabs.query({ active: true, windowId });
+        if (tab?.url && tab.id) {
+          await startSession(tab.id, tab.url, windowId);
+        }
       }
     } catch {
       // No active tab
@@ -682,57 +695,78 @@ chrome.windows.onFocusChanged.addListener(async (windowId) => {
   }
 });
 
+// Handle window state changes (minimize/restore)
+// Note: onBoundsChanged doesn't fire for minimize, so we use periodic checkMinimizedWindows
+
+// Check for minimized windows periodically and handle them
+async function checkMinimizedWindows(): Promise<void> {
+  const activeSessions = await getActiveSessions();
+  const windows = await chrome.windows.getAll({ windowTypes: ['normal'] });
+  const minimizedWindowIds = new Set(
+    windows.filter(w => w.state === 'minimized').map(w => w.id)
+  );
+
+  for (const [tabIdStr, session] of Object.entries(activeSessions)) {
+    if (minimizedWindowIds.has(session.windowId)) {
+      await endSession(parseInt(tabIdStr));
+    }
+  }
+}
+
 // Periodic save and cleanup
 chrome.alarms.create('saveSession', { periodInMinutes: 1 });
 chrome.alarms.create('cleanup', { periodInMinutes: 60 });
+chrome.alarms.create('checkMinimized', { periodInMinutes: 0.25 }); // Every 15 seconds
 
 chrome.alarms.onAlarm.addListener(async (alarm) => {
-  // Restore session state in case service worker was restarted
-  await restoreSessionState();
+  // Restore idle state in case service worker was restarted
+  await restoreIdleState();
 
   if (alarm.name === 'saveSession') {
-    // Check if we have a session but in-memory state was lost
-    if (!activeTabStartTime) {
-      // Try to recover from session storage
-      const data = await chrome.storage.session.get([
-        SESSION_KEYS.ACTIVE_TAB_ID,
-        SESSION_KEYS.ACTIVE_TAB_DOMAIN,
-        SESSION_KEYS.ACTIVE_TAB_START_TIME,
-      ]);
+    // Save progress for all active sessions
+    const activeSessions = await getActiveSessions();
+    const now = Date.now();
 
-      if (data[SESSION_KEYS.ACTIVE_TAB_START_TIME]) {
-        // We had a session, verify it's still valid
-        const storedTabId = data[SESSION_KEYS.ACTIVE_TAB_ID];
-        if (storedTabId) {
-          try {
-            const tab = await chrome.tabs.get(storedTabId);
-            if (tab.active && tab.windowId) {
-              const window = await chrome.windows.get(tab.windowId);
-              if (window.focused && window.state !== 'minimized') {
-                // Restore the session
-                activeTabId = storedTabId;
-                activeTabDomain = data[SESSION_KEYS.ACTIVE_TAB_DOMAIN];
-                activeTabStartTime = data[SESSION_KEYS.ACTIVE_TAB_START_TIME];
-              }
+    for (const [tabIdStr, session] of Object.entries(activeSessions)) {
+      const tabId = parseInt(tabIdStr);
+      // Verify tab still exists and is active
+      try {
+        const tab = await chrome.tabs.get(tabId);
+        if (tab.active && tab.windowId) {
+          const window = await chrome.windows.get(tab.windowId);
+          if (window.state !== 'minimized') {
+            // Save session progress
+            const duration = Math.round((now - session.startTime) / 1000);
+            if (duration > 0) {
+              await recordSession({
+                domain: session.domain,
+                startTime: session.startTime,
+                endTime: now,
+                windowId: session.windowId,
+              });
+              // Reset start time for next interval
+              await addActiveSession(tabId, {
+                ...session,
+                startTime: now,
+              });
             }
-          } catch {
-            // Tab doesn't exist anymore
+            continue;
           }
         }
+        // Tab not active or window minimized - end session
+        await endSession(tabId);
+      } catch {
+        // Tab doesn't exist anymore - end session
+        await endSession(tabId);
       }
     }
 
-    // Save current session progress
-    if (activeTabDomain && activeTabStartTime) {
-      const duration = Math.round((Date.now() - activeTabStartTime) / 1000);
-      if (duration > 0) {
-        await recordVisit(activeTabDomain, duration);
-        activeTabStartTime = Date.now(); // Reset for next interval
-        await saveSessionState();
-      }
-    }
     // Refresh blocking rules (for timer-based unlocks that may have expired)
     await updateBlockingRules();
+  }
+
+  if (alarm.name === 'checkMinimized') {
+    await checkMinimizedWindows();
   }
 
   if (alarm.name === 'cleanup') {

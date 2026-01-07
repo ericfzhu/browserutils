@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { Routes, Route, NavLink } from 'react-router-dom';
-import { BarChart3, Shield, Settings, LayoutDashboard } from 'lucide-react';
+import { Routes, Route, NavLink, Link } from 'react-router-dom';
+import { BarChart3, Shield, Settings, LayoutDashboard, Sparkles } from 'lucide-react';
 import Overview from './pages/Overview';
 import BlockedSites from './pages/BlockedSites';
 import Metrics from './pages/Metrics';
 import SettingsPage from './pages/Settings';
+import Changelog, { CURRENT_VERSION } from './pages/Changelog';
 
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Overview' },
@@ -19,7 +20,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-gray-50 flex">
       {/* Sidebar */}
-      <nav className="w-64 bg-white border-r border-gray-200 p-4 flex flex-col">
+      <nav className="w-64 bg-white border-r border-gray-200 p-4 flex flex-col h-screen sticky top-0">
         <div
           className="flex items-center gap-2 mb-8 cursor-default"
           onMouseEnter={() => setIsHovered(true)}
@@ -68,10 +69,15 @@ export default function App() {
           ))}
         </div>
 
-        <div className="mt-auto pt-4 border-t">
-          <p className="text-xs text-gray-400 text-center">
-            v1.0.0
-          </p>
+        <div className="mt-auto pt-4 border-t space-y-2">
+          <Link
+            to="/changelog"
+            className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:bg-blue-50 hover:text-blue-700 rounded-lg transition-colors"
+          >
+            <Sparkles className="w-4 h-4" />
+            What's New
+          </Link>
+          <p className="text-xs text-gray-400 text-center">v{CURRENT_VERSION}</p>
         </div>
       </nav>
 
@@ -82,6 +88,7 @@ export default function App() {
           <Route path="/blocked" element={<BlockedSites />} />
           <Route path="/metrics" element={<Metrics />} />
           <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/changelog" element={<Changelog />} />
         </Routes>
       </main>
     </div>
