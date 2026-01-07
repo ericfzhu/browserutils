@@ -1,8 +1,14 @@
 import {
   getBlockedSites,
+  setBlockedSites,
   addBlockedSite,
   removeBlockedSite,
   updateBlockedSite,
+  getBlockedSiteFolders,
+  setBlockedSiteFolders,
+  addBlockedSiteFolder,
+  updateBlockedSiteFolder,
+  removeBlockedSiteFolder,
   getSettings,
   updateSettings,
   getDailyStats,
@@ -224,6 +230,11 @@ async function handleMessage(message: MessageType, sender?: chrome.runtime.Messa
       await updateBlockingRules();
       return { success: true };
     }
+    case 'UPDATE_BLOCKED_SITES': {
+      await setBlockedSites(message.payload);
+      await updateBlockingRules();
+      return { success: true };
+    }
     case 'UNLOCK_SITE': {
       return unlockSite(message.payload.id, message.payload.password);
     }
@@ -257,6 +268,26 @@ async function handleMessage(message: MessageType, sender?: chrome.runtime.Messa
     }
     case 'INCREMENT_BLOCKED_ATTEMPT': {
       await incrementBlockedAttempt(message.payload.domain);
+      return { success: true };
+    }
+    // Folder operations
+    case 'GET_BLOCKED_SITE_FOLDERS': {
+      return getBlockedSiteFolders();
+    }
+    case 'ADD_BLOCKED_SITE_FOLDER': {
+      return addBlockedSiteFolder(message.payload);
+    }
+    case 'UPDATE_BLOCKED_SITE_FOLDER': {
+      await updateBlockedSiteFolder(message.payload);
+      return { success: true };
+    }
+    case 'UPDATE_BLOCKED_SITE_FOLDERS': {
+      await setBlockedSiteFolders(message.payload);
+      return { success: true };
+    }
+    case 'REMOVE_BLOCKED_SITE_FOLDER': {
+      await removeBlockedSiteFolder(message.payload.id);
+      await updateBlockingRules();
       return { success: true };
     }
     // Content script messages

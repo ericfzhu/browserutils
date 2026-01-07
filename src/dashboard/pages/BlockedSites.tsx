@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Plus, Trash2, Edit2, X, Shield, Clock, Calendar, Lock } from 'lucide-react';
-import { BlockedSite } from '../../shared/types';
+import { Plus, Trash2, Edit2, X, Shield, Clock, Calendar, Lock, FolderPlus, ChevronDown, ChevronRight, GripVertical } from 'lucide-react';
+import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
+import { BlockedSite, BlockedSiteFolder } from '../../shared/types';
 import { hashPassword } from '../../shared/storage';
 
 type UnlockType = BlockedSite['unlockType'];
@@ -13,6 +14,7 @@ interface FormData {
   scheduleDays: number[];
   scheduleStart: string;
   scheduleEnd: string;
+  folderId?: string;
 }
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -25,25 +27,34 @@ const defaultFormData: FormData = {
   scheduleDays: [1, 2, 3, 4, 5], // Weekdays
   scheduleStart: '09:00',
   scheduleEnd: '17:00',
+  folderId: undefined,
 };
 
 export default function BlockedSites() {
   const [sites, setSites] = useState<BlockedSite[]>([]);
+  const [folders, setFolders] = useState<BlockedSiteFolder[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [showFolderModal, setShowFolderModal] = useState(false);
   const [editingSite, setEditingSite] = useState<BlockedSite | null>(null);
+  const [editingFolder, setEditingFolder] = useState<BlockedSiteFolder | null>(null);
   const [formData, setFormData] = useState<FormData>(defaultFormData);
+  const [folderName, setFolderName] = useState('');
 
   useEffect(() => {
-    loadSites();
+    loadData();
   }, []);
 
-  async function loadSites() {
+  async function loadData() {
     try {
-      const result = await chrome.runtime.sendMessage({ type: 'GET_BLOCKED_SITES' });
-      setSites(result);
+      const [sitesResult, foldersResult] = await Promise.all([
+        chrome.runtime.sendMessage({ type: 'GET_BLOCKED_SITES' }),
+        chrome.runtime.sendMessage({ type: 'GET_BLOCKED_SITE_FOLDERS' }),
+      ]);
+      setSites(sitesResult);
+      setFolders(foldersResult);
     } catch (err) {
-      console.error('Failed to load sites:', err);
+      console.error('Failed to load data:', err);
     } finally {
       setLoading(false);
     }
@@ -65,8 +76,21 @@ export default function BlockedSites() {
       scheduleDays: site.schedule?.days || [1, 2, 3, 4, 5],
       scheduleStart: site.schedule?.startTime || '09:00',
       scheduleEnd: site.schedule?.endTime || '17:00',
+      folderId: site.folderId,
     });
     setShowModal(true);
+  }
+
+  function openAddFolderModal() {
+    setEditingFolder(null);
+    setFolderName('');
+    setShowFolderModal(true);
+  }
+
+  function openEditFolderModal(folder: BlockedSiteFolder) {
+    setEditingFolder(folder);
+    setFolderName(folder.name);
+    setShowFolderModal(true);
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -76,6 +100,7 @@ export default function BlockedSites() {
       pattern: formData.pattern.toLowerCase().trim(),
       enabled: true,
       unlockType: formData.unlockType,
+      folderId: formData.folderId,
     };
 
     if (formData.unlockType === 'password' && formData.password) {
@@ -106,11 +131,68 @@ export default function BlockedSites() {
           payload,
         });
       }
-      await loadSites();
+      await loadData();
       setShowModal(false);
     } catch (err) {
       console.error('Failed to save site:', err);
     }
+  }
+
+  async function handleFolderSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!folderName.trim()) return;
+
+    try {
+      if (editingFolder) {
+        await chrome.runtime.sendMessage({
+          type: 'UPDATE_BLOCKED_SITE_FOLDER',
+          payload: { ...editingFolder, name: folderName.trim() },
+        });
+      } else {
+        await chrome.runtime.sendMessage({
+          type: 'ADD_BLOCKED_SITE_FOLDER',
+          payload: { name: folderName.trim(), order: folders.length },
+        });
+      }
+      await loadData();
+      setShowFolderModal(false);
+    } catch (err) {
+      console.error('Failed to save folder:', err);
+    }
+  }
+
+  async function deleteFolder(id: string) {
+    if (!confirm('Delete this folder? Sites in this folder will be moved to Uncategorized.')) return;
+
+    try {
+      await chrome.runtime.sendMessage({
+        type: 'REMOVE_BLOCKED_SITE_FOLDER',
+        payload: { id },
+      });
+      await loadData();
+    } catch (err) {
+      console.error('Failed to delete folder:', err);
+    }
+  }
+
+  async function toggleFolderCollapse(folder: BlockedSiteFolder) {
+    const updated = { ...folder, collapsed: !folder.collapsed };
+    setFolders(folders.map(f => f.id === folder.id ? updated : f));
+    await chrome.runtime.sendMessage({
+      type: 'UPDATE_BLOCKED_SITE_FOLDER',
+      payload: updated,
+    });
+  }
+
+  async function toggleFolderSitesEnabled(folderId: string | undefined, enabled: boolean) {
+    const sitesToUpdate = sites.filter(s => s.folderId === folderId).map(s => ({ ...s, enabled }));
+    const otherSites = sites.filter(s => s.folderId !== folderId);
+    const newSites = [...otherSites, ...sitesToUpdate];
+    setSites(newSites);
+    await chrome.runtime.sendMessage({
+      type: 'UPDATE_BLOCKED_SITES',
+      payload: newSites,
+    });
   }
 
   async function toggleSite(site: BlockedSite) {
@@ -119,7 +201,7 @@ export default function BlockedSites() {
         type: 'UPDATE_BLOCKED_SITE',
         payload: { ...site, enabled: !site.enabled },
       });
-      await loadSites();
+      await loadData();
     } catch (err) {
       console.error('Failed to toggle site:', err);
     }
@@ -133,11 +215,42 @@ export default function BlockedSites() {
         type: 'REMOVE_BLOCKED_SITE',
         payload: { id },
       });
-      await loadSites();
+      await loadData();
     } catch (err) {
       console.error('Failed to delete site:', err);
     }
   }
+
+  async function handleDragEnd(result: DropResult) {
+    if (!result.destination) return;
+
+    const { source, destination, draggableId } = result;
+
+    // Moving site to a different folder
+    if (source.droppableId !== destination.droppableId) {
+      const newFolderId = destination.droppableId === 'uncategorized' ? undefined : destination.droppableId;
+      const site = sites.find(s => s.id === draggableId);
+      if (site) {
+        const updatedSite = { ...site, folderId: newFolderId };
+        await chrome.runtime.sendMessage({
+          type: 'UPDATE_BLOCKED_SITE',
+          payload: updatedSite,
+        });
+        await loadData();
+      }
+    }
+  }
+
+  // Group sites by folder
+  const sitesByFolder = new Map<string | undefined, BlockedSite[]>();
+  folders.forEach(f => sitesByFolder.set(f.id, []));
+  sitesByFolder.set(undefined, []); // Uncategorized
+  sites.forEach(site => {
+    const folderId = site.folderId;
+    const existing = sitesByFolder.get(folderId) || [];
+    existing.push(site);
+    sitesByFolder.set(folderId, existing);
+  });
 
   function getUnlockIcon(type: UnlockType) {
     switch (type) {
@@ -173,78 +286,137 @@ export default function BlockedSites() {
     );
   }
 
+  const renderSiteRow = (site: BlockedSite, index: number) => (
+    <Draggable key={site.id} draggableId={site.id} index={index}>
+      {(provided) => (
+        <div
+          ref={provided.innerRef}
+          {...provided.draggableProps}
+          className="flex items-center gap-3 px-4 py-3 bg-white border-b border-gray-100 last:border-b-0 hover:bg-gray-50"
+        >
+          <div {...provided.dragHandleProps} className="text-gray-300 hover:text-gray-500 cursor-grab">
+            <GripVertical className="w-4 h-4" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <span className="font-medium text-gray-900">{site.pattern}</span>
+          </div>
+          <div className="flex items-center gap-2 text-gray-500 text-sm">
+            {getUnlockIcon(site.unlockType)}
+            <span className="hidden sm:inline">{getUnlockLabel(site)}</span>
+          </div>
+          <button
+            onClick={() => toggleSite(site)}
+            className={`text-xs px-2 py-1 rounded-full transition-colors ${
+              site.enabled
+                ? 'bg-red-100 text-red-700 hover:bg-red-200'
+                : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+            }`}
+          >
+            {site.enabled ? 'Blocking' : 'Disabled'}
+          </button>
+          <button onClick={() => openEditModal(site)} className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded">
+            <Edit2 className="w-4 h-4" />
+          </button>
+          <button onClick={() => deleteSite(site.id)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded">
+            <Trash2 className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+    </Draggable>
+  );
+
+  const renderFolderSection = (folder: BlockedSiteFolder | null, folderSites: BlockedSite[]) => {
+    const folderId = folder?.id;
+    const isCollapsed = folder?.collapsed;
+    const allEnabled = folderSites.length > 0 && folderSites.every(s => s.enabled);
+    const someEnabled = folderSites.some(s => s.enabled);
+
+    return (
+      <div key={folderId || 'uncategorized'} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <div className="flex items-center gap-2 px-4 py-3 bg-gray-50 border-b border-gray-200">
+          {folder && (
+            <button onClick={() => toggleFolderCollapse(folder)} className="text-gray-500 hover:text-gray-700">
+              {isCollapsed ? <ChevronRight className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+            </button>
+          )}
+          <span className="font-semibold text-gray-900 flex-1">
+            {folder?.name || 'Uncategorized'} ({folderSites.length})
+          </span>
+          {folderSites.length > 0 && (
+            <button
+              onClick={() => toggleFolderSitesEnabled(folderId, !allEnabled)}
+              className={`text-xs px-2 py-1 rounded transition-colors ${
+                allEnabled ? 'bg-red-100 text-red-700 hover:bg-red-200' :
+                someEnabled ? 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200' :
+                'bg-gray-100 text-gray-500 hover:bg-gray-200'
+              }`}
+            >
+              {allEnabled ? 'Disable All' : 'Enable All'}
+            </button>
+          )}
+          {folder && (
+            <>
+              <button onClick={() => openEditFolderModal(folder)} className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded">
+                <Edit2 className="w-4 h-4" />
+              </button>
+              <button onClick={() => deleteFolder(folder.id)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded">
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </>
+          )}
+        </div>
+        {(!folder || !isCollapsed) && (
+          <Droppable droppableId={folderId || 'uncategorized'}>
+            {(provided) => (
+              <div ref={provided.innerRef} {...provided.droppableProps} className="min-h-[48px]">
+                {folderSites.length > 0 ? (
+                  folderSites.map((site, index) => renderSiteRow(site, index))
+                ) : (
+                  <div className="px-4 py-6 text-center text-gray-400 text-sm">
+                    Drag sites here or add new ones
+                  </div>
+                )}
+                {provided.placeholder}
+              </div>
+            )}
+          </Droppable>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Blocked Sites</h1>
-        <button
-          onClick={openAddModal}
-          className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
-        >
-          <Plus className="w-5 h-5" />
-          Add Site
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={openAddFolderModal}
+            className="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg transition-colors"
+          >
+            <FolderPlus className="w-5 h-5" />
+            Add Folder
+          </button>
+          <button
+            onClick={openAddModal}
+            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
+          >
+            <Plus className="w-5 h-5" />
+            Add Site
+          </button>
+        </div>
       </div>
 
-      {/* Sites List */}
-      {sites.length > 0 ? (
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr>
-                <th className="text-left text-sm font-medium text-gray-500 px-6 py-3">Pattern</th>
-                <th className="text-left text-sm font-medium text-gray-500 px-6 py-3">Unlock Method</th>
-                <th className="text-left text-sm font-medium text-gray-500 px-6 py-3">Status</th>
-                <th className="text-right text-sm font-medium text-gray-500 px-6 py-3">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {sites.map((site) => (
-                <tr key={site.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4">
-                    <span className="font-medium">{site.pattern}</span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-2 text-gray-600">
-                      {getUnlockIcon(site.unlockType)}
-                      <span className="text-sm">{getUnlockLabel(site)}</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <button
-                      onClick={() => toggleSite(site)}
-                      className={`text-sm px-3 py-1 rounded-full transition-colors ${
-                        site.enabled
-                          ? 'bg-red-100 text-red-700 hover:bg-red-200'
-                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                      }`}
-                    >
-                      {site.enabled ? 'Blocking' : 'Disabled'}
-                    </button>
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      <button
-                        onClick={() => openEditModal(site)}
-                        className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"
-                      >
-                        <Edit2 className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => deleteSite(site.id)}
-                        className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      {/* Grouped Sites */}
+      <DragDropContext onDragEnd={handleDragEnd}>
+        <div className="space-y-4">
+          {folders.map(folder => renderFolderSection(folder, sitesByFolder.get(folder.id) || []))}
+          {renderFolderSection(null, sitesByFolder.get(undefined) || [])}
         </div>
-      ) : (
-        <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
+      </DragDropContext>
+
+      {sites.length === 0 && folders.length === 0 && (
+        <div className="bg-white rounded-xl border border-gray-200 p-12 text-center mt-4">
           <Shield className="w-12 h-12 text-gray-300 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-gray-900 mb-2">No blocked sites</h3>
           <p className="text-gray-500 mb-4">Add sites you want to block to help stay focused.</p>
@@ -421,6 +593,25 @@ export default function BlockedSites() {
                 </div>
               )}
 
+              {/* Folder */}
+              {folders.length > 0 && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Folder
+                  </label>
+                  <select
+                    value={formData.folderId || ''}
+                    onChange={(e) => setFormData({ ...formData, folderId: e.target.value || undefined })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="">Uncategorized</option>
+                    {folders.map(folder => (
+                      <option key={folder.id} value={folder.id}>{folder.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               {/* Actions */}
               <div className="flex justify-end gap-3 pt-4">
                 <button
@@ -435,6 +626,58 @@ export default function BlockedSites() {
                   className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
                 >
                   {editingSite ? 'Save Changes' : 'Add Site'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add/Edit Folder Modal */}
+      {showFolderModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl w-full max-w-md mx-4 overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4 border-b">
+              <h2 className="text-lg font-semibold">
+                {editingFolder ? 'Edit Folder' : 'Add Folder'}
+              </h2>
+              <button
+                onClick={() => setShowFolderModal(false)}
+                className="p-2 hover:bg-gray-100 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleFolderSubmit} className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Folder Name
+                </label>
+                <input
+                  type="text"
+                  value={folderName}
+                  onChange={(e) => setFolderName(e.target.value)}
+                  placeholder="e.g., Social Media, Adult Content"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  required
+                  autoFocus
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowFolderModal(false)}
+                  className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                >
+                  {editingFolder ? 'Save Changes' : 'Add Folder'}
                 </button>
               </div>
             </form>

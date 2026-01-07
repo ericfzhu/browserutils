@@ -15,6 +15,17 @@ export interface BlockedSite {
     endTime: string; // "HH:MM"
   };
   createdAt: number;
+  // Folder organization
+  folderId?: string; // null/undefined = "Uncategorized"
+  order?: number; // For ordering within folder
+}
+
+export interface BlockedSiteFolder {
+  id: string;
+  name: string;
+  color?: string; // Optional color for visual distinction
+  collapsed?: boolean; // UI state - whether folder is expanded
+  order: number; // For ordering folders
 }
 
 export interface SiteVisit {
@@ -53,6 +64,7 @@ export interface QuickLink {
 
 export interface StorageData {
   blockedSites: BlockedSite[];
+  blockedSiteFolders: BlockedSiteFolder[];
   settings: Settings;
   dailyStats: Record<string, DailyStats>; // date -> stats
   activeSession?: {
@@ -77,6 +89,7 @@ export type MessageType =
   | { type: 'ADD_BLOCKED_SITE'; payload: Omit<BlockedSite, 'id' | 'createdAt'> }
   | { type: 'REMOVE_BLOCKED_SITE'; payload: { id: string } }
   | { type: 'UPDATE_BLOCKED_SITE'; payload: BlockedSite }
+  | { type: 'UPDATE_BLOCKED_SITES'; payload: BlockedSite[] }
   | { type: 'UNLOCK_SITE'; payload: { id: string; password?: string } }
   | { type: 'GET_BLOCKED_SITES' }
   | { type: 'GET_SETTINGS' }
@@ -84,6 +97,12 @@ export type MessageType =
   | { type: 'CHECK_SITE'; payload: { url: string } }
   | { type: 'CHECK_SITE_WITH_REDIRECT'; payload: { url: string } }
   | { type: 'INCREMENT_BLOCKED_ATTEMPT'; payload: { domain: string } }
+  // Folder operations
+  | { type: 'GET_BLOCKED_SITE_FOLDERS' }
+  | { type: 'ADD_BLOCKED_SITE_FOLDER'; payload: Omit<BlockedSiteFolder, 'id'> }
+  | { type: 'UPDATE_BLOCKED_SITE_FOLDER'; payload: BlockedSiteFolder }
+  | { type: 'UPDATE_BLOCKED_SITE_FOLDERS'; payload: BlockedSiteFolder[] }
+  | { type: 'REMOVE_BLOCKED_SITE_FOLDER'; payload: { id: string } }
   // Content script messages
   | { type: 'HEARTBEAT'; payload: { url: string; timestamp: number } }
   | { type: 'VISIBILITY_CHANGE'; payload: { visible: boolean; url: string; timestamp: number } }

@@ -1,7 +1,8 @@
-import { BlockedSite, DailyStats, Settings, StorageData, DEFAULT_SETTINGS } from './types';
+import { BlockedSite, BlockedSiteFolder, DailyStats, Settings, StorageData, DEFAULT_SETTINGS } from './types';
 
 const STORAGE_KEYS = {
   BLOCKED_SITES: 'blockedSites',
+  BLOCKED_SITE_FOLDERS: 'blockedSiteFolders',
   SETTINGS: 'settings',
   DAILY_STATS: 'dailyStats',
   ACTIVE_SESSION: 'activeSession',
@@ -41,6 +42,49 @@ export async function updateBlockedSite(site: BlockedSite): Promise<void> {
     sites[index] = site;
     await setBlockedSites(sites);
   }
+}
+
+// Folder storage functions
+export async function getBlockedSiteFolders(): Promise<BlockedSiteFolder[]> {
+  const result = await chrome.storage.local.get(STORAGE_KEYS.BLOCKED_SITE_FOLDERS);
+  return result[STORAGE_KEYS.BLOCKED_SITE_FOLDERS] || [];
+}
+
+export async function setBlockedSiteFolders(folders: BlockedSiteFolder[]): Promise<void> {
+  await chrome.storage.local.set({ [STORAGE_KEYS.BLOCKED_SITE_FOLDERS]: folders });
+}
+
+export async function addBlockedSiteFolder(folder: Omit<BlockedSiteFolder, 'id'>): Promise<BlockedSiteFolder> {
+  const folders = await getBlockedSiteFolders();
+  const newFolder: BlockedSiteFolder = {
+    ...folder,
+    id: crypto.randomUUID(),
+  };
+  folders.push(newFolder);
+  await setBlockedSiteFolders(folders);
+  return newFolder;
+}
+
+export async function updateBlockedSiteFolder(folder: BlockedSiteFolder): Promise<void> {
+  const folders = await getBlockedSiteFolders();
+  const index = folders.findIndex(f => f.id === folder.id);
+  if (index !== -1) {
+    folders[index] = folder;
+    await setBlockedSiteFolders(folders);
+  }
+}
+
+export async function removeBlockedSiteFolder(id: string): Promise<void> {
+  const folders = await getBlockedSiteFolders();
+  const filtered = folders.filter(f => f.id !== id);
+  await setBlockedSiteFolders(filtered);
+
+  // Also clear folderId from any sites that were in this folder
+  const sites = await getBlockedSites();
+  const updatedSites = sites.map(s =>
+    s.folderId === id ? { ...s, folderId: undefined } : s
+  );
+  await setBlockedSites(updatedSites);
 }
 
 export async function getSettings(): Promise<Settings> {
