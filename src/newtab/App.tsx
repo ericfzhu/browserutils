@@ -12,41 +12,43 @@ function formatTime(seconds: number): string {
 }
 
 function getGreeting(): string {
-  const hour = new Date().getHours();
+  const now = new Date();
+  const hour = now.getHours();
+
+  // Get day of year (1-366) as a seed for deterministic selection
+  const startOfYear = new Date(now.getFullYear(), 0, 0);
+  const dayOfYear = Math.floor((now.getTime() - startOfYear.getTime()) / (1000 * 60 * 60 * 24));
+
+  // Select phrase based on day of year (same day = same phrase for each time period)
+  const selectPhrase = (phrases: string[]) => phrases[dayOfYear % phrases.length];
 
   // Late night / early morning (12am - 4am)
   if (hour >= 0 && hour < 4) {
-    const phrases = ['Hello, night owl', 'Burning the midnight oil', 'The night is still young', 'Late night thoughts'];
-    return phrases[Math.floor(Math.random() * phrases.length)];
+    return selectPhrase(['Hello, night owl', 'Burning the midnight oil', 'The night is still young', 'Late night thoughts']);
   }
 
   // Early morning (4am - 7am)
   if (hour >= 4 && hour < 7) {
-    const phrases = ['Early bird', 'Rise and shine', 'Up before the sun', 'Fresh start'];
-    return phrases[Math.floor(Math.random() * phrases.length)];
+    return selectPhrase(['Early bird', 'Rise and shine', 'Up before the sun', 'Fresh start']);
   }
 
   // Morning (7am - 12pm)
   if (hour >= 7 && hour < 12) {
-    const phrases = ['Good morning', 'Morning', 'Hello there', 'Ready for today'];
-    return phrases[Math.floor(Math.random() * phrases.length)];
+    return selectPhrase(['Good morning', 'Morning', 'Hello there', 'Ready for today']);
   }
 
   // Afternoon (12pm - 5pm)
   if (hour >= 12 && hour < 17) {
-    const phrases = ['Good afternoon', 'Afternoon', 'Hey there', 'How\'s your day going'];
-    return phrases[Math.floor(Math.random() * phrases.length)];
+    return selectPhrase(['Good afternoon', 'Afternoon', 'Hey there', 'How\'s your day going']);
   }
 
   // Evening (5pm - 9pm)
   if (hour >= 17 && hour < 21) {
-    const phrases = ['Good evening', 'Evening', 'Winding down', 'Hope you had a good day'];
-    return phrases[Math.floor(Math.random() * phrases.length)];
+    return selectPhrase(['Good evening', 'Evening', 'Winding down', 'Hope you had a good day']);
   }
 
   // Night (9pm - 12am)
-  const phrases = ['Good night', 'Getting late', 'Evening thoughts', 'Night time'];
-  return phrases[Math.floor(Math.random() * phrases.length)];
+  return selectPhrase(['Good night', 'Getting late', 'Evening thoughts', 'Night time']);
 }
 
 function formatClock(): string {
