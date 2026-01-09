@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Tag, Plus, Wrench, Bug, ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -263,6 +264,10 @@ export { CURRENT_VERSION };
 
 export default function Changelog() {
   const navigate = useNavigate();
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
 
   return (
     <div>
