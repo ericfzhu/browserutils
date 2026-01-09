@@ -5,6 +5,15 @@ All notable changes to BrowserUtils will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.0] - 2026-01-09
+
+### Added
+- Lockdown Mode - require master password to disable blocking, remove sites, or disable limits
+- Disabling blocking from popup now requires master password (if one is set)
+- 5-minute authentication session after entering password for uninterrupted changes
+- Session automatically clears when dashboard is closed
+- New shield icon as extension favicon and toolbar icon
+
 ## [0.9.0] - 2026-01-08
 
 ### Added
