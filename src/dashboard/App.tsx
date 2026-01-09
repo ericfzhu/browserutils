@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Routes, Route, NavLink, Link } from 'react-router-dom';
 import { BarChart3, Shield, Settings, LayoutDashboard, Sparkles, Timer } from 'lucide-react';
 import Overview from './pages/Overview';
@@ -7,6 +7,8 @@ import Limits from './pages/Limits';
 import Metrics from './pages/Metrics';
 import SettingsPage from './pages/Settings';
 import Changelog, { CURRENT_VERSION } from './pages/Changelog';
+import { LockdownProvider, useLockdown } from './hooks/useLockdown';
+import PasswordModal from '../shared/components/PasswordModal';
 
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Overview' },
@@ -16,11 +18,47 @@ const navItems = [
   { to: '/settings', icon: Settings, label: 'Settings' },
 ];
 
+// Component that handles the lockdown password modal
+function LockdownModal() {
+  const { showPasswordModal, setShowPasswordModal, authenticate, pendingAction, clearSession } = useLockdown();
+
+  // Clear session when dashboard is closed
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      clearSession();
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [clearSession]);
+
+  async function handlePasswordSubmit(password: string) {
+    const result = await authenticate(password);
+    if (result.success && pendingAction) {
+      // Execute the pending action after successful authentication
+      await pendingAction();
+    }
+    return result;
+  }
+
+  return (
+    <PasswordModal
+      isOpen={showPasswordModal}
+      onClose={() => setShowPasswordModal(false)}
+      onSubmit={handlePasswordSubmit}
+    />
+  );
+}
+
 export default function App() {
   const [isHovered, setIsHovered] = useState(false);
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex">
+    <LockdownProvider>
+      <LockdownModal />
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex">
       {/* Sidebar */}
       <nav className="w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 p-4 flex flex-col h-screen sticky top-0">
         <div
@@ -95,5 +133,6 @@ export default function App() {
         </Routes>
       </main>
     </div>
+    </LockdownProvider>
   );
 }

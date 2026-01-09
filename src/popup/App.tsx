@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Clock, Shield, ShieldOff, BarChart3, Settings } from 'lucide-react';
-import { DailyStats, Settings as SettingsType } from '../shared/types';
+import { Clock, Shield, ShieldOff, BarChart3, Settings, Lock } from 'lucide-react';
+import { DailyStats, Settings as SettingsType, LockdownStatus } from '../shared/types';
 
 function formatTime(seconds: number): string {
   const hours = Math.floor(seconds / 3600);
@@ -17,6 +17,13 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [isHovered, setIsHovered] = useState(false);
 
+  // Lockdown state
+  const [lockdownStatus, setLockdownStatus] = useState<LockdownStatus | null>(null);
+  const [showPasswordInput, setShowPasswordInput] = useState(false);
+  const [password, setPassword] = useState('');
+  const [authError, setAuthError] = useState('');
+  const [authenticating, setAuthenticating] = useState(false);
+
   useEffect(() => {
     loadData();
   }, []);
@@ -25,12 +32,14 @@ export default function App() {
     try {
       const now = new Date();
       const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-      const [statsRes, settingsRes] = await Promise.all([
+      const [statsRes, settingsRes, lockdownRes] = await Promise.all([
         chrome.runtime.sendMessage({ type: 'GET_STATS', payload: { date: today } }),
         chrome.runtime.sendMessage({ type: 'GET_SETTINGS' }),
+        chrome.runtime.sendMessage({ type: 'LOCKDOWN_GET_STATUS' }),
       ]);
       setStats(statsRes);
       setSettings(settingsRes);
+      setLockdownStatus(lockdownRes);
     } catch (err) {
       console.error('Failed to load data:', err);
     } finally {
@@ -40,11 +49,56 @@ export default function App() {
 
   async function toggleBlocking() {
     if (!settings) return;
+
+    // If trying to disable blocking and a master password is set, require password
+    // (unless we have a valid lockdown session)
+    if (settings.blockingEnabled && lockdownStatus?.hasPassword && !lockdownStatus?.sessionValid) {
+      setShowPasswordInput(true);
+      setPassword('');
+      setAuthError('');
+      return;
+    }
+
+    await doToggleBlocking();
+  }
+
+  async function doToggleBlocking() {
+    if (!settings) return;
     const updated = await chrome.runtime.sendMessage({
       type: 'UPDATE_SETTINGS',
       payload: { blockingEnabled: !settings.blockingEnabled },
     });
     setSettings(updated);
+    setShowPasswordInput(false);
+    setPassword('');
+  }
+
+  async function handlePasswordSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!password || authenticating) return;
+
+    setAuthenticating(true);
+    setAuthError('');
+
+    try {
+      const result = await chrome.runtime.sendMessage({
+        type: 'LOCKDOWN_AUTHENTICATE',
+        payload: { password },
+      });
+
+      if (result.success) {
+        // Refresh lockdown status and toggle blocking
+        const newStatus = await chrome.runtime.sendMessage({ type: 'LOCKDOWN_GET_STATUS' });
+        setLockdownStatus(newStatus);
+        await doToggleBlocking();
+      } else {
+        setAuthError(result.error || 'Invalid password');
+      }
+    } catch {
+      setAuthError('Authentication failed');
+    } finally {
+      setAuthenticating(false);
+    }
   }
 
   function openDashboard() {
@@ -106,6 +160,41 @@ export default function App() {
             )}
           </button>
         </div>
+
+        {/* Inline Password Input */}
+        {showPasswordInput && (
+          <form onSubmit={handlePasswordSubmit} className="mt-3 space-y-2">
+            <div className="flex items-center gap-2 text-xs text-white/80">
+              <Lock className="w-3 h-3" />
+              <span>Enter master password to continue</span>
+            </div>
+            <div className="flex gap-2">
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => { setPassword(e.target.value); setAuthError(''); }}
+                placeholder="Master password"
+                className="flex-1 px-2 py-1.5 text-sm bg-white/10 border border-white/20 rounded text-white placeholder-white/50 focus:outline-none focus:ring-1 focus:ring-white/50"
+                autoFocus
+              />
+              <button
+                type="submit"
+                disabled={authenticating || !password}
+                className="px-3 py-1.5 text-sm bg-white/20 hover:bg-white/30 disabled:opacity-50 rounded transition-colors"
+              >
+                {authenticating ? '...' : 'OK'}
+              </button>
+              <button
+                type="button"
+                onClick={() => { setShowPasswordInput(false); setPassword(''); setAuthError(''); }}
+                className="px-2 py-1.5 text-sm bg-white/10 hover:bg-white/20 rounded transition-colors"
+              >
+                X
+              </button>
+            </div>
+            {authError && <p className="text-xs text-red-300">{authError}</p>}
+          </form>
+        )}
       </div>
 
       {/* Today's Stats */}

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Save, Trash2, AlertTriangle, Sun, Moon, Monitor } from 'lucide-react';
+import { Save, Trash2, AlertTriangle, Sun, Moon, Monitor, Lock } from 'lucide-react';
 import { Settings as SettingsType } from '../../shared/types';
 import { applyTheme } from '../../shared/theme';
 
@@ -347,6 +347,40 @@ export default function SettingsPage() {
           >
             {settings.passwordHash ? 'Update Password' : 'Set Password'}
           </button>
+        </div>
+
+        {/* Lockdown Mode */}
+        <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+          <label className={`flex items-center justify-between ${!settings.passwordHash ? 'opacity-50' : ''}`}>
+            <div className="flex items-start gap-3">
+              <Lock className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5" />
+              <div>
+                <span className="font-medium">Lockdown Mode</span>
+                <p className="text-sm text-gray-500">
+                  Require master password to disable blocking, remove sites, or disable limits.
+                  {!settings.passwordHash && (
+                    <span className="block text-amber-600 dark:text-amber-400 mt-1">
+                      Set a master password first to enable this feature.
+                    </span>
+                  )}
+                </p>
+              </div>
+            </div>
+            <input
+              type="checkbox"
+              checked={settings.lockdownEnabled ?? false}
+              onChange={async (e) => {
+                const newValue = e.target.checked;
+                setSettings({ ...settings, lockdownEnabled: newValue });
+                await chrome.runtime.sendMessage({
+                  type: 'UPDATE_SETTINGS',
+                  payload: { lockdownEnabled: newValue },
+                });
+              }}
+              disabled={!settings.passwordHash}
+              className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 disabled:cursor-not-allowed"
+            />
+          </label>
         </div>
       </div>
 

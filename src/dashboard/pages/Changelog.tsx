@@ -2,7 +2,7 @@ import { Tag, Plus, Wrench, Bug, ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 // Changelog data - update this when releasing new versions
-const CURRENT_VERSION = '0.9.0';
+const CURRENT_VERSION = '0.10.0';
 
 interface ChangelogEntry {
   version: string;
@@ -13,6 +13,17 @@ interface ChangelogEntry {
 }
 
 const changelog: ChangelogEntry[] = [
+  {
+    version: '0.10.0',
+    date: '2026-01-09',
+    added: [
+      'Lockdown Mode - require master password to disable blocking, remove sites, or disable limits',
+      'Disabling blocking from popup now requires master password (if one is set)',
+      '5-minute authentication session after entering password for uninterrupted changes',
+      'Session automatically clears when dashboard is closed',
+      'New shield icon as extension favicon and toolbar icon',
+    ],
+  },
   {
     version: '0.9.0',
     date: '2026-01-08',

@@ -39,6 +39,7 @@ import { BlockedSite, MessageType } from '../shared/types';
 // Session state keys for chrome.storage.session
 const SESSION_KEYS = {
   IS_USER_IDLE: 'isUserIdle',
+  LOCKDOWN_AUTH_UNTIL: 'lockdownAuthUntil',
 } as const;
 
 // In-memory idle state (restored from session storage on startup)
@@ -54,6 +55,32 @@ async function saveIdleState(): Promise<void> {
 async function restoreIdleState(): Promise<void> {
   const data = await chrome.storage.session.get([SESSION_KEYS.IS_USER_IDLE]);
   isUserIdle = data[SESSION_KEYS.IS_USER_IDLE] ?? false;
+}
+
+// Lockdown session helpers
+const LOCKDOWN_SESSION_DURATION = 5 * 60 * 1000; // 5 minutes
+
+async function isLockdownSessionValid(): Promise<boolean> {
+  const data = await chrome.storage.session.get([SESSION_KEYS.LOCKDOWN_AUTH_UNTIL]);
+  const authUntil = data[SESSION_KEYS.LOCKDOWN_AUTH_UNTIL];
+  return authUntil ? Date.now() < authUntil : false;
+}
+
+async function startLockdownSession(): Promise<number> {
+  const authUntil = Date.now() + LOCKDOWN_SESSION_DURATION;
+  await chrome.storage.session.set({
+    [SESSION_KEYS.LOCKDOWN_AUTH_UNTIL]: authUntil,
+  });
+  return authUntil;
+}
+
+async function clearLockdownSession(): Promise<void> {
+  await chrome.storage.session.remove([SESSION_KEYS.LOCKDOWN_AUTH_UNTIL]);
+}
+
+async function getLockdownAuthUntil(): Promise<number | undefined> {
+  const data = await chrome.storage.session.get([SESSION_KEYS.LOCKDOWN_AUTH_UNTIL]);
+  return data[SESSION_KEYS.LOCKDOWN_AUTH_UNTIL];
 }
 
 // Recover tracking sessions on service worker wake-up
@@ -342,6 +369,34 @@ async function handleMessage(message: MessageType, sender?: chrome.runtime.Messa
       const domain = getDomainFromUrl(message.payload.url);
       if (!domain) return { exceeded: false, timeSpent: 0, remaining: Infinity };
       return checkDailyLimitForDomain(domain);
+    }
+    // Lockdown mode operations
+    case 'LOCKDOWN_GET_STATUS': {
+      const settings = await getSettings();
+      const sessionValid = await isLockdownSessionValid();
+      const authUntil = await getLockdownAuthUntil();
+      return {
+        lockdownEnabled: settings.lockdownEnabled ?? false,
+        hasPassword: !!settings.passwordHash,
+        sessionValid,
+        sessionExpiresAt: authUntil,
+      };
+    }
+    case 'LOCKDOWN_AUTHENTICATE': {
+      const settings = await getSettings();
+      if (!settings.passwordHash) {
+        return { success: false, error: 'No master password set' };
+      }
+      const valid = await verifyPassword(message.payload.password, settings.passwordHash);
+      if (!valid) {
+        return { success: false, error: 'Invalid password' };
+      }
+      const expiresAt = await startLockdownSession();
+      return { success: true, expiresAt };
+    }
+    case 'LOCKDOWN_CLEAR_SESSION': {
+      await clearLockdownSession();
+      return { success: true };
     }
     default:
       return { error: 'Unknown message type' };

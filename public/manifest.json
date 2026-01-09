@@ -1,8 +1,14 @@
 {
   "manifest_version": 3,
   "name": "BrowserUtils",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "description": "Track website usage and block distracting sites with password or timer protection",
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
   "permissions": [
     "storage",
     "tabs",
@@ -25,7 +31,13 @@
     "run_at": "document_start"
   }],
   "action": {
-    "default_popup": "popup.html"
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
   },
   "chrome_url_overrides": {
     "newtab": "newtab.html"

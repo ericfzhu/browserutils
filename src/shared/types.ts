@@ -96,6 +96,7 @@ export interface Settings {
   blockingEnabled: boolean;
   youtubeTrackingEnabled: boolean; // track YouTube channel watch time
   passwordHash?: string; // master password for unlocking
+  lockdownEnabled?: boolean; // require master password to disable blocking
   theme: 'light' | 'dark' | 'system';
   retentionDays: number; // how long to keep history
   idleThreshold: number; // seconds before considered idle (0 = disabled)
@@ -181,4 +182,16 @@ export type MessageType =
   | { type: 'CHECK_DAILY_LIMIT'; payload: { url: string } }
   // YouTube tracking messages
   | { type: 'YOUTUBE_CHANNEL_UPDATE'; payload: { channelName: string; channelId?: string; url: string; timestamp: number } }
-  | { type: 'YOUTUBE_VISIBILITY_CHANGE'; payload: { visible: boolean; channelName?: string; channelId?: string; url: string; timestamp: number } };
+  | { type: 'YOUTUBE_VISIBILITY_CHANGE'; payload: { visible: boolean; channelName?: string; channelId?: string; url: string; timestamp: number } }
+  // Lockdown mode messages
+  | { type: 'LOCKDOWN_GET_STATUS' }
+  | { type: 'LOCKDOWN_AUTHENTICATE'; payload: { password: string } }
+  | { type: 'LOCKDOWN_CLEAR_SESSION' };
+
+// Lockdown status response
+export interface LockdownStatus {
+  lockdownEnabled: boolean;
+  hasPassword: boolean;
+  sessionValid: boolean;
+  sessionExpiresAt?: number;
+}

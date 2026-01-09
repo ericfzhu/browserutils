@@ -3,6 +3,7 @@ import { Plus, Trash2, Edit2, X, Shield, Clock, Calendar, Lock, FolderPlus, Chev
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import { BlockedSite, BlockedSiteFolder } from '../../shared/types';
 import { hashPassword } from '../../shared/storage';
+import { useLockdown } from '../hooks/useLockdown';
 
 type UnlockType = BlockedSite['unlockType'];
 
@@ -65,6 +66,7 @@ export default function BlockedSites() {
   const [editingFolder, setEditingFolder] = useState<BlockedSiteFolder | null>(null);
   const [formData, setFormData] = useState<FormData>(defaultFormData);
   const [folderName, setFolderName] = useState('');
+  const { withLockdownCheck } = useLockdown();
 
   useEffect(() => {
     loadData();
@@ -187,17 +189,19 @@ export default function BlockedSites() {
   }
 
   async function deleteFolder(id: string) {
-    if (!confirm('Delete this folder? Sites in this folder will be moved to Uncategorized.')) return;
+    await withLockdownCheck(async () => {
+      if (!confirm('Delete this folder? Sites in this folder will be moved to Uncategorized.')) return;
 
-    try {
-      await chrome.runtime.sendMessage({
-        type: 'REMOVE_BLOCKED_SITE_FOLDER',
-        payload: { id },
-      });
-      await loadData();
-    } catch (err) {
-      console.error('Failed to delete folder:', err);
-    }
+      try {
+        await chrome.runtime.sendMessage({
+          type: 'REMOVE_BLOCKED_SITE_FOLDER',
+          payload: { id },
+        });
+        await loadData();
+      } catch (err) {
+        console.error('Failed to delete folder:', err);
+      }
+    });
   }
 
   async function toggleFolderCollapse(folder: BlockedSiteFolder) {
@@ -210,40 +214,60 @@ export default function BlockedSites() {
   }
 
   async function toggleFolderSitesEnabled(folderId: string | undefined, enabled: boolean) {
-    const sitesToUpdate = sites.filter(s => s.folderId === folderId).map(s => ({ ...s, enabled }));
-    const otherSites = sites.filter(s => s.folderId !== folderId);
-    const newSites = [...otherSites, ...sitesToUpdate];
-    setSites(newSites);
-    await chrome.runtime.sendMessage({
-      type: 'UPDATE_BLOCKED_SITES',
-      payload: newSites,
-    });
+    const doToggle = async () => {
+      const sitesToUpdate = sites.filter(s => s.folderId === folderId).map(s => ({ ...s, enabled }));
+      const otherSites = sites.filter(s => s.folderId !== folderId);
+      const newSites = [...otherSites, ...sitesToUpdate];
+      setSites(newSites);
+      await chrome.runtime.sendMessage({
+        type: 'UPDATE_BLOCKED_SITES',
+        payload: newSites,
+      });
+    };
+
+    // If disabling sites, require lockdown check
+    if (!enabled) {
+      await withLockdownCheck(doToggle);
+    } else {
+      await doToggle();
+    }
   }
 
   async function toggleSite(site: BlockedSite) {
-    try {
-      await chrome.runtime.sendMessage({
-        type: 'UPDATE_BLOCKED_SITE',
-        payload: { ...site, enabled: !site.enabled },
-      });
-      await loadData();
-    } catch (err) {
-      console.error('Failed to toggle site:', err);
+    const doToggle = async () => {
+      try {
+        await chrome.runtime.sendMessage({
+          type: 'UPDATE_BLOCKED_SITE',
+          payload: { ...site, enabled: !site.enabled },
+        });
+        await loadData();
+      } catch (err) {
+        console.error('Failed to toggle site:', err);
+      }
+    };
+
+    // If disabling a site, require lockdown check
+    if (site.enabled) {
+      await withLockdownCheck(doToggle);
+    } else {
+      await doToggle();
     }
   }
 
   async function deleteSite(id: string) {
-    if (!confirm('Are you sure you want to remove this blocked site?')) return;
+    await withLockdownCheck(async () => {
+      if (!confirm('Are you sure you want to remove this blocked site?')) return;
 
-    try {
-      await chrome.runtime.sendMessage({
-        type: 'REMOVE_BLOCKED_SITE',
-        payload: { id },
-      });
-      await loadData();
-    } catch (err) {
-      console.error('Failed to delete site:', err);
-    }
+      try {
+        await chrome.runtime.sendMessage({
+          type: 'REMOVE_BLOCKED_SITE',
+          payload: { id },
+        });
+        await loadData();
+      } catch (err) {
+        console.error('Failed to delete site:', err);
+      }
+    });
   }
 
   async function handleDragEnd(result: DropResult) {

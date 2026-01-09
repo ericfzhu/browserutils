@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Plus, Trash2, Edit2, X, Check } from 'lucide-react';
 import { DailyLimit, DailyStats } from '../../shared/types';
 import { hashPassword } from '../../shared/storage';
+import { useLockdown } from '../hooks/useLockdown';
 
 function formatTime(seconds: number): string {
   const hours = Math.floor(seconds / 3600);
@@ -42,6 +43,7 @@ export default function Limits() {
   const [editingLimit, setEditingLimit] = useState<DailyLimit | null>(null);
   const [formData, setFormData] = useState<LimitFormData>(DEFAULT_FORM);
   const [error, setError] = useState<string | null>(null);
+  const { withLockdownCheck } = useLockdown();
 
   const today = getDateString(new Date());
 
@@ -144,25 +146,36 @@ export default function Limits() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm('Are you sure you want to delete this limit?')) return;
+    await withLockdownCheck(async () => {
+      if (!confirm('Are you sure you want to delete this limit?')) return;
 
-    try {
-      await chrome.runtime.sendMessage({ type: 'REMOVE_DAILY_LIMIT', payload: { id } });
-      loadData();
-    } catch (err) {
-      console.error('Failed to delete limit:', err);
-    }
+      try {
+        await chrome.runtime.sendMessage({ type: 'REMOVE_DAILY_LIMIT', payload: { id } });
+        loadData();
+      } catch (err) {
+        console.error('Failed to delete limit:', err);
+      }
+    });
   }
 
   async function toggleEnabled(limit: DailyLimit) {
-    try {
-      await chrome.runtime.sendMessage({
-        type: 'UPDATE_DAILY_LIMIT',
-        payload: { ...limit, enabled: !limit.enabled },
-      });
-      loadData();
-    } catch (err) {
-      console.error('Failed to toggle limit:', err);
+    const doToggle = async () => {
+      try {
+        await chrome.runtime.sendMessage({
+          type: 'UPDATE_DAILY_LIMIT',
+          payload: { ...limit, enabled: !limit.enabled },
+        });
+        loadData();
+      } catch (err) {
+        console.error('Failed to toggle limit:', err);
+      }
+    };
+
+    // If disabling a limit, require lockdown check
+    if (limit.enabled) {
+      await withLockdownCheck(doToggle);
+    } else {
+      await doToggle();
     }
   }
 
