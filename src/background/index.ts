@@ -398,6 +398,9 @@ async function handleMessage(message: MessageType, sender?: chrome.runtime.Messa
       await clearLockdownSession();
       return { success: true };
     }
+    case 'GET_ACTIVE_YOUTUBE_SESSIONS': {
+      return getActiveYouTubeSessions();
+    }
     default:
       return { error: 'Unknown message type' };
   }
@@ -516,7 +519,7 @@ async function handleContentScriptReady(
 
 // Handle YouTube channel update from content script
 async function handleYouTubeChannelUpdate(
-  payload: { channelName: string; channelId?: string; url: string; timestamp: number },
+  payload: { channelName: string; channelId?: string; channelUrl?: string; url: string; timestamp: number },
   sender?: chrome.runtime.MessageSender
 ): Promise<void> {
   console.log('[YouTube] Channel update received:', payload);
@@ -555,18 +558,20 @@ async function handleYouTubeChannelUpdate(
       await addActiveYouTubeSession(tabId, {
         channelName: payload.channelName,
         channelId: payload.channelId,
+        channelUrl: payload.channelUrl,
         startTime: now,
         tabId,
         windowId,
       });
       console.log('[YouTube] Started new session for:', payload.channelName);
     } else {
-      // Same channel - update channelId if we got it now but didn't have it before
-      if (payload.channelId && !existingSession.channelId) {
-        console.log('[YouTube] Updating session with channelId:', payload.channelId);
+      // Same channel - update channelId/channelUrl if we got them now but didn't have them before
+      if ((payload.channelId && !existingSession.channelId) || (payload.channelUrl && !existingSession.channelUrl)) {
+        console.log('[YouTube] Updating session with channelId/channelUrl:', payload.channelId, payload.channelUrl);
         await addActiveYouTubeSession(tabId, {
           ...existingSession,
-          channelId: payload.channelId,
+          channelId: payload.channelId || existingSession.channelId,
+          channelUrl: payload.channelUrl || existingSession.channelUrl,
         });
       } else {
         console.log('[YouTube] Same channel, keeping session alive');
@@ -582,6 +587,7 @@ async function handleYouTubeChannelUpdate(
   await addActiveYouTubeSession(tabId, {
     channelName: payload.channelName,
     channelId: payload.channelId,
+    channelUrl: payload.channelUrl,
     startTime: now,
     tabId,
     windowId,
@@ -590,7 +596,7 @@ async function handleYouTubeChannelUpdate(
 
 // Handle YouTube visibility change
 async function handleYouTubeVisibilityChange(
-  payload: { visible: boolean; channelName?: string; channelId?: string; url: string; timestamp: number },
+  payload: { visible: boolean; channelName?: string; channelId?: string; channelUrl?: string; url: string; timestamp: number },
   sender?: chrome.runtime.MessageSender
 ): Promise<void> {
   console.log('[YouTube] Visibility change received:', payload);
@@ -627,6 +633,7 @@ async function endYouTubeSession(tabId: number): Promise<void> {
       await recordYouTubeSession({
         channelName: session.channelName,
         channelId: session.channelId,
+        channelUrl: session.channelUrl,
         startTime: session.startTime,
         endTime: Date.now(),
         windowId: session.windowId,
@@ -652,6 +659,7 @@ async function endAllYouTubeSessions(): Promise<void> {
         await recordYouTubeSession({
           channelName: session.channelName,
           channelId: session.channelId,
+          channelUrl: session.channelUrl,
           startTime: session.startTime,
           endTime: now,
           windowId: session.windowId,

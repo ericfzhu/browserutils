@@ -8,7 +8,7 @@ let heartbeatTimer: number | null = null;
 let lastVisibilityState = !document.hidden;
 
 // YouTube tracking state
-let lastYouTubeChannel: { name: string; id?: string } | null = null;
+let lastYouTubeChannel: { name: string; id?: string; url?: string } | null = null;
 let youtubeCheckTimer: number | null = null;
 let youtubeBackgroundTimer: number | null = null;
 let isYouTubePlaying = false;
@@ -22,7 +22,7 @@ function isYouTubeVideoPage(): boolean {
 }
 
 // Extract YouTube channel info from the page
-function getYouTubeChannelInfo(): { name: string; id?: string } | null {
+function getYouTubeChannelInfo(): { name: string; id?: string; url?: string } | null {
   if (!isYouTubeVideoPage()) return null;
 
   // First, try Media Session API - most reliable when video is playing
@@ -31,15 +31,17 @@ function getYouTubeChannelInfo(): { name: string; id?: string } | null {
   if (navigator.mediaSession?.metadata?.artist) {
     const name = navigator.mediaSession.metadata.artist;
     console.log('[YouTube Content] Got channel from Media Session:', name);
-    // Try to get channel ID from DOM as a bonus
-    const channelLink = document.querySelector('ytd-channel-name#channel-name #text a, #owner #channel-name a') as HTMLAnchorElement | null;
+    // Try to get channel ID and URL from DOM as a bonus
+    const channelLink = document.querySelector('ytd-channel-name #text a, #owner ytd-channel-name a, #owner #channel-name a') as HTMLAnchorElement | null;
     let id: string | undefined;
+    let url: string | undefined;
     if (channelLink?.href) {
+      url = channelLink.href;
       const handleMatch = channelLink.href.match(/\/@([^/]+)/);
       const channelMatch = channelLink.href.match(/\/channel\/([^/]+)/);
       id = handleMatch?.[1] || channelMatch?.[1];
     }
-    return { name, id };
+    return { name, id, url };
   }
 
   // Fallback: DOM scraping for when video isn't playing yet
@@ -49,8 +51,8 @@ function getYouTubeChannelInfo(): { name: string; id?: string } | null {
   if (window.location.pathname === '/watch') {
     // Regular video page - channel name in the video description area
     channelElement = document.querySelector(
-      'ytd-channel-name#channel-name #text a, ' +
-      'ytd-video-owner-renderer #channel-name #text a, ' +
+      'ytd-channel-name #text a, ' +
+      '#owner ytd-channel-name a, ' +
       'ytd-video-owner-renderer ytd-channel-name a, ' +
       '#owner #channel-name a'
     );
@@ -70,13 +72,16 @@ function getYouTubeChannelInfo(): { name: string; id?: string } | null {
     const href = channelElement.getAttribute('href');
     console.log('[YouTube Content] DOM channel name:', name, 'href:', href);
     let id: string | undefined;
+    let url: string | undefined;
     if (href) {
+      // Convert relative href to absolute URL
+      url = href.startsWith('http') ? href : `https://www.youtube.com${href}`;
       const handleMatch = href.match(/\/@([^/]+)/);
       const channelMatch = href.match(/\/channel\/([^/]+)/);
       id = handleMatch?.[1] || channelMatch?.[1];
     }
     if (name) {
-      return { name, id };
+      return { name, id, url };
     }
   }
 
@@ -102,6 +107,7 @@ function handleYouTubePlay() {
     sendMessage('YOUTUBE_CHANNEL_UPDATE', {
       channelName: channelInfo.name,
       channelId: channelInfo.id,
+      channelUrl: channelInfo.url,
       url: window.location.href,
       timestamp: Date.now(),
     });
@@ -124,6 +130,7 @@ function handleYouTubePause() {
       visible: false,
       channelName: lastYouTubeChannel.name,
       channelId: lastYouTubeChannel.id,
+      channelUrl: lastYouTubeChannel.url,
       url: window.location.href,
       timestamp: Date.now(),
     });
@@ -183,6 +190,7 @@ function sendYouTubeChannelUpdate() {
           visible: false,
           channelName: lastYouTubeChannel.name,
           channelId: lastYouTubeChannel.id,
+          channelUrl: lastYouTubeChannel.url,
           url: window.location.href,
           timestamp: Date.now(),
         });
@@ -193,6 +201,7 @@ function sendYouTubeChannelUpdate() {
     sendMessage('YOUTUBE_CHANNEL_UPDATE', {
       channelName: channelInfo.name,
       channelId: channelInfo.id,
+      channelUrl: channelInfo.url,
       url: window.location.href,
       timestamp: Date.now(),
     });
@@ -207,6 +216,7 @@ function handleYouTubeNavigation() {
       visible: false,
       channelName: lastYouTubeChannel.name,
       channelId: lastYouTubeChannel.id,
+      channelUrl: lastYouTubeChannel.url,
       url: window.location.href,
       timestamp: Date.now(),
     });
@@ -268,6 +278,7 @@ function stopYouTubeTracking() {
       visible: false,
       channelName: lastYouTubeChannel.name,
       channelId: lastYouTubeChannel.id,
+      channelUrl: lastYouTubeChannel.url,
       url: window.location.href,
       timestamp: Date.now(),
     });

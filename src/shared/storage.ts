@@ -110,13 +110,20 @@ export async function getDailyStats(date?: string): Promise<DailyStats> {
   const targetDate = date || getLocalDateString();
   const result = await chrome.storage.local.get(STORAGE_KEYS.DAILY_STATS);
   const allStats = result[STORAGE_KEYS.DAILY_STATS] || {};
-  return allStats[targetDate] || {
+  const stats = allStats[targetDate];
+  if (stats) {
+    // Ensure youtubeSessions exists for backwards compatibility
+    if (!stats.youtubeSessions) stats.youtubeSessions = [];
+    return stats;
+  }
+  return {
     date: targetDate,
     totalTime: 0,
     sites: {},
     visits: 0,
     blockedAttempts: 0,
     sessions: [],
+    youtubeSessions: [],
   };
 }
 
@@ -190,7 +197,21 @@ export function computeStatsFromSessions(sessions: SiteSession[]): { totalTime: 
 export async function recordSession(session: SiteSession): Promise<void> {
   const sessionDate = new Date(session.startTime);
   const dateStr = getLocalDateString(sessionDate);
-  const stats = await getDailyStats(dateStr);
+
+  // Use atomic read-modify-write to prevent race conditions with recordYouTubeSession
+  const result = await chrome.storage.local.get(STORAGE_KEYS.DAILY_STATS);
+  const allStats = result[STORAGE_KEYS.DAILY_STATS] || {};
+
+  // Get existing stats for this date, or create minimal structure
+  const stats = allStats[dateStr] || {
+    date: dateStr,
+    totalTime: 0,
+    sites: {},
+    visits: 0,
+    blockedAttempts: 0,
+    sessions: [],
+    youtubeSessions: [],
+  };
 
   // Add session
   if (!stats.sessions) stats.sessions = [];
@@ -202,16 +223,21 @@ export async function recordSession(session: SiteSession): Promise<void> {
   stats.totalTime = computed.totalTime;
   stats.sites = computed.sites;
 
-  await updateDailyStats(dateStr, stats);
+  // Preserve youtubeSessions if they exist
+  if (!stats.youtubeSessions) stats.youtubeSessions = [];
+
+  allStats[dateStr] = stats;
+  await chrome.storage.local.set({ [STORAGE_KEYS.DAILY_STATS]: allStats });
 }
 
 // Compute YouTube channel stats from sessions (aggregate time per channel)
 export function computeYouTubeStatsFromSessions(sessions: YouTubeChannelSession[]): Record<string, number> {
-  // Group intervals by channel (using channelId if available, else channelName)
+  // Group intervals by channelName to ensure consistent merging
+  // (channelId may be present in some sessions but not others for the same channel)
   const channelIntervals = new Map<string, { start: number; end: number }[]>();
 
   for (const session of sessions) {
-    const key = session.channelId || session.channelName;
+    const key = session.channelName;
     const intervals = channelIntervals.get(key) || [];
     intervals.push({ start: session.startTime, end: session.endTime });
     channelIntervals.set(key, intervals);
@@ -219,13 +245,46 @@ export function computeYouTubeStatsFromSessions(sessions: YouTubeChannelSession[
 
   // Merge overlapping intervals and calculate time per channel
   const channels: Record<string, number> = {};
-  for (const [key, intervals] of channelIntervals) {
+  for (const [channelName, intervals] of channelIntervals) {
     const { totalSeconds } = mergeIntervals(intervals);
-    // Use the channel name from the first session with this key
-    const channelSession = sessions.find(s => (s.channelId || s.channelName) === key);
-    if (channelSession) {
-      channels[channelSession.channelName] = totalSeconds;
+    channels[channelName] = totalSeconds;
+  }
+
+  return channels;
+}
+
+// Channel stats with URL information
+export interface YouTubeChannelStats {
+  time: number;
+  url?: string;
+}
+
+// Compute YouTube channel stats with URLs from sessions
+export function computeYouTubeStatsWithUrls(sessions: YouTubeChannelSession[]): Record<string, YouTubeChannelStats> {
+  // Group intervals by channelName to ensure consistent merging
+  // (channelId may be present in some sessions but not others for the same channel)
+  const channelIntervals = new Map<string, { start: number; end: number }[]>();
+  const channelUrls = new Map<string, string>();
+
+  for (const session of sessions) {
+    const key = session.channelName;
+    const intervals = channelIntervals.get(key) || [];
+    intervals.push({ start: session.startTime, end: session.endTime });
+    channelIntervals.set(key, intervals);
+    // Store channel URL if available (use the most recent one)
+    if (session.channelUrl) {
+      channelUrls.set(key, session.channelUrl);
     }
+  }
+
+  // Merge overlapping intervals and calculate time per channel
+  const channels: Record<string, YouTubeChannelStats> = {};
+  for (const [channelName, intervals] of channelIntervals) {
+    const { totalSeconds } = mergeIntervals(intervals);
+    channels[channelName] = {
+      time: totalSeconds,
+      url: channelUrls.get(channelName),
+    };
   }
 
   return channels;
@@ -234,13 +293,29 @@ export function computeYouTubeStatsFromSessions(sessions: YouTubeChannelSession[
 export async function recordYouTubeSession(session: YouTubeChannelSession): Promise<void> {
   const sessionDate = new Date(session.startTime);
   const dateStr = getLocalDateString(sessionDate);
-  const stats = await getDailyStats(dateStr);
 
-  // Add YouTube session
-  if (!stats.youtubeSessions) stats.youtubeSessions = [];
-  stats.youtubeSessions.push(session);
+  // Use atomic read-modify-write to prevent race conditions with recordSession
+  // We fetch the latest stats right before writing and only modify youtubeSessions
+  const result = await chrome.storage.local.get(STORAGE_KEYS.DAILY_STATS);
+  const allStats = result[STORAGE_KEYS.DAILY_STATS] || {};
 
-  await updateDailyStats(dateStr, stats);
+  // Get existing stats for this date, or create minimal structure
+  const existingStats = allStats[dateStr] || {
+    date: dateStr,
+    totalTime: 0,
+    sites: {},
+    visits: 0,
+    blockedAttempts: 0,
+    sessions: [],
+    youtubeSessions: [],
+  };
+
+  // Only modify youtubeSessions, preserve everything else
+  if (!existingStats.youtubeSessions) existingStats.youtubeSessions = [];
+  existingStats.youtubeSessions.push(session);
+
+  allStats[dateStr] = existingStats;
+  await chrome.storage.local.set({ [STORAGE_KEYS.DAILY_STATS]: allStats });
 }
 
 // Active YouTube sessions management

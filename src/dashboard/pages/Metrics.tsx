@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Calendar, Clock, TrendingDown, TrendingUp, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Layers, CalendarDays, X, Youtube } from 'lucide-react';
-import { DailyStats, SiteSession, SiteCategory, Settings } from '../../shared/types';
+import { DailyStats, SiteSession, SiteCategory, Settings, ActiveYouTubeSession } from '../../shared/types';
 import { CATEGORIES, getCategoryForDomain, getCategoryInfo } from '../../shared/categories';
-import { computeYouTubeStatsFromSessions } from '../../shared/storage';
+import { computeYouTubeStatsWithUrls } from '../../shared/storage';
 
 function formatTime(seconds: number): string {
   const hours = Math.floor(seconds / 3600);
@@ -369,6 +369,7 @@ export default function Metrics() {
   const [hoveredSegment, setHoveredSegment] = useState<{ date: string; domain: string; time: number; percent: number } | null>(null);
   const [domainCategories, setDomainCategories] = useState<Record<string, SiteCategory>>({});
   const [settings, setSettings] = useState<Settings | null>(null);
+  const [activeYoutubeSessions, setActiveYoutubeSessions] = useState<Record<number, ActiveYouTubeSession>>({});
 
   // Timeline state
   const [selectedDate, setSelectedDate] = useState(() => getDateString(new Date()));
@@ -388,14 +389,16 @@ export default function Metrics() {
 
   async function loadStats() {
     try {
-      const [stats, categories, settingsResult] = await Promise.all([
+      const [stats, categories, settingsResult, activeYt] = await Promise.all([
         chrome.runtime.sendMessage({ type: 'GET_STATS' }),
         chrome.runtime.sendMessage({ type: 'GET_DOMAIN_CATEGORIES' }),
         chrome.runtime.sendMessage({ type: 'GET_SETTINGS' }),
+        chrome.runtime.sendMessage({ type: 'GET_ACTIVE_YOUTUBE_SESSIONS' }),
       ]);
       setAllStats(stats);
       setDomainCategories(categories || {});
       setSettings(settingsResult);
+      setActiveYoutubeSessions(activeYt || {});
     } catch (err) {
       console.error('Failed to load stats:', err);
     } finally {
@@ -907,10 +910,19 @@ export default function Metrics() {
               );
             }
 
-            const channelStats = computeYouTubeStatsFromSessions(allYouTubeSessions);
-            const sortedChannels = Object.entries(channelStats).sort((a, b) => b[1] - a[1]);
-            const totalYouTubeTime = Object.values(channelStats).reduce((a, b) => a + b, 0);
-            const maxChannelTime = sortedChannels.length > 0 ? sortedChannels[0][1] : 0;
+            const channelStats = computeYouTubeStatsWithUrls(allYouTubeSessions);
+
+            // Build a map of channel URLs from active sessions
+            const activeUrls: Record<string, string> = {};
+            for (const session of Object.values(activeYoutubeSessions)) {
+              if (session.channelUrl && session.channelName) {
+                activeUrls[session.channelName] = session.channelUrl;
+              }
+            }
+
+            const sortedChannels = Object.entries(channelStats).sort((a, b) => b[1].time - a[1].time);
+            const totalYouTubeTime = Object.values(channelStats).reduce((a, b) => a + b.time, 0);
+            const maxChannelTime = sortedChannels.length > 0 ? sortedChannels[0][1].time : 0;
 
             return (
               <div className="space-y-4">
@@ -918,19 +930,31 @@ export default function Metrics() {
                   <span>{sortedChannels.length} channel{sortedChannels.length !== 1 ? 's' : ''}</span>
                   <span>Total: {formatTime(totalYouTubeTime)}</span>
                 </div>
-                {sortedChannels.map(([channel, time], idx) => {
-                  const percent = totalYouTubeTime > 0 ? (time / totalYouTubeTime) * 100 : 0;
-                  const barWidth = maxChannelTime > 0 ? (time / maxChannelTime) * 100 : 0;
+                {sortedChannels.map(([channel, stats], idx) => {
+                  const percent = totalYouTubeTime > 0 ? (stats.time / totalYouTubeTime) * 100 : 0;
+                  const barWidth = maxChannelTime > 0 ? (stats.time / maxChannelTime) * 100 : 0;
+                  const channelUrl = stats.url || activeUrls[channel];
 
                   return (
                     <div key={channel}>
                       <div className="flex justify-between text-sm mb-1">
                         <span className="font-medium truncate flex items-center gap-2">
                           <span className="text-gray-400">{idx + 1}.</span>
-                          {channel}
+                          {channelUrl ? (
+                            <a
+                              href={channelUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="hover:text-red-600 hover:underline"
+                            >
+                              {channel}
+                            </a>
+                          ) : (
+                            channel
+                          )}
                         </span>
                         <span className="text-gray-500 dark:text-gray-400 flex items-center gap-2">
-                          {formatTime(time)}
+                          {formatTime(stats.time)}
                           <span className="text-xs text-gray-400">({percent.toFixed(1)}%)</span>
                         </span>
                       </div>

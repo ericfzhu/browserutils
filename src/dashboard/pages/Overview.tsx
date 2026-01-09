@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Clock, Globe, Shield, TrendingUp, Layers, ArrowRight, Youtube } from 'lucide-react';
-import { DailyStats, BlockedSite, SiteSession, SiteCategory, DailyLimit, Settings } from '../../shared/types';
+import { DailyStats, BlockedSite, SiteSession, SiteCategory, DailyLimit, Settings, ActiveYouTubeSession } from '../../shared/types';
 import { CATEGORIES, getCategoryForDomain, getCategoryInfo } from '../../shared/categories';
-import { computeYouTubeStatsFromSessions } from '../../shared/storage';
+import { computeYouTubeStatsWithUrls } from '../../shared/storage';
 
 function formatTime(seconds: number): string {
   const hours = Math.floor(seconds / 3600);
@@ -157,9 +157,15 @@ function TimelinePreview({ sessions, sites }: TimelinePreviewProps) {
             <div key={domain} className="flex items-center gap-2">
               <div className="w-28 flex-shrink-0">
                 <div className="flex items-center gap-1">
-                  <span className="text-xs font-medium truncate" title={domain}>
+                  <a
+                    href={`https://${domain}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs font-medium truncate hover:text-blue-600 hover:underline"
+                    title={domain}
+                  >
                     {domain.replace(/^www\./, '')}
-                  </span>
+                  </a>
                   {hasMultipleWindows && (
                     <span title="Multiple windows">
                       <Layers className="w-3 h-3 text-gray-400 flex-shrink-0" />
@@ -222,6 +228,7 @@ export default function Overview() {
   const [dailyLimits, setDailyLimits] = useState<DailyLimit[]>([]);
   const [domainCategories, setDomainCategories] = useState<Record<string, SiteCategory>>({});
   const [settings, setSettings] = useState<Settings | null>(null);
+  const [activeYoutubeSessions, setActiveYoutubeSessions] = useState<Record<number, ActiveYouTubeSession>>({});
   const [loading, setLoading] = useState(true);
 
   const today = getDateString(new Date());
@@ -232,18 +239,20 @@ export default function Overview() {
 
   async function loadData() {
     try {
-      const [stats, sites, limits, categories, settingsResult] = await Promise.all([
+      const [stats, sites, limits, categories, settingsResult, activeYt] = await Promise.all([
         chrome.runtime.sendMessage({ type: 'GET_STATS', payload: { date: today } }),
         chrome.runtime.sendMessage({ type: 'GET_BLOCKED_SITES' }),
         chrome.runtime.sendMessage({ type: 'GET_DAILY_LIMITS' }),
         chrome.runtime.sendMessage({ type: 'GET_DOMAIN_CATEGORIES' }),
         chrome.runtime.sendMessage({ type: 'GET_SETTINGS' }),
+        chrome.runtime.sendMessage({ type: 'GET_ACTIVE_YOUTUBE_SESSIONS' }),
       ]);
       setTodayStats(stats);
       setBlockedSites(sites);
       setDailyLimits(limits || []);
       setDomainCategories(categories || {});
       setSettings(settingsResult);
+      setActiveYoutubeSessions(activeYt || {});
     } catch (err) {
       console.error('Failed to load data:', err);
     } finally {
@@ -379,7 +388,14 @@ export default function Overview() {
                     <span className="text-sm text-gray-400 dark:text-gray-500 w-4">{index + 1}</span>
                     <div className="flex-1">
                       <div className="flex items-center justify-between mb-1">
-                        <span className="text-sm font-medium truncate">{domain}</span>
+                        <a
+                          href={`https://${domain}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm font-medium truncate hover:text-blue-600 hover:underline"
+                        >
+                          {domain}
+                        </a>
                         <span className="text-sm text-gray-500 dark:text-gray-400">{formatTime(time)}</span>
                       </div>
                       <div className="h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
@@ -495,21 +511,43 @@ export default function Overview() {
                 </p>
               );
             }
-            const channelStats = computeYouTubeStatsFromSessions(youtubeSessions);
+            const channelStats = computeYouTubeStatsWithUrls(youtubeSessions);
+
+            // Build a map of channel URLs from active sessions (for channels without URLs in recorded sessions)
+            const activeUrls: Record<string, string> = {};
+            for (const session of Object.values(activeYoutubeSessions)) {
+              if (session.channelUrl && session.channelName) {
+                activeUrls[session.channelName] = session.channelUrl;
+              }
+            }
+
             const sortedChannels = Object.entries(channelStats)
-              .sort((a, b) => b[1] - a[1])
+              .sort((a, b) => b[1].time - a[1].time)
               .slice(0, 5);
-            const maxChannelTime = sortedChannels[0]?.[1] || 1;
+            const maxChannelTime = sortedChannels[0]?.[1].time || 1;
 
             return (
               <div className="space-y-3">
-                {sortedChannels.map(([channel, time]) => {
-                  const barWidth = (time / maxChannelTime) * 100;
+                {sortedChannels.map(([channel, stats]) => {
+                  const barWidth = (stats.time / maxChannelTime) * 100;
+                  // Use URL from recorded sessions, or fall back to active session URL
+                  const channelUrl = stats.url || activeUrls[channel];
                   return (
                     <div key={channel}>
                       <div className="flex justify-between text-sm mb-1">
-                        <span className="font-medium truncate">{channel}</span>
-                        <span className="text-gray-500 dark:text-gray-400">{formatTime(time)}</span>
+                        {channelUrl ? (
+                          <a
+                            href={channelUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="font-medium truncate hover:text-red-600 hover:underline"
+                          >
+                            {channel}
+                          </a>
+                        ) : (
+                          <span className="font-medium truncate">{channel}</span>
+                        )}
+                        <span className="text-gray-500 dark:text-gray-400">{formatTime(stats.time)}</span>
                       </div>
                       <div className="h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
                         <div

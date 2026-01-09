@@ -2,7 +2,7 @@ import { Tag, Plus, Wrench, Bug, ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 // Changelog data - update this when releasing new versions
-const CURRENT_VERSION = '0.10.0';
+const CURRENT_VERSION = '0.10.1';
 
 interface ChangelogEntry {
   version: string;
@@ -13,6 +13,18 @@ interface ChangelogEntry {
 }
 
 const changelog: ChangelogEntry[] = [
+  {
+    version: '0.10.1',
+    date: '2026-01-09',
+    added: [
+      'Clickable YouTube channel names - click a channel in Overview or Metrics to visit their page',
+      'Site URLs in Overview are now clickable links',
+    ],
+    fixed: [
+      'Fixed race condition that could cause YouTube session data loss when tracking overlapped with site tracking',
+      'Fixed YouTube channel URL not being captured from video pages',
+    ],
+  },
   {
     version: '0.10.0',
     date: '2026-01-09',

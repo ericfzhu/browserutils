@@ -76,6 +76,7 @@ export interface SiteSession {
 export interface YouTubeChannelSession {
   channelName: string;
   channelId?: string; // for deduplication (handle or ID)
+  channelUrl?: string; // URL to the channel page
   startTime: number;  // timestamp (ms)
   endTime: number;    // timestamp (ms)
   windowId: number;
@@ -121,6 +122,7 @@ export interface ActiveSession {
 export interface ActiveYouTubeSession {
   channelName: string;
   channelId?: string;
+  channelUrl?: string;
   startTime: number;
   tabId: number;
   windowId: number;
@@ -181,8 +183,9 @@ export type MessageType =
   | { type: 'BYPASS_DAILY_LIMIT'; payload: { id: string; password?: string } }
   | { type: 'CHECK_DAILY_LIMIT'; payload: { url: string } }
   // YouTube tracking messages
-  | { type: 'YOUTUBE_CHANNEL_UPDATE'; payload: { channelName: string; channelId?: string; url: string; timestamp: number } }
-  | { type: 'YOUTUBE_VISIBILITY_CHANGE'; payload: { visible: boolean; channelName?: string; channelId?: string; url: string; timestamp: number } }
+  | { type: 'YOUTUBE_CHANNEL_UPDATE'; payload: { channelName: string; channelId?: string; channelUrl?: string; url: string; timestamp: number } }
+  | { type: 'YOUTUBE_VISIBILITY_CHANGE'; payload: { visible: boolean; channelName?: string; channelId?: string; channelUrl?: string; url: string; timestamp: number } }
+  | { type: 'GET_ACTIVE_YOUTUBE_SESSIONS' }
   // Lockdown mode messages
   | { type: 'LOCKDOWN_GET_STATUS' }
   | { type: 'LOCKDOWN_AUTHENTICATE'; payload: { password: string } }
