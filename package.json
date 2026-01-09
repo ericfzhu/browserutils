@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "vite build --watch",
     "prebuild": "node scripts/generate-changelog.js && node scripts/generate-icons.js",
-    "build": "tsc && vite build",
+    "build": "yarn prebuild && tsc && vite build",
     "preview": "vite preview",
     "changelog": "node scripts/generate-changelog.js"
   },
