@@ -5,6 +5,14 @@ All notable changes to BrowserUtils will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.2] - 2026-01-10
+
+### Added
+- GitHub link in Settings page under new About section
+
+### Fixed
+- Fixed blocked page not showing when clicking links to blocked sites from other websites (was showing Chrome ERR_BLOCKED_BY_CLIENT error)
+
 ## [0.10.1] - 2026-01-09
 
 ### Added

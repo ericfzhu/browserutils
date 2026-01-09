@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Save, Trash2, AlertTriangle, Sun, Moon, Monitor, Lock } from 'lucide-react';
+import { Save, Trash2, AlertTriangle, Sun, Moon, Monitor, Lock, Github } from 'lucide-react';
 import { Settings as SettingsType } from '../../shared/types';
 import { applyTheme } from '../../shared/theme';
 
@@ -385,7 +385,7 @@ export default function SettingsPage() {
       </div>
 
       {/* Data Management */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 mb-6">
         <h2 className="text-lg font-semibold mb-4">Data Management</h2>
 
         <div className="space-y-4">
@@ -426,6 +426,20 @@ export default function SettingsPage() {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* About */}
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+        <h2 className="text-lg font-semibold mb-4">About</h2>
+        <a
+          href="https://github.com/ericfzhu/browserutils"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-2 text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+        >
+          <Github className="w-5 h-5" />
+          View on GitHub
+        </a>
       </div>
     </div>
   );

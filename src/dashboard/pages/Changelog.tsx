@@ -2,7 +2,7 @@ import { Tag, Plus, Wrench, Bug, ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 // Changelog data - update this when releasing new versions
-const CURRENT_VERSION = '0.10.1';
+const CURRENT_VERSION = '0.10.2';
 
 interface ChangelogEntry {
   version: string;
@@ -13,6 +13,16 @@ interface ChangelogEntry {
 }
 
 const changelog: ChangelogEntry[] = [
+  {
+    version: '0.10.2',
+    date: '2026-01-10',
+    added: [
+      'GitHub link in Settings page under new About section',
+    ],
+    fixed: [
+      'Fixed blocked page not showing when clicking links to blocked sites from other websites (was showing Chrome ERR_BLOCKED_BY_CLIENT error)',
+    ],
+  },
   {
     version: '0.10.1',
     date: '2026-01-09',

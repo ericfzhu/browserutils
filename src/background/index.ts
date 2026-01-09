@@ -1005,6 +1005,38 @@ chrome.tabs.onRemoved.addListener(async (tabId) => {
   await endYouTubeSession(tabId);
 });
 
+// Intercept navigations to blocked sites and redirect to blocked page
+// This handles cases where declarativeNetRequest redirect fails (e.g., cross-origin link clicks)
+chrome.webNavigation.onBeforeNavigate.addListener(async (details) => {
+  // Only handle main frame navigations
+  if (details.frameId !== 0) return;
+
+  // Skip extension pages
+  if (details.url.startsWith('chrome-extension://')) return;
+
+  // Check if site is blocked
+  const result = await checkIfBlocked(details.url);
+  if (result.blocked && result.site) {
+    // Increment blocked attempt counter
+    await incrementBlockedAttempt(result.site.pattern);
+
+    // Redirect to blocked page
+    const blockedUrl = chrome.runtime.getURL(`blocked.html?site=${result.site.id}`);
+    chrome.tabs.update(details.tabId, { url: blockedUrl });
+    return;
+  }
+
+  // Check daily limits
+  const domain = getDomainFromUrl(details.url);
+  if (domain) {
+    const limitResult = await checkDailyLimitForDomain(domain);
+    if (limitResult.exceeded && limitResult.limit) {
+      const blockedUrl = chrome.runtime.getURL(`blocked.html?type=limit&limitId=${limitResult.limit.id}`);
+      chrome.tabs.update(details.tabId, { url: blockedUrl });
+    }
+  }
+});
+
 chrome.windows.onFocusChanged.addListener(async (windowId) => {
   // For multi-window tracking, we don't end sessions when focus changes
   // Sessions continue in all visible windows
