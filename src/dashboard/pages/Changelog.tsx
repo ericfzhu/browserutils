@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Tag, Plus, Wrench, Bug, ArrowLeft } from 'lucide-react';
+import { Tag, Plus, Wrench, Bug, ArrowLeft, Minus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 // Changelog data - update this when releasing new versions
@@ -11,6 +11,7 @@ interface ChangelogEntry {
   added?: string[];
   changed?: string[];
   fixed?: string[];
+  removed?: string[];
 }
 
 const changelog: ChangelogEntry[] = [
@@ -22,6 +23,9 @@ const changelog: ChangelogEntry[] = [
       'Focus button on folder headers opens modal to set duration',
       'Quick duration presets (15m, 30m, 1h, 2h) in focus modal',
       'Focus sessions override individual site settings - blocks everything in the folder',
+    ],
+    removed: [
+      'New tab page override - Chrome now uses default new tab',
     ],
     changed: [
       'Timer blocking now works as temporary block - sites are accessible until you start the timer',
@@ -414,6 +418,21 @@ export default function Changelog() {
                   </div>
                   <ul className="space-y-1 ml-6">
                     {entry.fixed.map((item, i) => (
+                      <li key={i} className="text-sm text-gray-600 dark:text-gray-300 list-disc">
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {entry.removed && entry.removed.length > 0 && (
+                <div>
+                  <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400 mb-2">
+                    <Minus className="w-4 h-4" />
+                    <span className="text-sm font-medium">Removed</span>
+                  </div>
+                  <ul className="space-y-1 ml-6">
+                    {entry.removed.map((item, i) => (
                       <li key={i} className="text-sm text-gray-600 dark:text-gray-300 list-disc">
                         {item}
                       </li>
