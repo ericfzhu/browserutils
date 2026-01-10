@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Plus, Trash2, Edit2, X, Shield, Clock, Calendar, Lock, FolderPlus, ChevronRight, GripVertical } from 'lucide-react';
+import { Plus, Trash2, Edit2, X, Shield, Clock, Calendar, Lock, FolderPlus, ChevronRight, GripVertical, Focus } from 'lucide-react';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import { BlockedSite, BlockedSiteFolder } from '../../shared/types';
 import { hashPassword } from '../../shared/storage';
@@ -63,6 +63,14 @@ interface TimerStatus {
   remainingMs: number;
 }
 
+// Focus session status for a folder
+interface FocusStatus {
+  isActive: boolean;
+  focusUntil?: number;
+  remainingMs: number;
+  focusDuration?: number;
+}
+
 export default function BlockedSites() {
   const [sites, setSites] = useState<BlockedSite[]>([]);
   const [folders, setFolders] = useState<BlockedSiteFolder[]>([]);
@@ -74,6 +82,10 @@ export default function BlockedSites() {
   const [formData, setFormData] = useState<FormData>(defaultFormData);
   const [folderName, setFolderName] = useState('');
   const [timerStatuses, setTimerStatuses] = useState<Record<string, TimerStatus>>({});
+  const [focusStatuses, setFocusStatuses] = useState<Record<string, FocusStatus>>({});
+  const [showFocusModal, setShowFocusModal] = useState(false);
+  const [focusTargetFolder, setFocusTargetFolder] = useState<string | null>(null);
+  const [focusDuration, setFocusDuration] = useState(30);
   const { withLockdownCheck } = useLockdown();
 
   useEffect(() => {
@@ -111,6 +123,38 @@ export default function BlockedSites() {
     const interval = setInterval(updateTimerStatuses, 1000);
     return () => clearInterval(interval);
   }, [sites]);
+
+  // Update focus session statuses periodically
+  useEffect(() => {
+    if (folders.length === 0) return;
+
+    const updateFocusStatuses = async () => {
+      const statuses: Record<string, FocusStatus> = {};
+      for (const folder of folders) {
+        try {
+          const status = await chrome.runtime.sendMessage({
+            type: 'GET_FOCUS_STATUS',
+            payload: { folderId: folder.id },
+          });
+          if (status?.found) {
+            statuses[folder.id] = {
+              isActive: status.isActive,
+              focusUntil: status.focusUntil,
+              remainingMs: status.remainingMs,
+              focusDuration: status.focusDuration,
+            };
+          }
+        } catch {
+          // Ignore errors
+        }
+      }
+      setFocusStatuses(statuses);
+    };
+
+    updateFocusStatuses();
+    const interval = setInterval(updateFocusStatuses, 1000);
+    return () => clearInterval(interval);
+  }, [folders]);
 
   async function loadData() {
     try {
@@ -426,6 +470,61 @@ export default function BlockedSites() {
     return `${seconds}s`;
   }
 
+  function openFocusModal(folderId: string) {
+    const folder = folders.find(f => f.id === folderId);
+    setFocusTargetFolder(folderId);
+    setFocusDuration(folder?.focusDuration || 30);
+    setShowFocusModal(true);
+  }
+
+  async function startFocusSession() {
+    if (!focusTargetFolder) return;
+
+    try {
+      const result = await chrome.runtime.sendMessage({
+        type: 'START_FOCUS_SESSION',
+        payload: { folderId: focusTargetFolder, durationMinutes: focusDuration },
+      });
+      // Immediately update local state for responsive UI
+      if (result?.success && result.focusUntil) {
+        setFocusStatuses(prev => ({
+          ...prev,
+          [focusTargetFolder]: {
+            isActive: true,
+            focusUntil: result.focusUntil,
+            remainingMs: result.focusUntil - Date.now(),
+            focusDuration: focusDuration,
+          },
+        }));
+      }
+      setShowFocusModal(false);
+    } catch (err) {
+      console.error('Failed to start focus session:', err);
+    }
+  }
+
+  async function stopFocusSession(folderId: string) {
+    await withLockdownCheck(async () => {
+      try {
+        await chrome.runtime.sendMessage({
+          type: 'STOP_FOCUS_SESSION',
+          payload: { folderId },
+        });
+        // Immediately update local state
+        setFocusStatuses(prev => ({
+          ...prev,
+          [folderId]: {
+            isActive: false,
+            focusUntil: undefined,
+            remainingMs: 0,
+          },
+        }));
+      } catch (err) {
+        console.error('Failed to stop focus session:', err);
+      }
+    });
+  }
+
   async function handleDragEnd(result: DropResult) {
     if (!result.destination) return;
 
@@ -650,6 +749,8 @@ export default function BlockedSites() {
       s.unlockType === 'timer' ? timerStatuses[s.id]?.isActive : s.enabled;
     const allEnabled = folderSites.length > 0 && folderSites.every(isSiteBlocking);
     const someEnabled = folderSites.some(isSiteBlocking);
+    const focusStatus = folderId ? focusStatuses[folderId] : null;
+    const isFocusActive = focusStatus?.isActive;
 
     const content = (dragHandleProps?: React.HTMLAttributes<HTMLDivElement>) => (
       <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
@@ -672,10 +773,35 @@ export default function BlockedSites() {
               {folder?.name || 'Uncategorized'} ({folderSites.length})
             </span>
           </div>
+          {/* Focus button - only for folders */}
+          {folder && folderSites.length > 0 && (
+            isFocusActive && focusStatus ? (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-purple-600 dark:text-purple-400 font-medium">
+                  {formatTimerRemaining(focusStatus.remainingMs)}
+                </span>
+                <button
+                  onClick={() => stopFocusSession(folder.id)}
+                  className="text-xs py-1 rounded bg-purple-100 dark:bg-purple-700/80 text-purple-700 dark:text-purple-200 hover:bg-purple-200 dark:hover:bg-purple-700 transition-colors w-[72px] flex items-center justify-center gap-1"
+                >
+                  <Focus className="w-3 h-3" />
+                  Stop
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => openFocusModal(folder.id)}
+                className="text-xs py-1 rounded bg-purple-100 dark:bg-purple-700/80 text-purple-700 dark:text-purple-200 hover:bg-purple-200 dark:hover:bg-purple-700 transition-colors w-[72px] flex items-center justify-center gap-1"
+              >
+                <Focus className="w-3 h-3" />
+                Focus
+              </button>
+            )
+          )}
           {folderSites.length > 0 && (
             <button
               onClick={() => toggleFolderSitesEnabled(folderId, !allEnabled)}
-              className={`text-xs px-2 py-1 rounded transition-colors ${
+              className={`text-xs py-1 rounded transition-colors w-[82px] ${
                 allEnabled ? 'bg-red-100 dark:bg-red-700/80 text-red-700 dark:text-red-200 hover:bg-red-200 dark:hover:bg-red-700' :
                 someEnabled ? 'bg-yellow-100 dark:bg-yellow-600/80 text-yellow-700 dark:text-yellow-200 hover:bg-yellow-200 dark:hover:bg-yellow-600' :
                 'bg-gray-100 dark:bg-gray-600/80 text-gray-500 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
@@ -1048,6 +1174,88 @@ export default function BlockedSites() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Focus Session Modal */}
+      {showFocusModal && focusTargetFolder && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-xl w-full max-w-sm mx-4 overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4 border-b dark:border-gray-700">
+              <h2 className="text-lg font-semibold flex items-center gap-2">
+                <Focus className="w-5 h-5 text-purple-600" />
+                Start Focus Session
+              </h2>
+              <button
+                onClick={() => setShowFocusModal(false)}
+                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Block all sites in "{folders.find(f => f.id === focusTargetFolder)?.name}" for:
+              </p>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Duration (minutes)
+                </label>
+                <input
+                  type="number"
+                  value={focusDuration || ''}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setFocusDuration(value === '' ? 0 : parseInt(value) || 0);
+                  }}
+                  onBlur={() => {
+                    if (!focusDuration || focusDuration < 1) {
+                      setFocusDuration(30);
+                    }
+                  }}
+                  min={1}
+                  max={480}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                  autoFocus
+                />
+              </div>
+
+              <div className="flex gap-2">
+                {[15, 30, 60, 120].map(mins => (
+                  <button
+                    key={mins}
+                    type="button"
+                    onClick={() => setFocusDuration(mins)}
+                    className={`flex-1 py-1.5 text-sm rounded-lg transition-colors ${
+                      focusDuration === mins
+                        ? 'bg-purple-600 text-white'
+                        : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                    }`}
+                  >
+                    {mins >= 60 ? `${mins / 60}h` : `${mins}m`}
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowFocusModal(false)}
+                  className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={startFocusSession}
+                  className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
+                >
+                  Start Focus
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

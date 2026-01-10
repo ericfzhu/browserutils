@@ -17,6 +17,12 @@ const changelog: ChangelogEntry[] = [
   {
     version: '0.10.6',
     date: '2026-01-10',
+    added: [
+      'Focus Sessions - block all sites in a folder with one shared timer',
+      'Focus button on folder headers opens modal to set duration',
+      'Quick duration presets (15m, 30m, 1h, 2h) in focus modal',
+      'Focus sessions override individual site settings - blocks everything in the folder',
+    ],
     changed: [
       'Timer blocking now works as temporary block - sites are accessible until you start the timer',
       'Timer sites show "Disabled" button that starts blocking when clicked, "Stop" to end early',

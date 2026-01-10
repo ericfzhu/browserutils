@@ -357,6 +357,48 @@ async function handleMessage(message: MessageType, sender?: chrome.runtime.Messa
       await updateBlockingRules();
       return { success: true };
     }
+    // Focus session operations
+    case 'START_FOCUS_SESSION': {
+      const folders = await getBlockedSiteFolders();
+      const folder = folders.find(f => f.id === message.payload.folderId);
+      if (!folder) {
+        return { success: false, error: 'Folder not found' };
+      }
+      const focusUntil = Date.now() + message.payload.durationMinutes * 60 * 1000;
+      folder.focusUntil = focusUntil;
+      folder.focusDuration = message.payload.durationMinutes;
+      await updateBlockedSiteFolder(folder);
+      await updateBlockingRules();
+      return { success: true, focusUntil };
+    }
+    case 'STOP_FOCUS_SESSION': {
+      const folders = await getBlockedSiteFolders();
+      const folder = folders.find(f => f.id === message.payload.folderId);
+      if (!folder) {
+        return { success: false, error: 'Folder not found' };
+      }
+      folder.focusUntil = undefined;
+      await updateBlockedSiteFolder(folder);
+      await updateBlockingRules();
+      return { success: true };
+    }
+    case 'GET_FOCUS_STATUS': {
+      const folders = await getBlockedSiteFolders();
+      const folder = folders.find(f => f.id === message.payload.folderId);
+      if (!folder) {
+        return { found: false };
+      }
+      const now = Date.now();
+      const isActive = folder.focusUntil ? now < folder.focusUntil : false;
+      const remainingMs = isActive && folder.focusUntil ? folder.focusUntil - now : 0;
+      return {
+        found: true,
+        isActive,
+        focusUntil: folder.focusUntil,
+        remainingMs,
+        focusDuration: folder.focusDuration,
+      };
+    }
     // Content script messages
     case 'HEARTBEAT': {
       await handleHeartbeat(sender);
@@ -841,14 +883,30 @@ async function checkIfBlocked(url: string): Promise<{ blocked: boolean; site?: B
   }
 
   const sites = await getBlockedSites();
+  const folders = await getBlockedSiteFolders();
+  const now = Date.now();
+
+  // Build a map of folder IDs with active focus sessions
+  const activeFocusFolders = new Set<string>();
+  for (const folder of folders) {
+    if (folder.focusUntil && now < folder.focusUntil) {
+      activeFocusFolders.add(folder.id);
+    }
+  }
 
   for (const site of sites) {
-    if (!site.enabled) continue;
-
     if (matchesPattern(url, site.pattern)) {
+      // Check if site's folder has an active focus session - blocks regardless of site settings
+      if (site.folderId && activeFocusFolders.has(site.folderId)) {
+        return { blocked: true, site };
+      }
+
+      // Skip disabled sites for individual blocking rules
+      if (!site.enabled) continue;
+
       // Timer sites: only blocked when timer is active
       if (site.unlockType === 'timer') {
-        if (site.timerBlockedUntil && Date.now() < site.timerBlockedUntil) {
+        if (site.timerBlockedUntil && now < site.timerBlockedUntil) {
           return { blocked: true, site };
         }
         // Timer not active - site is not blocked
@@ -857,9 +915,9 @@ async function checkIfBlocked(url: string): Promise<{ blocked: boolean; site?: B
 
       // Check schedule
       if (site.unlockType === 'schedule' && site.schedule) {
-        const now = new Date();
-        const day = now.getDay();
-        const time = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+        const nowDate = new Date();
+        const day = nowDate.getDay();
+        const time = `${nowDate.getHours().toString().padStart(2, '0')}:${nowDate.getMinutes().toString().padStart(2, '0')}`;
 
         if (site.schedule.days.includes(day)) {
           if (time >= site.schedule.startTime && time <= site.schedule.endTime) {
@@ -879,6 +937,8 @@ async function checkIfBlocked(url: string): Promise<{ blocked: boolean; site?: B
 async function updateBlockingRules(): Promise<void> {
   const settings = await getSettings();
   const sites = await getBlockedSites();
+  const folders = await getBlockedSiteFolders();
+  const now = Date.now();
 
   // Remove all existing dynamic rules
   const existingRules = await chrome.declarativeNetRequest.getDynamicRules();
@@ -894,31 +954,45 @@ async function updateBlockingRules(): Promise<void> {
     return;
   }
 
+  // Build a set of folder IDs with active focus sessions
+  const activeFocusFolders = new Set<string>();
+  for (const folder of folders) {
+    if (folder.focusUntil && now < folder.focusUntil) {
+      activeFocusFolders.add(folder.id);
+    }
+  }
+
   const rules: chrome.declarativeNetRequest.Rule[] = [];
   let ruleId = 1;
 
   for (const site of sites) {
-    if (!site.enabled) continue;
+    // Check if site's folder has an active focus session - always block
+    const inFocusSession = site.folderId && activeFocusFolders.has(site.folderId);
 
-    // Timer sites: only create rule if timer is active
-    if (site.unlockType === 'timer') {
-      if (!site.timerBlockedUntil || Date.now() >= site.timerBlockedUntil) {
-        // Timer not active - don't block
-        continue;
+    if (!inFocusSession) {
+      // Not in focus session - check individual site rules
+      if (!site.enabled) continue;
+
+      // Timer sites: only create rule if timer is active
+      if (site.unlockType === 'timer') {
+        if (!site.timerBlockedUntil || now >= site.timerBlockedUntil) {
+          // Timer not active - don't block
+          continue;
+        }
       }
-    }
 
-    // Skip if outside scheduled blocking period
-    if (site.unlockType === 'schedule' && site.schedule) {
-      const now = new Date();
-      const day = now.getDay();
-      const time = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+      // Skip if outside scheduled blocking period
+      if (site.unlockType === 'schedule' && site.schedule) {
+        const nowDate = new Date();
+        const day = nowDate.getDay();
+        const time = `${nowDate.getHours().toString().padStart(2, '0')}:${nowDate.getMinutes().toString().padStart(2, '0')}`;
 
-      const isBlockingDay = site.schedule.days.includes(day);
-      const isBlockingTime = time >= site.schedule.startTime && time <= site.schedule.endTime;
+        const isBlockingDay = site.schedule.days.includes(day);
+        const isBlockingTime = time >= site.schedule.startTime && time <= site.schedule.endTime;
 
-      if (!isBlockingDay || !isBlockingTime) {
-        continue;
+        if (!isBlockingDay || !isBlockingTime) {
+          continue;
+        }
       }
     }
 

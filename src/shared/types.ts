@@ -64,6 +64,8 @@ export interface BlockedSiteFolder {
   color?: string; // Optional color for visual distinction
   collapsed?: boolean; // UI state - whether folder is expanded
   order: number; // For ordering folders
+  focusUntil?: number; // Timestamp when focus session expires (if active)
+  focusDuration?: number; // Default focus duration in minutes
 }
 
 export interface SiteVisit {
@@ -202,6 +204,9 @@ export type MessageType =
   | { type: 'UPDATE_BLOCKED_SITE_FOLDER'; payload: BlockedSiteFolder }
   | { type: 'UPDATE_BLOCKED_SITE_FOLDERS'; payload: BlockedSiteFolder[] }
   | { type: 'REMOVE_BLOCKED_SITE_FOLDER'; payload: { id: string } }
+  | { type: 'START_FOCUS_SESSION'; payload: { folderId: string; durationMinutes: number } }
+  | { type: 'STOP_FOCUS_SESSION'; payload: { folderId: string } }
+  | { type: 'GET_FOCUS_STATUS'; payload: { folderId: string } }
   // Content script messages
   | { type: 'HEARTBEAT'; payload: { url: string; timestamp: number } }
   | { type: 'VISIBILITY_CHANGE'; payload: { visible: boolean; url: string; timestamp: number } }
