@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { Routes, Route, NavLink, Link } from 'react-router-dom';
-import { BarChart3, Shield, Settings, LayoutDashboard, Sparkles, Timer } from 'lucide-react';
+import { BarChart3, Shield, Settings, LayoutDashboard, Sparkles, Timer, Tag } from 'lucide-react';
 import Overview from './pages/Overview';
 import BlockedSites from './pages/BlockedSites';
 import Limits from './pages/Limits';
 import Metrics from './pages/Metrics';
+import Categories from './pages/Categories';
 import SettingsPage from './pages/Settings';
 import Changelog, { CURRENT_VERSION } from './pages/Changelog';
 import { LockdownProvider, useLockdown } from './hooks/useLockdown';
@@ -15,6 +16,7 @@ const navItems = [
   { to: '/blocked', icon: Shield, label: 'Blocked Sites' },
   { to: '/limits', icon: Timer, label: 'Daily Limits' },
   { to: '/metrics', icon: BarChart3, label: 'Metrics' },
+  { to: '/categories', icon: Tag, label: 'Categories' },
   { to: '/settings', icon: Settings, label: 'Settings' },
 ];
 
@@ -128,6 +130,7 @@ export default function App() {
           <Route path="/blocked" element={<BlockedSites />} />
           <Route path="/limits" element={<Limits />} />
           <Route path="/metrics" element={<Metrics />} />
+          <Route path="/categories" element={<Categories />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/changelog" element={<Changelog />} />
         </Routes>

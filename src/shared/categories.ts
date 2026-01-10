@@ -1,6 +1,6 @@
-import { SiteCategory, CategoryInfo } from './types';
+import { SiteCategory, CategoryInfo, CustomCategory } from './types';
 
-// Category display information
+// Built-in category display information
 export const CATEGORIES: CategoryInfo[] = [
   { id: 'social', name: 'Social Media', color: 'bg-pink-500' },
   { id: 'entertainment', name: 'Entertainment', color: 'bg-purple-500' },
@@ -13,9 +13,56 @@ export const CATEGORIES: CategoryInfo[] = [
   { id: 'other', name: 'Other', color: 'bg-gray-400' },
 ];
 
-// Get category info by ID
-export function getCategoryInfo(id: SiteCategory): CategoryInfo {
+// Built-in category IDs for checking
+export const BUILTIN_CATEGORY_IDS: SiteCategory[] = [
+  'social', 'entertainment', 'news', 'shopping', 'productivity',
+  'development', 'education', 'communication', 'other'
+];
+
+// Color options for custom categories
+export const CATEGORY_COLOR_OPTIONS = [
+  'bg-red-500', 'bg-orange-500', 'bg-amber-500', 'bg-yellow-500',
+  'bg-lime-500', 'bg-green-500', 'bg-emerald-500', 'bg-teal-500',
+  'bg-cyan-500', 'bg-sky-500', 'bg-blue-500', 'bg-indigo-500',
+  'bg-violet-500', 'bg-purple-500', 'bg-fuchsia-500', 'bg-pink-500',
+  'bg-rose-500', 'bg-gray-500',
+];
+
+// Check if a category ID is a built-in category
+export function isBuiltInCategory(id: string): id is SiteCategory {
+  return BUILTIN_CATEGORY_IDS.includes(id as SiteCategory);
+}
+
+// Get category info by ID (for built-in categories only)
+export function getCategoryInfo(id: string): CategoryInfo {
   return CATEGORIES.find(c => c.id === id) || CATEGORIES[CATEGORIES.length - 1];
+}
+
+// Get category info with support for custom categories and name overrides
+export function getCategoryInfoWithOverrides(
+  id: string,
+  customCategories: CustomCategory[],
+  builtInOverrides: Record<string, string>
+): CategoryInfo {
+  // Check if it's a custom category
+  const customCat = customCategories.find(c => c.id === id);
+  if (customCat) {
+    return { id: customCat.id, name: customCat.name, color: customCat.color };
+  }
+
+  // Check if it's a built-in category
+  if (isBuiltInCategory(id)) {
+    const builtIn = CATEGORIES.find(c => c.id === id) || CATEGORIES[CATEGORIES.length - 1];
+    const overrideName = builtInOverrides[id];
+    return {
+      id: builtIn.id,
+      name: overrideName || builtIn.name,
+      color: builtIn.color,
+    };
+  }
+
+  // Fallback to "other"
+  return CATEGORIES[CATEGORIES.length - 1];
 }
 
 // Pre-built domain to category mappings
@@ -423,10 +470,11 @@ export const DEFAULT_DOMAIN_CATEGORIES: Record<string, SiteCategory> = {
 };
 
 // Get category for a domain (checks user overrides first, then defaults)
+// Returns category ID (can be built-in SiteCategory or custom category UUID)
 export function getCategoryForDomain(
   domain: string,
-  userOverrides: Record<string, SiteCategory>
-): SiteCategory {
+  userOverrides: Record<string, string>
+): string {
   // Normalize domain (remove www prefix)
   const normalizedDomain = domain.replace(/^www\./, '');
 
@@ -452,15 +500,17 @@ export function getCategoryForDomain(
 
 // Get all domains that belong to a category
 export function getDomainsForCategory(
-  category: SiteCategory,
-  userOverrides: Record<string, SiteCategory>
+  category: string,
+  userOverrides: Record<string, string>
 ): string[] {
   const domains: string[] = [];
 
-  // From defaults
-  for (const [domain, cat] of Object.entries(DEFAULT_DOMAIN_CATEGORIES)) {
-    if (cat === category && !userOverrides[domain]) {
-      domains.push(domain);
+  // From defaults (only for built-in categories)
+  if (isBuiltInCategory(category)) {
+    for (const [domain, cat] of Object.entries(DEFAULT_DOMAIN_CATEGORIES)) {
+      if (cat === category && !userOverrides[domain]) {
+        domains.push(domain);
+      }
     }
   }
 

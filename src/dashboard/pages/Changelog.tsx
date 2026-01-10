@@ -3,7 +3,7 @@ import { Tag, Plus, Wrench, Bug, ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 // Changelog data - update this when releasing new versions
-const CURRENT_VERSION = '0.10.2';
+const CURRENT_VERSION = '0.10.4';
 
 interface ChangelogEntry {
   version: string;
@@ -14,6 +14,40 @@ interface ChangelogEntry {
 }
 
 const changelog: ChangelogEntry[] = [
+  {
+    version: '0.10.4',
+    date: '2026-01-10',
+    added: [
+      'New Categories page - view all sites organized by category with time spent',
+      'Collapsible categories - click to expand/collapse each category',
+      'Expand all/Collapse all button for quick category management',
+      'Select mode for bulk moving multiple sites between categories',
+      'Drag and drop to reorder categories (except "Other" which stays at the bottom)',
+      'Drag and drop sites between categories to recategorize them',
+      'Drop sites onto collapsed categories',
+      'Custom categories - create your own with custom names and colors',
+      'Drag a site to "Drop here to create new category" zone to create a category for it',
+      'Rename built-in categories (original names preserved, can reset anytime)',
+      'Delete custom categories (sites return to their default category)',
+      'Default badge on built-in categories to distinguish from custom ones',
+    ],
+  },
+  {
+    version: '0.10.3',
+    date: '2026-01-10',
+    added: [
+      'Day/Week/Month/Custom date selector on Metrics page with animated sliding indicator',
+      'Custom date range picker with calendar and presets (Week to date, Month to date, Last 7 days, Last 30 days)',
+      'Expandable/collapsible Activity timeline and YouTube channels sections on Metrics page',
+      'Clickable domain links in Metrics page Activity timeline and Top sites',
+      'Anchor navigation from Overview "View all" links to specific sections on Metrics page',
+    ],
+    changed: [
+      'Labels now use sentence case throughout Overview and Metrics pages',
+      'Consistent spacing between sections on Overview and Metrics pages',
+      'Activity timeline shows day markers instead of hour markers for multi-day date ranges',
+    ],
+  },
   {
     version: '0.10.2',
     date: '2026-01-10',

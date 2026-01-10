@@ -5,6 +5,36 @@ All notable changes to BrowserUtils will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.4] - 2026-01-10
+
+### Added
+- New Categories page - view all sites organized by category with time spent
+- Collapsible categories - click to expand/collapse each category
+- Expand all/Collapse all button for quick category management
+- Select mode for bulk moving multiple sites between categories
+- Drag and drop to reorder categories (except "Other" which stays at the bottom)
+- Drag and drop sites between categories to recategorize them
+- Drop sites onto collapsed categories
+- Custom categories - create your own with custom names and colors
+- Drag a site to "Drop here to create new category" zone to create a category for it
+- Rename built-in categories (original names preserved, can reset anytime)
+- Delete custom categories (sites return to their default category)
+- Default badge on built-in categories to distinguish from custom ones
+
+## [0.10.3] - 2026-01-10
+
+### Added
+- Day/Week/Month/Custom date selector on Metrics page with animated sliding indicator
+- Custom date range picker with calendar and presets (Week to date, Month to date, Last 7 days, Last 30 days)
+- Expandable/collapsible Activity timeline and YouTube channels sections on Metrics page
+- Clickable domain links in Metrics page Activity timeline and Top sites
+- Anchor navigation from Overview "View all" links to specific sections on Metrics page
+
+### Changed
+- Labels now use sentence case throughout Overview and Metrics pages
+- Consistent spacing between sections on Overview and Metrics pages
+- Activity timeline shows day markers instead of hour markers for multi-day date ranges
+
 ## [0.10.2] - 2026-01-10
 
 ### Added

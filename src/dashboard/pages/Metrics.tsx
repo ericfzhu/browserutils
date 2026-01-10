@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Calendar, Clock, TrendingDown, TrendingUp, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Layers, CalendarDays, X, Youtube } from 'lucide-react';
-import { DailyStats, SiteSession, SiteCategory, Settings, ActiveYouTubeSession } from '../../shared/types';
+import { useLocation } from 'react-router-dom';
+import { Calendar, Clock, TrendingDown, TrendingUp, ChevronLeft, ChevronRight, ChevronDown, Layers, Youtube } from 'lucide-react';
+import { DailyStats, SiteSession, Settings, ActiveYouTubeSession } from '../../shared/types';
 import { CATEGORIES, getCategoryForDomain, getCategoryInfo } from '../../shared/categories';
 import { computeYouTubeStatsWithUrls } from '../../shared/storage';
 
@@ -66,23 +67,24 @@ const DOMAIN_COLORS = [
   'bg-cyan-500',
 ];
 
-// Calendar Picker Component
-interface CalendarPickerProps {
-  selectedDate: string;
-  onSelect: (date: string) => void;
+// Date Range Picker Component
+interface DateRangePickerProps {
+  startDate: string | null;
+  endDate: string | null;
+  onSelectRange: (start: string, end: string) => void;
   onClose: () => void;
-  minDate?: string;
-  maxDate?: string;
 }
 
-function CalendarPicker({ selectedDate, onSelect, onClose, minDate, maxDate }: CalendarPickerProps) {
+function DateRangePicker({ startDate, endDate, onSelectRange, onClose }: DateRangePickerProps) {
+  const [localStartDate, setLocalStartDate] = useState(startDate || getDateString(new Date()));
+  const [localEndDate, setLocalEndDate] = useState(endDate || getDateString(new Date()));
+  const [selectingStart, setSelectingStart] = useState(true);
   const [viewDate, setViewDate] = useState(() => {
-    const d = new Date(selectedDate + 'T00:00:00');
+    const d = new Date((startDate || getDateString(new Date())) + 'T00:00:00');
     return { year: d.getFullYear(), month: d.getMonth() };
   });
 
   const today = getDateString(new Date());
-  const effectiveMaxDate = maxDate || today;
 
   const daysInMonth = new Date(viewDate.year, viewDate.month + 1, 0).getDate();
   const firstDayOfMonth = new Date(viewDate.year, viewDate.month, 1).getDay();
@@ -107,8 +109,83 @@ function CalendarPicker({ selectedDate, onSelect, onClose, minDate, maxDate }: C
 
   const monthName = new Date(viewDate.year, viewDate.month).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
+  const handleDayClick = (day: number) => {
+    const dateStr = `${viewDate.year}-${String(viewDate.month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    if (dateStr > today) return;
+
+    if (selectingStart) {
+      setLocalStartDate(dateStr);
+      if (dateStr > localEndDate) {
+        setLocalEndDate(dateStr);
+      }
+      setSelectingStart(false);
+    } else {
+      if (dateStr < localStartDate) {
+        setLocalStartDate(dateStr);
+      } else {
+        setLocalEndDate(dateStr);
+      }
+      setSelectingStart(true);
+    }
+  };
+
+  const isInRange = (dateStr: string) => {
+    return dateStr >= localStartDate && dateStr <= localEndDate;
+  };
+
+  // Preset handlers
+  const setWeekToDate = () => {
+    const todayDate = new Date();
+    const dayOfWeek = todayDate.getDay();
+    const startOfWeek = new Date(todayDate);
+    startOfWeek.setDate(todayDate.getDate() - dayOfWeek);
+    setLocalStartDate(getDateString(startOfWeek));
+    setLocalEndDate(today);
+  };
+
+  const setMonthToDate = () => {
+    const todayDate = new Date();
+    const startOfMonth = new Date(todayDate.getFullYear(), todayDate.getMonth(), 1);
+    setLocalStartDate(getDateString(startOfMonth));
+    setLocalEndDate(today);
+  };
+
+  const setLast7Days = () => {
+    const todayDate = new Date();
+    const weekAgo = new Date(todayDate);
+    weekAgo.setDate(todayDate.getDate() - 6);
+    setLocalStartDate(getDateString(weekAgo));
+    setLocalEndDate(today);
+  };
+
+  const setLast30Days = () => {
+    const todayDate = new Date();
+    const monthAgo = new Date(todayDate);
+    monthAgo.setDate(todayDate.getDate() - 29);
+    setLocalStartDate(getDateString(monthAgo));
+    setLocalEndDate(today);
+  };
+
   return (
-    <div className="absolute top-full left-0 mt-2 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-4 z-50 w-72">
+    <div className="absolute top-full right-0 mt-2 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-4 z-50 w-80">
+      {/* Selection indicator */}
+      <div className="flex items-center justify-between mb-3 text-sm">
+        <button
+          onClick={() => setSelectingStart(true)}
+          className={`px-3 py-1.5 rounded-lg transition-colors ${selectingStart ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300' : 'bg-gray-100 dark:bg-gray-700'}`}
+        >
+          {formatDateLabel(localStartDate)}
+        </button>
+        <span className="text-gray-400">→</span>
+        <button
+          onClick={() => setSelectingStart(false)}
+          className={`px-3 py-1.5 rounded-lg transition-colors ${!selectingStart ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300' : 'bg-gray-100 dark:bg-gray-700'}`}
+        >
+          {formatDateLabel(localEndDate)}
+        </button>
+      </div>
+
+      {/* Calendar */}
       <div className="flex items-center justify-between mb-4">
         <button onClick={prevMonth} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded">
           <ChevronLeft className="w-5 h-5" />
@@ -125,20 +202,23 @@ function CalendarPicker({ selectedDate, onSelect, onClose, minDate, maxDate }: C
         {days.map((day, idx) => {
           if (day === null) return <div key={idx} />;
           const dateStr = `${viewDate.year}-${String(viewDate.month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-          const isSelected = dateStr === selectedDate;
+          const isSelected = dateStr === localStartDate || dateStr === localEndDate;
+          const isRangeDate = isInRange(dateStr);
           const isToday = dateStr === today;
-          const isDisabled = dateStr > effectiveMaxDate || (minDate ? dateStr < minDate : false);
+          const isDisabled = dateStr > today;
 
           return (
             <button
               key={idx}
-              onClick={() => !isDisabled && onSelect(dateStr)}
+              onClick={() => !isDisabled && handleDayClick(day)}
               disabled={isDisabled}
               className={`p-2 text-sm rounded-lg transition-colors ${
                 isSelected
                   ? 'bg-blue-600 text-white'
+                  : isRangeDate
+                  ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
                   : isToday
-                  ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-900'
+                  ? 'bg-gray-200 dark:bg-gray-600'
                   : isDisabled
                   ? 'text-gray-300 dark:text-gray-600 cursor-not-allowed'
                   : 'hover:bg-gray-100 dark:hover:bg-gray-700'
@@ -149,18 +229,31 @@ function CalendarPicker({ selectedDate, onSelect, onClose, minDate, maxDate }: C
           );
         })}
       </div>
+
+      {/* Presets */}
+      <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t dark:border-gray-700">
+        <button onClick={setWeekToDate} className="h-7 px-3 text-xs bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors">Week to date</button>
+        <button onClick={setMonthToDate} className="h-7 px-3 text-xs bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors">Month to date</button>
+        <button onClick={setLast7Days} className="h-7 px-3 text-xs bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors">Last 7 days</button>
+        <button onClick={setLast30Days} className="h-7 px-3 text-xs bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors">Last 30 days</button>
+      </div>
+
+      {/* Actions */}
       <div className="flex justify-between mt-4 pt-4 border-t dark:border-gray-700">
-        <button
-          onClick={() => onSelect(today)}
-          className="text-sm text-blue-600 hover:text-blue-700"
-        >
-          Today
-        </button>
         <button
           onClick={onClose}
           className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
         >
-          Close
+          Cancel
+        </button>
+        <button
+          onClick={() => {
+            onSelectRange(localStartDate, localEndDate);
+            onClose();
+          }}
+          className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+        >
+          Apply
         </button>
       </div>
     </div>
@@ -171,42 +264,70 @@ function CalendarPicker({ selectedDate, onSelect, onClose, minDate, maxDate }: C
 interface TimelineProps {
   sessions: SiteSession[];
   sites: Record<string, number>;
-  dateStr: string;
+  startDate: string;
+  endDate: string;
   animationDirection: 'left' | 'right' | null;
 }
 
-function Timeline({ sessions, sites, dateStr, animationDirection }: TimelineProps) {
+function Timeline({ sessions, sites, startDate, endDate, animationDirection }: TimelineProps) {
   const [expanded, setExpanded] = useState(false);
   const INITIAL_DISPLAY = 10;
 
-  const selectedDate = new Date(dateStr + 'T00:00:00');
-  const dayStart = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), 0, 0, 0);
-  const dayEnd = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), 23, 59, 59);
   const today = getDateString(new Date());
-  const isToday = dateStr === today;
+  const isMultiDay = startDate !== endDate;
+  const isSingleDayToday = !isMultiDay && startDate === today;
 
-  // Find actual time range from sessions
-  let minTime = dayEnd.getTime();
-  let maxTime = dayStart.getTime();
-  sessions.forEach(s => {
-    minTime = Math.min(minTime, s.startTime);
-    maxTime = Math.max(maxTime, s.endTime);
-  });
+  const sortedSites = Object.entries(sites).sort((a, b) => b[1] - a[1]);
+  const hasMore = sortedSites.length > INITIAL_DISPLAY;
 
-  // Add 30 min padding
-  minTime = Math.max(dayStart.getTime(), minTime - 30 * 60 * 1000);
-  maxTime = Math.min(dayEnd.getTime(), maxTime + 30 * 60 * 1000);
+  // Animation classes
+  const animationClass = animationDirection
+    ? animationDirection === 'left'
+      ? 'animate-slide-in-left'
+      : 'animate-slide-in-right'
+    : '';
 
-  // If no sessions, show 8am to current time (for today) or 8am-6pm (for past days)
-  if (sessions.length === 0) {
-    minTime = dayStart.getTime() + 8 * 60 * 60 * 1000;
-    maxTime = isToday ? Date.now() : dayStart.getTime() + 18 * 60 * 60 * 1000;
+  if (sortedSites.length === 0 && sessions.length === 0) {
+    return (
+      <div className={`text-center py-8 text-gray-500 dark:text-gray-400 ${animationClass}`}>
+        {isSingleDayToday ? 'No activity recorded yet today' : 'No activity recorded for this period'}
+      </div>
+    );
+  }
+
+  // Calculate the full time range based on start and end dates
+  const rangeStart = new Date(startDate + 'T00:00:00');
+  const rangeEnd = new Date(endDate + 'T23:59:59');
+
+  // For single day, find actual session bounds; for multi-day, use full range
+  let minTime: number;
+  let maxTime: number;
+
+  if (isMultiDay) {
+    // Use full date range
+    minTime = rangeStart.getTime();
+    maxTime = rangeEnd.getTime();
+  } else {
+    // Single day - find actual time range from sessions
+    minTime = rangeEnd.getTime();
+    maxTime = rangeStart.getTime();
+    sessions.forEach(s => {
+      minTime = Math.min(minTime, s.startTime);
+      maxTime = Math.max(maxTime, s.endTime);
+    });
+
+    // Add 30 min padding for single day
+    minTime = Math.max(rangeStart.getTime(), minTime - 30 * 60 * 1000);
+    maxTime = Math.min(rangeEnd.getTime(), maxTime + 30 * 60 * 1000);
+
+    // If no sessions, show 8am to current time (for today) or 8am-6pm (for past days)
+    if (sessions.length === 0) {
+      minTime = rangeStart.getTime() + 8 * 60 * 60 * 1000;
+      maxTime = isSingleDayToday ? Date.now() : rangeStart.getTime() + 18 * 60 * 60 * 1000;
+    }
   }
 
   const timeRange = Math.max(maxTime - minTime, 1);
-
-  const sortedSites = Object.entries(sites).sort((a, b) => b[1] - a[1]);
-  const displayedSites = expanded ? sortedSites : sortedSites.slice(0, INITIAL_DISPLAY);
 
   // Group and merge overlapping sessions by domain
   const sessionsByDomain = new Map<string, { start: number; end: number }[]>();
@@ -233,34 +354,49 @@ function Timeline({ sessions, sites, dateStr, animationDirection }: TimelineProp
     sessionsByDomain.set(domain, merged);
   }
 
-  const hourMarkers: { hour: number; label: string; position: number }[] = [];
-  const startHour = new Date(minTime).getHours();
-  const endHour = new Date(maxTime).getHours();
-  for (let h = startHour; h <= endHour; h++) {
-    const markerTime = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), h, 0, 0).getTime();
-    if (markerTime >= minTime && markerTime <= maxTime) {
-      const position = ((markerTime - minTime) / timeRange) * 100;
-      hourMarkers.push({
-        hour: h,
-        label: h === 0 ? '12am' : h < 12 ? `${h}am` : h === 12 ? '12pm' : `${h - 12}pm`,
-        position,
-      });
+  // Generate time markers - hours for single day, days for multi-day
+  // Limit to ~8-10 markers max to avoid crowding
+  const MAX_MARKERS = 8;
+  const timeMarkers: { label: string; position: number }[] = [];
+
+  if (isMultiDay) {
+    // Calculate total days in range
+    const totalDays = Math.ceil((rangeEnd.getTime() - rangeStart.getTime()) / (1000 * 60 * 60 * 24));
+    const dayInterval = Math.max(1, Math.ceil(totalDays / MAX_MARKERS));
+
+    let currentDay = new Date(rangeStart);
+    let dayCount = 0;
+    while (currentDay <= rangeEnd) {
+      if (dayCount % dayInterval === 0) {
+        const dayTime = currentDay.getTime();
+        const position = ((dayTime - minTime) / timeRange) * 100;
+        timeMarkers.push({
+          label: currentDay.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+          position,
+        });
+      }
+      currentDay.setDate(currentDay.getDate() + 1);
+      dayCount++;
     }
-  }
+  } else {
+    // Show hour markers for single day
+    const startHour = new Date(minTime).getHours();
+    const endHour = new Date(maxTime).getHours();
+    const totalHours = endHour - startHour + 1;
+    const hourInterval = Math.max(1, Math.ceil(totalHours / MAX_MARKERS));
 
-  // Animation classes
-  const animationClass = animationDirection
-    ? animationDirection === 'left'
-      ? 'animate-slide-in-left'
-      : 'animate-slide-in-right'
-    : '';
-
-  if (sortedSites.length === 0 && sessions.length === 0) {
-    return (
-      <div className={`text-center py-8 text-gray-500 dark:text-gray-400 ${animationClass}`}>
-        {isToday ? 'No activity recorded yet today' : 'No activity recorded on this day'}
-      </div>
-    );
+    for (let h = startHour; h <= endHour; h++) {
+      if ((h - startHour) % hourInterval === 0) {
+        const markerTime = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), rangeStart.getDate(), h, 0, 0).getTime();
+        if (markerTime >= minTime && markerTime <= maxTime) {
+          const position = ((markerTime - minTime) / timeRange) * 100;
+          timeMarkers.push({
+            label: h === 0 ? '12am' : h < 12 ? `${h}am` : h === 12 ? '12pm' : `${h - 12}pm`,
+            position,
+          });
+        }
+      }
+    }
   }
 
   if (sortedSites.length > 0 && sessions.length === 0) {
@@ -275,9 +411,9 @@ function Timeline({ sessions, sites, dateStr, animationDirection }: TimelineProp
   return (
     <div className={animationClass}>
       <div className="relative h-6 mb-2 ml-40">
-        {hourMarkers.map(marker => (
+        {timeMarkers.map((marker, idx) => (
           <div
-            key={marker.hour}
+            key={idx}
             className="absolute text-xs text-gray-400"
             style={{ left: `${marker.position}%`, transform: 'translateX(-50%)' }}
           >
@@ -286,8 +422,8 @@ function Timeline({ sessions, sites, dateStr, animationDirection }: TimelineProp
         ))}
       </div>
 
-      <div className="space-y-2">
-        {displayedSites.map(([domain, totalTime]) => {
+      <div className={`space-y-2 max-h-[450px] transition-all duration-300 overflow-hidden ${expanded ? 'overflow-y-auto' : ''}`}>
+        {sortedSites.map(([domain, totalTime]) => {
           const domainIntervals = sessionsByDomain.get(domain) || [];
           const color = getDomainColor(domain);
           // Check if original sessions had multiple windows
@@ -299,9 +435,15 @@ function Timeline({ sessions, sites, dateStr, animationDirection }: TimelineProp
             <div key={domain} className="flex items-center gap-3">
               <div className="w-36 flex-shrink-0">
                 <div className="flex items-center gap-1">
-                  <span className="text-sm font-medium truncate" title={domain}>
+                  <a
+                    href={`https://${domain}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm font-medium truncate hover:text-blue-600 hover:underline"
+                    title={domain}
+                  >
                     {domain.replace(/^www\./, '')}
-                  </span>
+                  </a>
                   {hasMultipleWindows && (
                     <span title="Multiple windows">
                       <Layers className="w-3 h-3 text-gray-400 flex-shrink-0" />
@@ -312,9 +454,9 @@ function Timeline({ sessions, sites, dateStr, animationDirection }: TimelineProp
               </div>
 
               <div className="flex-1 relative h-6 bg-gray-100 dark:bg-gray-700 rounded overflow-hidden">
-                {hourMarkers.map(marker => (
+                {timeMarkers.map((marker, idx) => (
                   <div
-                    key={marker.hour}
+                    key={idx}
                     className="absolute top-0 bottom-0 w-px bg-gray-200 dark:bg-gray-600"
                     style={{ left: `${marker.position}%` }}
                   />
@@ -330,7 +472,10 @@ function Timeline({ sessions, sites, dateStr, animationDirection }: TimelineProp
                       key={idx}
                       className={`absolute top-1 bottom-1 ${color} rounded-sm opacity-80 hover:opacity-100 transition-opacity cursor-default`}
                       style={{ left: `${startPos}%`, width: `${width}%` }}
-                      title={`${formatTimeOfDay(interval.start)} - ${formatTimeOfDay(interval.end)}`}
+                      title={isMultiDay
+                        ? `${new Date(interval.start).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} ${formatTimeOfDay(interval.start)} - ${formatTimeOfDay(interval.end)}`
+                        : `${formatTimeOfDay(interval.start)} - ${formatTimeOfDay(interval.end)}`
+                      }
                     />
                   );
                 })}
@@ -340,23 +485,16 @@ function Timeline({ sessions, sites, dateStr, animationDirection }: TimelineProp
         })}
       </div>
 
-      {sortedSites.length > INITIAL_DISPLAY && (
-        <button
-          onClick={() => setExpanded(!expanded)}
-          className="mt-4 flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700 mx-auto"
-        >
-          {expanded ? (
-            <>
-              <ChevronUp className="w-4 h-4" />
-              Show less
-            </>
-          ) : (
-            <>
-              <ChevronDown className="w-4 h-4" />
-              Show {sortedSites.length - INITIAL_DISPLAY} more sites
-            </>
-          )}
-        </button>
+      {hasMore && (
+        <div className="mt-4 flex justify-center h-5">
+          <button
+            onClick={() => setExpanded(!expanded)}
+            className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 flex items-center gap-1.5"
+          >
+            <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`} />
+            <span className="w-14">{expanded ? 'Collapse' : 'Expand'}</span>
+          </button>
+        </div>
       )}
     </div>
   );
@@ -364,28 +502,78 @@ function Timeline({ sessions, sites, dateStr, animationDirection }: TimelineProp
 
 export default function Metrics() {
   const [allStats, setAllStats] = useState<Record<string, DailyStats>>({});
-  const [selectedPeriod, setSelectedPeriod] = useState<'week' | 'month'>('week');
   const [loading, setLoading] = useState(true);
   const [hoveredSegment, setHoveredSegment] = useState<{ date: string; domain: string; time: number; percent: number } | null>(null);
-  const [domainCategories, setDomainCategories] = useState<Record<string, SiteCategory>>({});
+  const [domainCategories, setDomainCategories] = useState<Record<string, string>>({});
   const [settings, setSettings] = useState<Settings | null>(null);
   const [activeYoutubeSessions, setActiveYoutubeSessions] = useState<Record<number, ActiveYouTubeSession>>({});
 
-  // Timeline state
-  const [selectedDate, setSelectedDate] = useState(() => getDateString(new Date()));
-  const [showCalendar, setShowCalendar] = useState(false);
-  const [animationDirection, setAnimationDirection] = useState<'left' | 'right' | null>(null);
-  const [dateRangeMode, setDateRangeMode] = useState(false);
-  const [startDate, setStartDate] = useState<string | null>(null);
-  const [endDate, setEndDate] = useState<string | null>(null);
-  const [showStartCalendar, setShowStartCalendar] = useState(false);
-  const [showEndCalendar, setShowEndCalendar] = useState(false);
-
+  // Unified date range state
   const today = getDateString(new Date());
+  const [dateRangeStart, setDateRangeStart] = useState(() => {
+    // Default to last 7 days (week)
+    const weekAgo = new Date();
+    weekAgo.setDate(weekAgo.getDate() - 6);
+    return getDateString(weekAgo);
+  });
+  const [dateRangeEnd, setDateRangeEnd] = useState(() => today);
+  const [showDateRangePicker, setShowDateRangePicker] = useState(false);
+  const [youtubeExpanded, setYoutubeExpanded] = useState(false);
+
+  // Detect which period preset matches the current date range
+  const detectPeriod = (start: string, end: string): 'day' | 'week' | 'month' | 'custom' => {
+    if (end !== today) return 'custom';
+
+    const startDate = new Date(start + 'T00:00:00');
+    const endDate = new Date(end + 'T00:00:00');
+    const daysDiff = Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+
+    if (daysDiff === 0) return 'day';
+    if (daysDiff === 6) return 'week';
+    if (daysDiff === 29) return 'month';
+    return 'custom';
+  };
+
+  const selectedPeriod = detectPeriod(dateRangeStart, dateRangeEnd);
+
+  // Set date range for presets
+  const setPreset = (preset: 'day' | 'week' | 'month') => {
+    const todayDate = new Date();
+    let start: Date;
+
+    switch (preset) {
+      case 'day':
+        start = todayDate;
+        break;
+      case 'week':
+        start = new Date(todayDate);
+        start.setDate(todayDate.getDate() - 6);
+        break;
+      case 'month':
+        start = new Date(todayDate);
+        start.setDate(todayDate.getDate() - 29);
+        break;
+    }
+
+    setDateRangeStart(getDateString(start));
+    setDateRangeEnd(today);
+  };
+
+  const location = useLocation();
 
   useEffect(() => {
     loadStats();
   }, []);
+
+  // Scroll to anchor when loading completes
+  useEffect(() => {
+    if (!loading && location.hash) {
+      const element = document.getElementById(location.hash.slice(1));
+      if (element) {
+        element.scrollIntoView({ behavior: 'smooth' });
+      }
+    }
+  }, [loading, location.hash]);
 
   async function loadStats() {
     try {
@@ -407,8 +595,8 @@ export default function Metrics() {
   }
 
   // Calculate time per category for the selected period
-  function getCategoryBreakdown(siteTotals: Record<string, number>): { category: SiteCategory; time: number; percent: number }[] {
-    const categoryTotals: Record<SiteCategory, number> = {} as Record<SiteCategory, number>;
+  function getCategoryBreakdown(siteTotals: Record<string, number>): { category: string; time: number; percent: number }[] {
+    const categoryTotals: Record<string, number> = {};
     let totalTime = 0;
 
     for (const [domain, time] of Object.entries(siteTotals)) {
@@ -419,7 +607,7 @@ export default function Metrics() {
 
     return CATEGORIES
       .map(cat => ({
-        category: cat.id,
+        category: cat.id as string,
         time: categoryTotals[cat.id] || 0,
         percent: totalTime > 0 ? ((categoryTotals[cat.id] || 0) / totalTime) * 100 : 0,
       }))
@@ -427,69 +615,25 @@ export default function Metrics() {
       .sort((a, b) => b.time - a.time);
   }
 
-  // Navigation functions for timeline
-  const goToPrevDay = () => {
-    const date = new Date(selectedDate + 'T00:00:00');
-    date.setDate(date.getDate() - 1);
-    setAnimationDirection('left');
-    setSelectedDate(getDateString(date));
-    setTimeout(() => setAnimationDirection(null), 300);
-  };
+  // Get timeline stats for the selected period
+  const getTimelineStats = (datesToUse: string[]): { sessions: SiteSession[]; sites: Record<string, number> } => {
+    const allSessions: SiteSession[] = [];
+    const aggregatedSites: Record<string, number> = {};
 
-  const goToNextDay = () => {
-    const date = new Date(selectedDate + 'T00:00:00');
-    date.setDate(date.getDate() + 1);
-    const nextDateStr = getDateString(date);
-    if (nextDateStr <= today) {
-      setAnimationDirection('right');
-      setSelectedDate(nextDateStr);
-      setTimeout(() => setAnimationDirection(null), 300);
-    }
-  };
-
-  const handleDateSelect = (dateStr: string) => {
-    const direction = dateStr < selectedDate ? 'left' : 'right';
-    setAnimationDirection(direction);
-    setSelectedDate(dateStr);
-    setShowCalendar(false);
-    setTimeout(() => setAnimationDirection(null), 300);
-  };
-
-  // Get timeline stats for selected date or date range
-  const getTimelineStats = (): { sessions: SiteSession[]; sites: Record<string, number> } => {
-    if (dateRangeMode && startDate && endDate) {
-      // Aggregate sessions and sites across date range
-      const allSessions: SiteSession[] = [];
-      const aggregatedSites: Record<string, number> = {};
-
-      let currentDate = new Date(startDate + 'T00:00:00');
-      const end = new Date(endDate + 'T00:00:00');
-
-      while (currentDate <= end) {
-        const dateStr = getDateString(currentDate);
-        const dayStats = allStats[dateStr];
-        if (dayStats) {
-          if (dayStats.sessions) {
-            allSessions.push(...dayStats.sessions);
-          }
-          for (const [domain, time] of Object.entries(dayStats.sites || {})) {
-            aggregatedSites[domain] = (aggregatedSites[domain] || 0) + time;
-          }
+    for (const dateStr of datesToUse) {
+      const dayStats = allStats[dateStr];
+      if (dayStats) {
+        if (dayStats.sessions) {
+          allSessions.push(...dayStats.sessions);
         }
-        currentDate.setDate(currentDate.getDate() + 1);
+        for (const [domain, time] of Object.entries(dayStats.sites || {})) {
+          aggregatedSites[domain] = (aggregatedSites[domain] || 0) + time;
+        }
       }
-
-      return { sessions: allSessions, sites: aggregatedSites };
     }
 
-    const stats = allStats[selectedDate];
-    return {
-      sessions: stats?.sessions || [],
-      sites: stats?.sites || {},
-    };
+    return { sessions: allSessions, sites: aggregatedSites };
   };
-
-  const timelineData = getTimelineStats();
 
   if (loading) {
     return (
@@ -499,19 +643,16 @@ export default function Metrics() {
     );
   }
 
-  // Get dates for selected period (using local timezone)
-  const todayDate = new Date();
-  const periodDays = selectedPeriod === 'week' ? 7 : 30;
+  // Get dates for selected period from unified date range
   const dates: string[] = [];
-  for (let i = periodDays - 1; i >= 0; i--) {
-    const date = new Date(todayDate);
-    date.setDate(date.getDate() - i);
-    // Use local date format instead of UTC
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    dates.push(`${year}-${month}-${day}`);
+  let currentDate = new Date(dateRangeStart + 'T00:00:00');
+  const endDate = new Date(dateRangeEnd + 'T00:00:00');
+  while (currentDate <= endDate) {
+    dates.push(getDateString(currentDate));
+    currentDate.setDate(currentDate.getDate() + 1);
   }
+
+  const periodDays = dates.length;
 
   // Calculate stats for period
   const periodStats = dates.map((date) => allStats[date] || { date, totalTime: 0, sites: {}, visits: 0, blockedAttempts: 0 });
@@ -533,49 +674,113 @@ export default function Metrics() {
   // Find max time for chart scaling
   const maxDailyTime = Math.max(...periodStats.map((s) => s.totalTime), 1);
 
-  // Compare to previous period
+  // Compare to previous period (same length, immediately before)
   const prevDates: string[] = [];
-  for (let i = periodDays * 2 - 1; i >= periodDays; i--) {
-    const date = new Date(todayDate);
-    date.setDate(date.getDate() - i);
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    prevDates.push(`${year}-${month}-${day}`);
+  const startDateObj = new Date(dateRangeStart + 'T00:00:00');
+  for (let i = periodDays; i > 0; i--) {
+    const date = new Date(startDateObj);
+    date.setDate(startDateObj.getDate() - i);
+    prevDates.push(getDateString(date));
   }
   const prevStats = prevDates.map((date) => allStats[date] || { totalTime: 0 });
   const prevTotalTime = prevStats.reduce((sum, s) => sum + s.totalTime, 0);
   const timeChange = prevTotalTime > 0 ? ((totalTime - prevTotalTime) / prevTotalTime) * 100 : 0;
 
+  // Get period label for display
+  const getPeriodLabel = () => {
+    if (selectedPeriod === 'day') return 'day';
+    if (selectedPeriod === 'custom') return 'period';
+    return selectedPeriod;
+  };
+
+  // Format the date range for display
+  const getDateRangeDisplay = () => {
+    if (dateRangeStart === dateRangeEnd) {
+      return formatDateLabel(dateRangeStart);
+    }
+    return `${formatDate(dateRangeStart)} → ${formatDate(dateRangeEnd)}`;
+  };
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Metrics</h1>
-        <div className="flex bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
-          <button
-            onClick={() => setSelectedPeriod('week')}
-            className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
-              selectedPeriod === 'week' ? 'bg-white dark:bg-gray-700 shadow text-gray-900 dark:text-gray-100' : 'text-gray-600 dark:text-gray-400'
-            }`}
-          >
-            Week
-          </button>
-          <button
-            onClick={() => setSelectedPeriod('month')}
-            className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
-              selectedPeriod === 'month' ? 'bg-white dark:bg-gray-700 shadow text-gray-900 dark:text-gray-100' : 'text-gray-600 dark:text-gray-400'
-            }`}
-          >
-            Month
-          </button>
+        <div className="flex items-center gap-4">
+          {/* Date range display (non-clickable) */}
+          <span className="text-sm text-gray-500 dark:text-gray-400">
+            {getDateRangeDisplay()}
+          </span>
+
+          {/* Period selector with sliding indicator */}
+          <div className="relative flex bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
+            {/* Animated sliding background */}
+            <div
+              className="absolute top-1 bottom-1 bg-white dark:bg-gray-700 rounded-md shadow transition-all duration-300 ease-out"
+              style={{
+                width: 'calc(25% - 2px)',
+                left: '4px',
+                transform: `translateX(${
+                  selectedPeriod === 'day' ? '0%' :
+                  selectedPeriod === 'week' ? '100%' :
+                  selectedPeriod === 'month' ? '200%' :
+                  '300%'
+                })`,
+              }}
+            />
+            <button
+              onClick={() => setPreset('day')}
+              className={`relative z-10 w-16 py-2 text-sm font-medium rounded-md transition-colors duration-200 text-center ${
+                selectedPeriod === 'day' ? 'text-gray-900 dark:text-gray-100' : 'text-gray-600 dark:text-gray-400'
+              }`}
+            >
+              Day
+            </button>
+            <button
+              onClick={() => setPreset('week')}
+              className={`relative z-10 w-16 py-2 text-sm font-medium rounded-md transition-colors duration-200 text-center ${
+                selectedPeriod === 'week' ? 'text-gray-900 dark:text-gray-100' : 'text-gray-600 dark:text-gray-400'
+              }`}
+            >
+              Week
+            </button>
+            <button
+              onClick={() => setPreset('month')}
+              className={`relative z-10 w-16 py-2 text-sm font-medium rounded-md transition-colors duration-200 text-center ${
+                selectedPeriod === 'month' ? 'text-gray-900 dark:text-gray-100' : 'text-gray-600 dark:text-gray-400'
+              }`}
+            >
+              Month
+            </button>
+            <div className="relative">
+              <button
+                onClick={() => setShowDateRangePicker(!showDateRangePicker)}
+                className={`relative z-10 w-16 py-2 text-sm font-medium rounded-md transition-colors duration-200 text-center ${
+                  selectedPeriod === 'custom' ? 'text-gray-900 dark:text-gray-100' : 'text-gray-600 dark:text-gray-400'
+                }`}
+              >
+                Custom
+              </button>
+              {showDateRangePicker && (
+                <DateRangePicker
+                  startDate={dateRangeStart}
+                  endDate={dateRangeEnd}
+                  onSelectRange={(start, end) => {
+                    setDateRangeStart(start);
+                    setDateRangeEnd(end);
+                  }}
+                  onClose={() => setShowDateRangePicker(false)}
+                />
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-3 gap-4 mb-6">
         <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm text-gray-500 dark:text-gray-400">Total Time</span>
+            <span className="text-sm text-gray-500 dark:text-gray-400">Total time</span>
             <Clock className="w-5 h-5 text-gray-400 dark:text-gray-500" />
           </div>
           <p className="text-2xl font-bold">{formatTime(totalTime)}</p>
@@ -586,14 +791,14 @@ export default function Metrics() {
               <TrendingDown className="w-4 h-4 text-green-500" />
             )}
             <span className={`text-sm ${timeChange > 0 ? 'text-red-500' : 'text-green-500'}`}>
-              {Math.abs(timeChange).toFixed(0)}% vs prev {selectedPeriod}
+              {Math.abs(timeChange).toFixed(0)}% vs prev {getPeriodLabel()}
             </span>
           </div>
         </div>
 
         <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm text-gray-500 dark:text-gray-400">Daily Average</span>
+            <span className="text-sm text-gray-500 dark:text-gray-400">Daily average</span>
             <Calendar className="w-5 h-5 text-gray-400 dark:text-gray-500" />
           </div>
           <p className="text-2xl font-bold">{formatTime(avgDailyTime)}</p>
@@ -602,7 +807,7 @@ export default function Metrics() {
 
         <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm text-gray-500 dark:text-gray-400">Sites Blocked</span>
+            <span className="text-sm text-gray-500 dark:text-gray-400">Sites blocked</span>
             <TrendingDown className="w-5 h-5 text-gray-400 dark:text-gray-500" />
           </div>
           <p className="text-2xl font-bold">{totalBlocks}</p>
@@ -610,167 +815,25 @@ export default function Metrics() {
         </div>
       </div>
 
-      {/* Activity Timeline */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 mb-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold">Activity Timeline</h2>
-          <div className="flex items-center gap-2">
-            {/* Date Range Toggle */}
-            <button
-              onClick={() => {
-                setDateRangeMode(!dateRangeMode);
-                if (!dateRangeMode) {
-                  setStartDate(selectedDate);
-                  setEndDate(selectedDate);
-                }
-              }}
-              className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
-                dateRangeMode
-                  ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300'
-                  : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-              }`}
-            >
-              {dateRangeMode ? 'Date Range' : 'Single Day'}
-            </button>
-          </div>
-        </div>
-
-        {/* Date Navigation / Selection */}
-        {!dateRangeMode ? (
-          <div className="flex items-center justify-center gap-4 mb-6">
-            <button
-              onClick={goToPrevDay}
-              className="p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-            >
-              <ChevronLeft className="w-5 h-5" />
-            </button>
-
-            <div className="relative">
-              <button
-                onClick={() => setShowCalendar(!showCalendar)}
-                className="flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors"
-              >
-                <CalendarDays className="w-4 h-4 text-gray-500" />
-                <span className="font-medium">{formatDateLabel(selectedDate)}</span>
-              </button>
-              {showCalendar && (
-                <CalendarPicker
-                  selectedDate={selectedDate}
-                  onSelect={handleDateSelect}
-                  onClose={() => setShowCalendar(false)}
-                />
-              )}
-            </div>
-
-            <button
-              onClick={goToNextDay}
-              disabled={selectedDate === today}
-              className={`p-2 rounded-lg transition-colors ${
-                selectedDate === today
-                  ? 'text-gray-300 dark:text-gray-600 cursor-not-allowed'
-                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700'
-              }`}
-            >
-              <ChevronRight className="w-5 h-5" />
-            </button>
-
-            {selectedDate !== today && (
-              <button
-                onClick={() => handleDateSelect(today)}
-                className="text-sm text-blue-600 hover:text-blue-700"
-              >
-                Back to today
-              </button>
-            )}
-          </div>
-        ) : (
-          <div className="flex items-center justify-center gap-4 mb-6 flex-wrap">
-            {/* Start Date */}
-            <div className="relative">
-              <span className="text-xs text-gray-500 block mb-1">From</span>
-              <button
-                onClick={() => {
-                  setShowStartCalendar(!showStartCalendar);
-                  setShowEndCalendar(false);
-                }}
-                className="flex items-center gap-2 px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
-              >
-                <CalendarDays className="w-4 h-4 text-gray-500" />
-                <span className="text-sm font-medium">{startDate ? formatDateLabel(startDate) : 'Select'}</span>
-              </button>
-              {showStartCalendar && (
-                <CalendarPicker
-                  selectedDate={startDate || today}
-                  onSelect={(d) => {
-                    setStartDate(d);
-                    if (endDate && d > endDate) setEndDate(d);
-                    setShowStartCalendar(false);
-                  }}
-                  onClose={() => setShowStartCalendar(false)}
-                  maxDate={endDate || today}
-                />
-              )}
-            </div>
-
-            <span className="text-gray-400 mt-5">→</span>
-
-            {/* End Date */}
-            <div className="relative">
-              <span className="text-xs text-gray-500 block mb-1">To</span>
-              <button
-                onClick={() => {
-                  setShowEndCalendar(!showEndCalendar);
-                  setShowStartCalendar(false);
-                }}
-                className="flex items-center gap-2 px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
-              >
-                <CalendarDays className="w-4 h-4 text-gray-500" />
-                <span className="text-sm font-medium">{endDate ? formatDateLabel(endDate) : 'Select'}</span>
-              </button>
-              {showEndCalendar && (
-                <CalendarPicker
-                  selectedDate={endDate || today}
-                  onSelect={(d) => {
-                    setEndDate(d);
-                    if (startDate && d < startDate) setStartDate(d);
-                    setShowEndCalendar(false);
-                  }}
-                  onClose={() => setShowEndCalendar(false)}
-                  minDate={startDate || undefined}
-                />
-              )}
-            </div>
-
-            {startDate && endDate && (
-              <button
-                onClick={() => {
-                  setStartDate(null);
-                  setEndDate(null);
-                }}
-                className="mt-5 p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            )}
-          </div>
-        )}
-
-        {/* Timeline Content */}
+      {/* Activity timeline */}
+      <div id="activity-timeline" className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 mb-6">
+        <h2 className="text-lg font-semibold mb-4">Activity timeline</h2>
         <div className="overflow-hidden">
           <Timeline
-            sessions={timelineData.sessions}
-            sites={timelineData.sites}
-            dateStr={dateRangeMode ? (startDate || today) : selectedDate}
-            animationDirection={animationDirection}
+            sessions={getTimelineStats(dates).sessions}
+            sites={getTimelineStats(dates).sites}
+            startDate={dateRangeStart}
+            endDate={dateRangeEnd}
+            animationDirection={null}
           />
         </div>
       </div>
 
-      {/* Top Sites and Category Breakdown - Two Columns */}
+      {/* Top sites and Category Breakdown - Two Columns */}
       <div className="grid grid-cols-2 gap-6 mb-6">
-        {/* Top Sites */}
+        {/* Top sites */}
         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
-          <h2 className="text-lg font-semibold mb-4">Top Sites ({selectedPeriod})</h2>
+          <h2 className="text-lg font-semibold mb-4">Top sites</h2>
           {topSites.length > 0 ? (
             <div className="space-y-3">
               {topSites.slice(0, 8).map(([domain, time], index) => (
@@ -779,7 +842,14 @@ export default function Metrics() {
                   <span className="text-sm text-gray-400 dark:text-gray-500 w-4">{index + 1}</span>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium truncate">{domain}</span>
+                      <a
+                        href={`https://${domain}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm font-medium truncate hover:text-blue-600 hover:underline"
+                      >
+                        {domain}
+                      </a>
                       <span className="text-sm text-gray-500 dark:text-gray-400 ml-2">{formatTime(time)}</span>
                     </div>
                   </div>
@@ -793,7 +863,7 @@ export default function Metrics() {
 
         {/* Category Breakdown */}
         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
-          <h2 className="text-lg font-semibold mb-4">By Category ({selectedPeriod})</h2>
+          <h2 className="text-lg font-semibold mb-4">By category</h2>
           {(() => {
             const categoryBreakdown = getCategoryBreakdown(siteTotals);
             if (categoryBreakdown.length === 0) {
@@ -828,10 +898,10 @@ export default function Metrics() {
         </div>
       </div>
 
-      {/* Daily Breakdown Chart */}
+      {/* Daily breakdown Chart */}
       <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 mb-6">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold">Daily Breakdown</h2>
+          <h2 className="text-lg font-semibold">Daily breakdown</h2>
           {hoveredSegment && (
             <div className="bg-gray-900 text-white text-xs px-3 py-1.5 rounded-lg flex items-center gap-2 animate-fade-in">
               <div className={`w-2 h-2 rounded-full ${DOMAIN_COLORS[topSites.findIndex(([d]) => d === hoveredSegment.domain) % DOMAIN_COLORS.length] || 'bg-gray-400'}`} />
@@ -891,12 +961,12 @@ export default function Metrics() {
         </p>
       </div>
 
-      {/* YouTube Channels - only shown when tracking is enabled */}
+      {/* YouTube channels - only shown when tracking is enabled */}
       {settings?.youtubeTrackingEnabled && (
-        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+        <div id="youtube-channels" className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
           <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
             <Youtube className="w-5 h-5 text-red-600" />
-            YouTube Channels
+            YouTube channels
           </h2>
           {(() => {
             // Aggregate YouTube sessions for the selected period
@@ -923,13 +993,16 @@ export default function Metrics() {
             const sortedChannels = Object.entries(channelStats).sort((a, b) => b[1].time - a[1].time);
             const totalYouTubeTime = Object.values(channelStats).reduce((a, b) => a + b.time, 0);
             const maxChannelTime = sortedChannels.length > 0 ? sortedChannels[0][1].time : 0;
+            const INITIAL_DISPLAY = 10;
+            const hasMore = sortedChannels.length > INITIAL_DISPLAY;
 
             return (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between text-sm text-gray-600 dark:text-gray-400 mb-2">
+              <div>
+                <div className="flex items-center justify-between text-sm text-gray-600 dark:text-gray-400 mb-4">
                   <span>{sortedChannels.length} channel{sortedChannels.length !== 1 ? 's' : ''}</span>
                   <span>Total: {formatTime(totalYouTubeTime)}</span>
                 </div>
+                <div className={`space-y-4 max-h-[420px] transition-all duration-300 overflow-hidden ${youtubeExpanded ? 'overflow-y-auto' : ''}`}>
                 {sortedChannels.map(([channel, stats], idx) => {
                   const percent = totalYouTubeTime > 0 ? (stats.time / totalYouTubeTime) * 100 : 0;
                   const barWidth = maxChannelTime > 0 ? (stats.time / maxChannelTime) * 100 : 0;
@@ -967,6 +1040,19 @@ export default function Metrics() {
                     </div>
                   );
                 })}
+                </div>
+
+                {hasMore && (
+                  <div className="mt-4 flex justify-center h-5">
+                    <button
+                      onClick={() => setYoutubeExpanded(!youtubeExpanded)}
+                      className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 flex items-center gap-1.5"
+                    >
+                      <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${youtubeExpanded ? 'rotate-180' : ''}`} />
+                      <span className="w-14">{youtubeExpanded ? 'Collapse' : 'Expand'}</span>
+                    </button>
+                  </div>
+                )}
               </div>
             );
           })()}

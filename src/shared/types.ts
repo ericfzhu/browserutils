@@ -11,9 +11,17 @@ export type SiteCategory =
   | 'other';
 
 export interface CategoryInfo {
-  id: SiteCategory;
+  id: SiteCategory | string;  // Built-in ID or custom category ID
   name: string;
   color: string;  // Tailwind color class
+}
+
+// Custom user-created categories
+export interface CustomCategory {
+  id: string;           // UUID
+  name: string;
+  color: string;        // Tailwind class e.g. 'bg-rose-500'
+  order: number;        // For ordering in the list
 }
 
 // Daily Time Limits
@@ -134,8 +142,10 @@ export interface StorageData {
   settings: Settings;
   dailyStats: Record<string, DailyStats>; // date -> stats
   activeSessions: Record<number, ActiveSession>; // tabId -> session (multiple windows)
-  domainCategories: Record<string, SiteCategory>; // User category overrides
+  domainCategories: Record<string, string>; // User category overrides (domain -> category ID)
   dailyLimits: DailyLimit[];
+  customCategories: CustomCategory[]; // User-created categories
+  builtInCategoryOverrides: Record<SiteCategory, string>; // Built-in category ID -> custom name
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -174,7 +184,16 @@ export type MessageType =
   | { type: 'CONTENT_SCRIPT_READY'; payload: { visible: boolean; url: string; timestamp: number } }
   // Category operations
   | { type: 'GET_DOMAIN_CATEGORIES' }
-  | { type: 'SET_DOMAIN_CATEGORY'; payload: { domain: string; category: SiteCategory | null } }
+  | { type: 'SET_DOMAIN_CATEGORY'; payload: { domain: string; category: string | null } }
+  // Custom category operations
+  | { type: 'GET_CUSTOM_CATEGORIES' }
+  | { type: 'ADD_CUSTOM_CATEGORY'; payload: Omit<CustomCategory, 'id'> }
+  | { type: 'UPDATE_CUSTOM_CATEGORY'; payload: CustomCategory }
+  | { type: 'UPDATE_CUSTOM_CATEGORIES'; payload: CustomCategory[] }
+  | { type: 'DELETE_CUSTOM_CATEGORY'; payload: { id: string } }
+  // Built-in category overrides
+  | { type: 'GET_BUILTIN_CATEGORY_OVERRIDES' }
+  | { type: 'SET_BUILTIN_CATEGORY_NAME'; payload: { id: SiteCategory; name: string | null } }
   // Daily limit operations
   | { type: 'GET_DAILY_LIMITS' }
   | { type: 'ADD_DAILY_LIMIT'; payload: Omit<DailyLimit, 'id'> }

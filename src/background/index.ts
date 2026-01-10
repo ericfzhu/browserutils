@@ -33,6 +33,13 @@ import {
   addActiveYouTubeSession,
   removeActiveYouTubeSession,
   clearActiveYouTubeSessions,
+  getCustomCategories,
+  setCustomCategories,
+  addCustomCategory,
+  updateCustomCategory,
+  deleteCustomCategory,
+  getBuiltInCategoryOverrides,
+  setBuiltInCategoryName,
 } from '../shared/storage';
 import { BlockedSite, MessageType } from '../shared/types';
 
@@ -344,6 +351,33 @@ async function handleMessage(message: MessageType, sender?: chrome.runtime.Messa
     }
     case 'SET_DOMAIN_CATEGORY': {
       await setDomainCategory(message.payload.domain, message.payload.category);
+      return { success: true };
+    }
+    // Custom category operations
+    case 'GET_CUSTOM_CATEGORIES': {
+      return getCustomCategories();
+    }
+    case 'ADD_CUSTOM_CATEGORY': {
+      return addCustomCategory(message.payload);
+    }
+    case 'UPDATE_CUSTOM_CATEGORY': {
+      await updateCustomCategory(message.payload);
+      return { success: true };
+    }
+    case 'UPDATE_CUSTOM_CATEGORIES': {
+      await setCustomCategories(message.payload);
+      return { success: true };
+    }
+    case 'DELETE_CUSTOM_CATEGORY': {
+      await deleteCustomCategory(message.payload.id);
+      return { success: true };
+    }
+    // Built-in category overrides
+    case 'GET_BUILTIN_CATEGORY_OVERRIDES': {
+      return getBuiltInCategoryOverrides();
+    }
+    case 'SET_BUILTIN_CATEGORY_NAME': {
+      await setBuiltInCategoryName(message.payload.id, message.payload.name);
       return { success: true };
     }
     // Daily limit operations

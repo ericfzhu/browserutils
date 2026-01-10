@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Clock, Globe, Shield, TrendingUp, Layers, ArrowRight, Youtube } from 'lucide-react';
-import { DailyStats, BlockedSite, SiteSession, SiteCategory, DailyLimit, Settings, ActiveYouTubeSession } from '../../shared/types';
+import { Clock, Globe, Shield, TrendingUp, Layers, Youtube } from 'lucide-react';
+import { DailyStats, BlockedSite, SiteSession, DailyLimit, Settings, ActiveYouTubeSession } from '../../shared/types';
 import { CATEGORIES, getCategoryForDomain, getCategoryInfo } from '../../shared/categories';
 import { computeYouTubeStatsWithUrls } from '../../shared/storage';
 
@@ -204,15 +204,11 @@ function TimelinePreview({ sessions, sites }: TimelinePreviewProps) {
         })}
       </div>
 
-      {/* Link to full timeline */}
+      {/* More sites indicator */}
       {sortedSites.length > DISPLAY_COUNT && (
-        <Link
-          to="/metrics"
-          className="mt-3 flex items-center justify-center gap-1 text-sm text-blue-600 hover:text-blue-700"
-        >
-          View all {sortedSites.length} sites
-          <ArrowRight className="w-4 h-4" />
-        </Link>
+        <p className="text-sm text-gray-500 dark:text-gray-400 text-center pt-2">
+          +{sortedSites.length - DISPLAY_COUNT} more sites
+        </p>
       )}
     </div>
   );
@@ -226,7 +222,7 @@ export default function Overview() {
   const [todayStats, setTodayStats] = useState<DailyStats | null>(null);
   const [blockedSites, setBlockedSites] = useState<BlockedSite[]>([]);
   const [dailyLimits, setDailyLimits] = useState<DailyLimit[]>([]);
-  const [domainCategories, setDomainCategories] = useState<Record<string, SiteCategory>>({});
+  const [domainCategories, setDomainCategories] = useState<Record<string, string>>({});
   const [settings, setSettings] = useState<Settings | null>(null);
   const [activeYoutubeSessions, setActiveYoutubeSessions] = useState<Record<number, ActiveYouTubeSession>>({});
   const [loading, setLoading] = useState(true);
@@ -261,10 +257,10 @@ export default function Overview() {
   }
 
   // Calculate category breakdown for today
-  function getCategoryBreakdown(): { category: SiteCategory; time: number; percent: number }[] {
+  function getCategoryBreakdown(): { category: string; time: number; percent: number }[] {
     if (!todayStats?.sites) return [];
 
-    const categoryTotals: Record<SiteCategory, number> = {} as Record<SiteCategory, number>;
+    const categoryTotals: Record<string, number> = {};
     let totalTime = 0;
 
     for (const [domain, time] of Object.entries(todayStats.sites)) {
@@ -275,7 +271,7 @@ export default function Overview() {
 
     return CATEGORIES
       .map(cat => ({
-        category: cat.id,
+        category: cat.id as string,
         time: categoryTotals[cat.id] || 0,
         percent: totalTime > 0 ? ((categoryTotals[cat.id] || 0) / totalTime) * 100 : 0,
       }))
@@ -318,13 +314,13 @@ export default function Overview() {
       <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6">Overview</h1>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-4 gap-4 mb-6">
         <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
           <div className="flex items-center gap-3 mb-2">
             <div className="p-2 bg-blue-100 dark:bg-blue-900/50 rounded-lg">
               <Clock className="w-5 h-5 text-blue-600 dark:text-blue-400" />
             </div>
-            <span className="text-sm text-gray-500 dark:text-gray-400">Time Today</span>
+            <span className="text-sm text-gray-500 dark:text-gray-400">Time today</span>
           </div>
           <p className="text-2xl font-bold">{formatTime(todayStats?.totalTime || 0)}</p>
         </div>
@@ -334,7 +330,7 @@ export default function Overview() {
             <div className="p-2 bg-green-100 dark:bg-green-900/50 rounded-lg">
               <Globe className="w-5 h-5 text-green-600 dark:text-green-400" />
             </div>
-            <span className="text-sm text-gray-500 dark:text-gray-400">Sites Visited</span>
+            <span className="text-sm text-gray-500 dark:text-gray-400">Sites visited</span>
           </div>
           <p className="text-2xl font-bold">{Object.keys(todayStats?.sites || {}).length}</p>
         </div>
@@ -344,7 +340,7 @@ export default function Overview() {
             <div className="p-2 bg-red-100 dark:bg-red-900/50 rounded-lg">
               <Shield className="w-5 h-5 text-red-600 dark:text-red-400" />
             </div>
-            <span className="text-sm text-gray-500 dark:text-gray-400">Blocks Today</span>
+            <span className="text-sm text-gray-500 dark:text-gray-400">Blocks today</span>
           </div>
           <p className="text-2xl font-bold">{todayStats?.blockedAttempts || 0}</p>
         </div>
@@ -354,7 +350,7 @@ export default function Overview() {
             <div className="p-2 bg-purple-100 dark:bg-purple-900/50 rounded-lg">
               <TrendingUp className="w-5 h-5 text-purple-600 dark:text-purple-400" />
             </div>
-            <span className="text-sm text-gray-500 dark:text-gray-400">Active Blocks</span>
+            <span className="text-sm text-gray-500 dark:text-gray-400">Active blocks</span>
           </div>
           <p className="text-2xl font-bold">{blockedSites.filter(s => s.enabled).length}</p>
         </div>
@@ -363,10 +359,9 @@ export default function Overview() {
       {/* Activity Timeline Preview */}
       <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 mb-6">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold">Today's Activity</h2>
-          <Link to="/metrics" className="text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1">
-            Full timeline
-            <ArrowRight className="w-4 h-4" />
+          <h2 className="text-lg font-semibold">Today's activity</h2>
+          <Link to="/metrics#activity-timeline" className="text-sm text-blue-600 hover:text-blue-700">
+            View all
           </Link>
         </div>
         <TimelinePreview
@@ -378,7 +373,7 @@ export default function Overview() {
       <div className="grid grid-cols-2 gap-6 mb-6">
         {/* Top Sites Today */}
         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
-          <h2 className="text-lg font-semibold mb-4">Top Sites Today</h2>
+          <h2 className="text-lg font-semibold mb-4">Top sites today</h2>
           {topSites.length > 0 ? (
             <div className="space-y-3">
               {(() => {
@@ -418,7 +413,7 @@ export default function Overview() {
 
         {/* By Category Today */}
         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
-          <h2 className="text-lg font-semibold mb-4">By Category</h2>
+          <h2 className="text-lg font-semibold mb-4">By category</h2>
           {(() => {
             const categoryBreakdown = getCategoryBreakdown();
             if (categoryBreakdown.length === 0) {
@@ -460,7 +455,7 @@ export default function Overview() {
         if (approaching.length === 0) return null;
         return (
           <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-4 mb-6">
-            <h3 className="text-sm font-semibold text-amber-800 dark:text-amber-300 mb-2">Limits Approaching</h3>
+            <h3 className="text-sm font-semibold text-amber-800 dark:text-amber-300 mb-2">Limits approaching</h3>
             <div className="space-y-2">
               {approaching.map(({ limit, timeSpent, percent }) => (
                 <div key={limit.id} className="flex items-center gap-3">
@@ -496,10 +491,10 @@ export default function Overview() {
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold flex items-center gap-2">
               <Youtube className="w-5 h-5 text-red-600" />
-              YouTube Channels
+              YouTube channels
             </h2>
-            <Link to="/metrics" className="text-sm text-blue-600 hover:text-blue-700">
-              View All
+            <Link to="/metrics#youtube-channels" className="text-sm text-blue-600 hover:text-blue-700">
+              View all
             </Link>
           </div>
           {(() => {
@@ -572,7 +567,7 @@ export default function Overview() {
       {/* Blocked Sites */}
       <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold">Blocked Sites</h2>
+          <h2 className="text-lg font-semibold">Blocked sites</h2>
           <Link to="/blocked" className="text-sm text-blue-600 hover:text-blue-700">
             Manage
           </Link>

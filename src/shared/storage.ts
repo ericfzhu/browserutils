@@ -1,4 +1,4 @@
-import { BlockedSite, BlockedSiteFolder, DailyStats, SiteSession, ActiveSession, Settings, DEFAULT_SETTINGS, SiteCategory, DailyLimit, YouTubeChannelSession, ActiveYouTubeSession } from './types';
+import { BlockedSite, BlockedSiteFolder, DailyStats, SiteSession, ActiveSession, Settings, DEFAULT_SETTINGS, SiteCategory, DailyLimit, YouTubeChannelSession, ActiveYouTubeSession, CustomCategory } from './types';
 
 const STORAGE_KEYS = {
   BLOCKED_SITES: 'blockedSites',
@@ -9,6 +9,8 @@ const STORAGE_KEYS = {
   ACTIVE_YOUTUBE_SESSIONS: 'activeYouTubeSessions',
   DOMAIN_CATEGORIES: 'domainCategories',
   DAILY_LIMITS: 'dailyLimits',
+  CUSTOM_CATEGORIES: 'customCategories',
+  BUILTIN_CATEGORY_OVERRIDES: 'builtInCategoryOverrides',
 } as const;
 
 export async function getBlockedSites(): Promise<BlockedSite[]> {
@@ -443,12 +445,12 @@ export function matchesPattern(url: string, pattern: string): boolean {
 }
 
 // Domain category storage functions
-export async function getDomainCategories(): Promise<Record<string, SiteCategory>> {
+export async function getDomainCategories(): Promise<Record<string, string>> {
   const result = await chrome.storage.local.get(STORAGE_KEYS.DOMAIN_CATEGORIES);
   return result[STORAGE_KEYS.DOMAIN_CATEGORIES] || {};
 }
 
-export async function setDomainCategory(domain: string, category: SiteCategory | null): Promise<void> {
+export async function setDomainCategory(domain: string, category: string | null): Promise<void> {
   const categories = await getDomainCategories();
   if (category === null) {
     delete categories[domain];
@@ -456,6 +458,69 @@ export async function setDomainCategory(domain: string, category: SiteCategory |
     categories[domain] = category;
   }
   await chrome.storage.local.set({ [STORAGE_KEYS.DOMAIN_CATEGORIES]: categories });
+}
+
+// Custom categories storage functions
+export async function getCustomCategories(): Promise<CustomCategory[]> {
+  const result = await chrome.storage.local.get(STORAGE_KEYS.CUSTOM_CATEGORIES);
+  return result[STORAGE_KEYS.CUSTOM_CATEGORIES] || [];
+}
+
+export async function setCustomCategories(categories: CustomCategory[]): Promise<void> {
+  await chrome.storage.local.set({ [STORAGE_KEYS.CUSTOM_CATEGORIES]: categories });
+}
+
+export async function addCustomCategory(category: Omit<CustomCategory, 'id'>): Promise<CustomCategory> {
+  const categories = await getCustomCategories();
+  const newCategory: CustomCategory = {
+    ...category,
+    id: crypto.randomUUID(),
+  };
+  categories.push(newCategory);
+  await setCustomCategories(categories);
+  return newCategory;
+}
+
+export async function updateCustomCategory(category: CustomCategory): Promise<void> {
+  const categories = await getCustomCategories();
+  const index = categories.findIndex(c => c.id === category.id);
+  if (index !== -1) {
+    categories[index] = category;
+    await setCustomCategories(categories);
+  }
+}
+
+export async function deleteCustomCategory(id: string): Promise<void> {
+  // Remove the category
+  const categories = await getCustomCategories();
+  const filtered = categories.filter(c => c.id !== id);
+  await setCustomCategories(filtered);
+
+  // Clear domain mappings that point to this category
+  const domainCategories = await getDomainCategories();
+  const updatedDomainCategories: Record<string, string> = {};
+  for (const [domain, categoryId] of Object.entries(domainCategories)) {
+    if (categoryId !== id) {
+      updatedDomainCategories[domain] = categoryId;
+    }
+  }
+  await chrome.storage.local.set({ [STORAGE_KEYS.DOMAIN_CATEGORIES]: updatedDomainCategories });
+}
+
+// Built-in category overrides storage functions
+export async function getBuiltInCategoryOverrides(): Promise<Record<string, string>> {
+  const result = await chrome.storage.local.get(STORAGE_KEYS.BUILTIN_CATEGORY_OVERRIDES);
+  return result[STORAGE_KEYS.BUILTIN_CATEGORY_OVERRIDES] || {};
+}
+
+export async function setBuiltInCategoryName(id: SiteCategory, name: string | null): Promise<void> {
+  const overrides = await getBuiltInCategoryOverrides();
+  if (name === null) {
+    delete overrides[id];
+  } else {
+    overrides[id] = name;
+  }
+  await chrome.storage.local.set({ [STORAGE_KEYS.BUILTIN_CATEGORY_OVERRIDES]: overrides });
 }
 
 // Daily limit storage functions
