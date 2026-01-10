@@ -268,6 +268,29 @@ async function handleMessage(message: MessageType, sender?: chrome.runtime.Messa
     case 'UNLOCK_SITE': {
       return unlockSite(message.payload.id, message.payload.password);
     }
+    case 'START_TIMER_BLOCK': {
+      return startTimerBlock(message.payload.id, message.payload.durationMinutes);
+    }
+    case 'CLEAR_TIMER_BLOCK': {
+      return clearTimerBlock(message.payload.id);
+    }
+    case 'GET_TIMER_STATUS': {
+      const sites = await getBlockedSites();
+      const site = sites.find(s => s.id === message.payload.id);
+      if (!site) {
+        return { found: false };
+      }
+      const now = Date.now();
+      const isActive = site.timerBlockedUntil ? now < site.timerBlockedUntil : false;
+      const remainingMs = isActive && site.timerBlockedUntil ? site.timerBlockedUntil - now : 0;
+      return {
+        found: true,
+        isActive,
+        blockedUntil: site.timerBlockedUntil,
+        remainingMs,
+        timerDuration: site.timerDuration,
+      };
+    }
     case 'GET_BLOCKED_SITES': {
       return getBlockedSites();
     }
@@ -734,13 +757,46 @@ async function unlockSite(id: string, password?: string): Promise<{ success: boo
     }
   }
 
-  if (site.unlockType === 'timer' && site.timerDuration) {
-    // Set unlock until timestamp
-    site.timerUnlockedUntil = Date.now() + site.timerDuration * 60 * 1000;
-    await updateBlockedSite(site);
+  // For password unlock, just update blocking rules (no state change needed)
+  await updateBlockingRules();
+  return { success: true };
+}
+
+// Start a timer block for a site
+async function startTimerBlock(id: string, durationMinutes?: number): Promise<{ success: boolean; error?: string; blockedUntil?: number }> {
+  const sites = await getBlockedSites();
+  const site = sites.find(s => s.id === id);
+
+  if (!site) {
+    return { success: false, error: 'Site not found' };
   }
 
+  if (site.unlockType !== 'timer') {
+    return { success: false, error: 'Site does not use timer blocking' };
+  }
+
+  const duration = durationMinutes ?? site.timerDuration ?? 30;
+  const blockedUntil = Date.now() + duration * 60 * 1000;
+  site.timerBlockedUntil = blockedUntil;
+  await updateBlockedSite(site);
   await updateBlockingRules();
+
+  return { success: true, blockedUntil };
+}
+
+// Clear a timer block for a site
+async function clearTimerBlock(id: string): Promise<{ success: boolean; error?: string }> {
+  const sites = await getBlockedSites();
+  const site = sites.find(s => s.id === id);
+
+  if (!site) {
+    return { success: false, error: 'Site not found' };
+  }
+
+  site.timerBlockedUntil = undefined;
+  await updateBlockedSite(site);
+  await updateBlockingRules();
+
   return { success: true };
 }
 
@@ -790,11 +846,13 @@ async function checkIfBlocked(url: string): Promise<{ blocked: boolean; site?: B
     if (!site.enabled) continue;
 
     if (matchesPattern(url, site.pattern)) {
-      // Check if temporarily unlocked
-      if (site.unlockType === 'timer' && site.timerUnlockedUntil) {
-        if (Date.now() < site.timerUnlockedUntil) {
-          return { blocked: false };
+      // Timer sites: only blocked when timer is active
+      if (site.unlockType === 'timer') {
+        if (site.timerBlockedUntil && Date.now() < site.timerBlockedUntil) {
+          return { blocked: true, site };
         }
+        // Timer not active - site is not blocked
+        return { blocked: false };
       }
 
       // Check schedule
@@ -842,9 +900,10 @@ async function updateBlockingRules(): Promise<void> {
   for (const site of sites) {
     if (!site.enabled) continue;
 
-    // Skip if temporarily unlocked
-    if (site.unlockType === 'timer' && site.timerUnlockedUntil) {
-      if (Date.now() < site.timerUnlockedUntil) {
+    // Timer sites: only create rule if timer is active
+    if (site.unlockType === 'timer') {
+      if (!site.timerBlockedUntil || Date.now() >= site.timerBlockedUntil) {
+        // Timer not active - don't block
         continue;
       }
     }

@@ -5,6 +5,20 @@ All notable changes to BrowserUtils will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.6] - 2026-01-10
+
+### Changed
+- Timer blocking now works as temporary block - sites are accessible until you start the timer
+- Timer sites show "Disabled" button that starts blocking when clicked, "Stop" to end early
+- Active timer blocks display remaining time with live countdown in dashboard and blocked page
+- Time remaining now displays to the left of the block type label
+- Enable All/Disable All on folders now starts/clears timer blocks for timer-type sites
+- All status buttons (Blocking, Disabled, Stop) now have consistent width
+
+### Fixed
+- Timer duration input can now be fully cleared before typing a new value
+- Timer blocks now start instantly when clicking Disabled or Enable All
+
 ## [0.10.5] - 2026-01-10
 
 ### Changed

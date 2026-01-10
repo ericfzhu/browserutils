@@ -43,9 +43,9 @@ export interface BlockedSite {
   unlockType: 'password' | 'timer' | 'schedule' | 'none';
   // Password unlock settings
   passwordHash?: string;
-  // Timer unlock settings
-  timerDuration?: number; // minutes
-  timerUnlockedUntil?: number; // timestamp
+  // Timer block settings (temporary block)
+  timerDuration?: number; // minutes to block for
+  timerBlockedUntil?: number; // timestamp when block expires (site blocked while Date.now() < timerBlockedUntil)
   // Schedule settings
   schedule?: {
     days: number[]; // 0-6, Sunday = 0
@@ -187,6 +187,9 @@ export type MessageType =
   | { type: 'UPDATE_BLOCKED_SITE'; payload: BlockedSite }
   | { type: 'UPDATE_BLOCKED_SITES'; payload: BlockedSite[] }
   | { type: 'UNLOCK_SITE'; payload: { id: string; password?: string } }
+  | { type: 'START_TIMER_BLOCK'; payload: { id: string; durationMinutes?: number } }
+  | { type: 'CLEAR_TIMER_BLOCK'; payload: { id: string } }
+  | { type: 'GET_TIMER_STATUS'; payload: { id: string } }
   | { type: 'GET_BLOCKED_SITES' }
   | { type: 'GET_SETTINGS' }
   | { type: 'UPDATE_SETTINGS'; payload: Partial<Settings> }

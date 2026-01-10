@@ -11,6 +11,21 @@ function formatTime(seconds: number): string {
   return `${minutes}m`;
 }
 
+function formatTimeRemaining(ms: number): string {
+  const totalSeconds = Math.ceil(ms / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  if (hours > 0) {
+    return `${hours}h ${minutes}m ${seconds}s`;
+  }
+  if (minutes > 0) {
+    return `${minutes}m ${seconds}s`;
+  }
+  return `${seconds}s`;
+}
+
 function getTimeUntilMidnight(): string {
   const now = new Date();
   const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0);
@@ -40,22 +55,39 @@ export default function App() {
   const [unlocking, setUnlocking] = useState(false);
   const [timerStarted, setTimerStarted] = useState(false);
   const [countdown, setCountdown] = useState(0);
+  const [timerRemainingMs, setTimerRemainingMs] = useState(0);
+  const [timerBlockedUntil, setTimerBlockedUntil] = useState<number | null>(null);
 
   useEffect(() => {
     loadData();
   }, []);
 
+  // Timer countdown effect for timer-blocked sites
+  useEffect(() => {
+    if (site?.unlockType === 'timer' && timerBlockedUntil) {
+      const updateRemaining = () => {
+        const remaining = timerBlockedUntil - Date.now();
+        if (remaining <= 0) {
+          // Timer expired, site is now unblocked
+          window.history.back();
+        } else {
+          setTimerRemainingMs(remaining);
+        }
+      };
+
+      updateRemaining();
+      const interval = setInterval(updateRemaining, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [site, timerBlockedUntil]);
+
+  // Countdown effect for daily limit cooldown bypass
   useEffect(() => {
     if (countdown > 0) {
       const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
       return () => clearTimeout(timer);
-    } else if (timerStarted && countdown === 0) {
-      // Timer finished, unlock the site
-      if (blockType === 'site') {
-        handleTimerComplete();
-      } else {
-        handleLimitBypass();
-      }
+    } else if (timerStarted && countdown === 0 && blockType === 'limit') {
+      handleLimitBypass();
     }
   }, [countdown, timerStarted, blockType]);
 
@@ -104,6 +136,18 @@ export default function App() {
       const found = sites.find((s: BlockedSite) => s.id === siteId);
       setSite(found || null);
 
+      // For timer sites, get the timer status
+      if (found?.unlockType === 'timer') {
+        const status = await chrome.runtime.sendMessage({
+          type: 'GET_TIMER_STATUS',
+          payload: { id: siteId },
+        });
+        if (status?.isActive && status.blockedUntil) {
+          setTimerBlockedUntil(status.blockedUntil);
+          setTimerRemainingMs(status.remainingMs);
+        }
+      }
+
       // Increment blocked attempt counter
       if (found) {
         await chrome.runtime.sendMessage({
@@ -140,30 +184,6 @@ export default function App() {
       setError('Failed to unlock site');
     } finally {
       setUnlocking(false);
-    }
-  }
-
-  function startTimer() {
-    if (!site?.timerDuration) return;
-    // Wait for 5 seconds before unlocking (anti-impulse delay)
-    setCountdown(5);
-    setTimerStarted(true);
-  }
-
-  async function handleTimerComplete() {
-    if (!site) return;
-
-    try {
-      const result = await chrome.runtime.sendMessage({
-        type: 'UNLOCK_SITE',
-        payload: { id: site.id },
-      });
-
-      if (result.success) {
-        window.history.back();
-      }
-    } catch (err) {
-      console.error('Failed to unlock:', err);
     }
   }
 
@@ -398,32 +418,24 @@ export default function App() {
           </form>
         )}
 
-        {/* Timer Unlock */}
-        {site.unlockType === 'timer' && (
+        {/* Timer Block - shows remaining time */}
+        {site.unlockType === 'timer' && timerRemainingMs > 0 && (
           <div className="space-y-4">
-            <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 mb-4">
-              <Clock className="w-4 h-4" />
-              <span>Wait {site.timerDuration} minutes to unlock</span>
+            <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-4">
+              <div className="flex items-center gap-2 text-sm text-red-800 dark:text-red-300 mb-3">
+                <Clock className="w-4 h-4" />
+                <span>Temporary block active</span>
+              </div>
+              <div className="text-center">
+                <div className="text-3xl font-bold text-red-600 dark:text-red-400 mb-1">
+                  {formatTimeRemaining(timerRemainingMs)}
+                </div>
+                <p className="text-sm text-red-600/70 dark:text-red-400/70">remaining</p>
+              </div>
             </div>
-
-            {!timerStarted ? (
-              <button
-                onClick={startTimer}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg transition-colors"
-              >
-                Start Timer ({site.timerDuration} min access)
-              </button>
-            ) : countdown > 0 ? (
-              <div className="text-center py-4">
-                <div className="text-4xl font-bold text-blue-600 dark:text-blue-400 mb-2">{countdown}</div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Taking a moment to reconsider...</p>
-              </div>
-            ) : (
-              <div className="text-center py-4">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">Unlocking...</p>
-              </div>
-            )}
+            <p className="text-sm text-gray-500 dark:text-gray-400 text-center">
+              This site will automatically unblock when the timer ends.
+            </p>
           </div>
         )}
 

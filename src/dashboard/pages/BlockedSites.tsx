@@ -56,6 +56,13 @@ const defaultFormData: FormData = {
   folderId: undefined,
 };
 
+// Timer status for a site
+interface TimerStatus {
+  isActive: boolean;
+  blockedUntil?: number;
+  remainingMs: number;
+}
+
 export default function BlockedSites() {
   const [sites, setSites] = useState<BlockedSite[]>([]);
   const [folders, setFolders] = useState<BlockedSiteFolder[]>([]);
@@ -66,11 +73,44 @@ export default function BlockedSites() {
   const [editingFolder, setEditingFolder] = useState<BlockedSiteFolder | null>(null);
   const [formData, setFormData] = useState<FormData>(defaultFormData);
   const [folderName, setFolderName] = useState('');
+  const [timerStatuses, setTimerStatuses] = useState<Record<string, TimerStatus>>({});
   const { withLockdownCheck } = useLockdown();
 
   useEffect(() => {
     loadData();
   }, []);
+
+  // Update timer statuses periodically
+  useEffect(() => {
+    const timerSites = sites.filter(s => s.unlockType === 'timer');
+    if (timerSites.length === 0) return;
+
+    const updateTimerStatuses = async () => {
+      const statuses: Record<string, TimerStatus> = {};
+      for (const site of timerSites) {
+        try {
+          const status = await chrome.runtime.sendMessage({
+            type: 'GET_TIMER_STATUS',
+            payload: { id: site.id },
+          });
+          if (status?.found) {
+            statuses[site.id] = {
+              isActive: status.isActive,
+              blockedUntil: status.blockedUntil,
+              remainingMs: status.remainingMs,
+            };
+          }
+        } catch {
+          // Ignore errors
+        }
+      }
+      setTimerStatuses(statuses);
+    };
+
+    updateTimerStatuses();
+    const interval = setInterval(updateTimerStatuses, 1000);
+    return () => clearInterval(interval);
+  }, [sites]);
 
   async function loadData() {
     try {
@@ -215,14 +255,71 @@ export default function BlockedSites() {
 
   async function toggleFolderSitesEnabled(folderId: string | undefined, enabled: boolean) {
     const doToggle = async () => {
-      const sitesToUpdate = sites.filter(s => s.folderId === folderId).map(s => ({ ...s, enabled }));
-      const otherSites = sites.filter(s => s.folderId !== folderId);
-      const newSites = [...otherSites, ...sitesToUpdate];
-      setSites(newSites);
-      await chrome.runtime.sendMessage({
-        type: 'UPDATE_BLOCKED_SITES',
-        payload: newSites,
-      });
+      const folderSites = sites.filter(s => s.folderId === folderId);
+
+      // For non-timer sites, update the enabled flag
+      const nonTimerSites = folderSites.filter(s => s.unlockType !== 'timer');
+      if (nonTimerSites.length > 0) {
+        const sitesToUpdate = nonTimerSites.map(s => ({ ...s, enabled }));
+        const otherSites = sites.filter(s => s.folderId !== folderId || s.unlockType === 'timer');
+        const newSites = [...otherSites, ...sitesToUpdate];
+        setSites(newSites);
+        await chrome.runtime.sendMessage({
+          type: 'UPDATE_BLOCKED_SITES',
+          payload: newSites,
+        });
+      }
+
+      // For timer sites, start/clear timer blocks
+      const timerSites = folderSites.filter(s => s.unlockType === 'timer');
+      if (timerSites.length > 0) {
+        if (enabled) {
+          // Start timer blocks for sites that aren't already active
+          const sitesToStart = timerSites.filter(s => !timerStatuses[s.id]?.isActive);
+          const results = await Promise.all(
+            sitesToStart.map(site =>
+              chrome.runtime.sendMessage({
+                type: 'START_TIMER_BLOCK',
+                payload: { id: site.id },
+              }).then(result => ({ site, result }))
+            )
+          );
+          // Immediately update local state for responsive UI
+          const newStatuses: Record<string, TimerStatus> = {};
+          for (const { site, result } of results) {
+            if (result?.success && result.blockedUntil) {
+              newStatuses[site.id] = {
+                isActive: true,
+                blockedUntil: result.blockedUntil,
+                remainingMs: result.blockedUntil - Date.now(),
+              };
+            }
+          }
+          if (Object.keys(newStatuses).length > 0) {
+            setTimerStatuses(prev => ({ ...prev, ...newStatuses }));
+          }
+        } else {
+          // Clear timer blocks when disabling - run in parallel
+          await Promise.all(
+            timerSites.map(site =>
+              chrome.runtime.sendMessage({
+                type: 'CLEAR_TIMER_BLOCK',
+                payload: { id: site.id },
+              })
+            )
+          );
+          // Immediately update local state
+          const clearedStatuses: Record<string, TimerStatus> = {};
+          for (const site of timerSites) {
+            clearedStatuses[site.id] = {
+              isActive: false,
+              blockedUntil: undefined,
+              remainingMs: 0,
+            };
+          }
+          setTimerStatuses(prev => ({ ...prev, ...clearedStatuses }));
+        }
+      }
     };
 
     // If disabling sites, require lockdown check
@@ -268,6 +365,65 @@ export default function BlockedSites() {
         console.error('Failed to delete site:', err);
       }
     });
+  }
+
+  async function startTimerBlock(id: string) {
+    try {
+      const result = await chrome.runtime.sendMessage({
+        type: 'START_TIMER_BLOCK',
+        payload: { id },
+      });
+      // Immediately update local state for responsive UI
+      if (result?.success && result.blockedUntil) {
+        setTimerStatuses(prev => ({
+          ...prev,
+          [id]: {
+            isActive: true,
+            blockedUntil: result.blockedUntil,
+            remainingMs: result.blockedUntil - Date.now(),
+          },
+        }));
+      }
+    } catch (err) {
+      console.error('Failed to start timer:', err);
+    }
+  }
+
+  async function clearTimerBlock(id: string) {
+    await withLockdownCheck(async () => {
+      try {
+        await chrome.runtime.sendMessage({
+          type: 'CLEAR_TIMER_BLOCK',
+          payload: { id },
+        });
+        // Immediately update local state for responsive UI
+        setTimerStatuses(prev => ({
+          ...prev,
+          [id]: {
+            isActive: false,
+            blockedUntil: undefined,
+            remainingMs: 0,
+          },
+        }));
+      } catch (err) {
+        console.error('Failed to clear timer:', err);
+      }
+    });
+  }
+
+  function formatTimerRemaining(ms: number): string {
+    const totalSeconds = Math.ceil(ms / 1000);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+
+    if (hours > 0) {
+      return `${hours}h ${minutes}m`;
+    }
+    if (minutes > 0) {
+      return `${minutes}m ${seconds}s`;
+    }
+    return `${seconds}s`;
   }
 
   async function handleDragEnd(result: DropResult) {
@@ -400,7 +556,7 @@ export default function BlockedSites() {
       case 'password':
         return 'Password protected';
       case 'timer':
-        return `${site.timerDuration}min timer`;
+        return `${site.timerDuration}min block`;
       case 'schedule':
         return `Scheduled`;
       default:
@@ -416,50 +572,84 @@ export default function BlockedSites() {
     );
   }
 
-  const renderSiteRow = (site: BlockedSite, index: number) => (
-    <Draggable key={site.id} draggableId={site.id} index={index}>
-      {(provided) => (
-        <div
-          ref={provided.innerRef}
-          {...provided.draggableProps}
-          className="flex items-center gap-3 px-4 py-3 bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700 last:border-b-0 hover:bg-gray-50 dark:hover:bg-gray-700/50"
-        >
-          <div {...provided.dragHandleProps} className="text-gray-300 dark:text-gray-600 hover:text-gray-500 dark:hover:text-gray-400 cursor-grab">
-            <GripVertical className="w-4 h-4" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <span className="font-medium text-gray-900 dark:text-gray-100">{site.pattern}</span>
-          </div>
-          <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400 text-sm">
-            {getUnlockIcon(site.unlockType)}
-            <span className="hidden sm:inline">{getUnlockLabel(site)}</span>
-          </div>
-          <button
-            onClick={() => toggleSite(site)}
-            className={`text-xs px-2 py-1 rounded-full transition-colors ${
-              site.enabled
-                ? 'bg-red-100 dark:bg-red-700/80 text-red-700 dark:text-red-200 hover:bg-red-200 dark:hover:bg-red-700'
-                : 'bg-gray-100 dark:bg-gray-600/80 text-gray-500 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-            }`}
+  const renderSiteRow = (site: BlockedSite, index: number) => {
+    const timerStatus = timerStatuses[site.id];
+    const isTimerActive = site.unlockType === 'timer' && timerStatus?.isActive;
+
+    return (
+      <Draggable key={site.id} draggableId={site.id} index={index}>
+        {(provided) => (
+          <div
+            ref={provided.innerRef}
+            {...provided.draggableProps}
+            className="flex items-center gap-3 px-4 py-3 bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700 last:border-b-0 hover:bg-gray-50 dark:hover:bg-gray-700/50"
           >
-            {site.enabled ? 'Blocking' : 'Disabled'}
-          </button>
-          <button onClick={() => openEditModal(site)} className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded">
-            <Edit2 className="w-4 h-4" />
-          </button>
-          <button onClick={() => deleteSite(site.id)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded">
-            <Trash2 className="w-4 h-4" />
-          </button>
-        </div>
-      )}
-    </Draggable>
-  );
+            <div {...provided.dragHandleProps} className="text-gray-300 dark:text-gray-600 hover:text-gray-500 dark:hover:text-gray-400 cursor-grab">
+              <GripVertical className="w-4 h-4" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <span className="font-medium text-gray-900 dark:text-gray-100">{site.pattern}</span>
+            </div>
+            {/* Show time remaining before the label when timer is active */}
+            {isTimerActive && timerStatus && (
+              <span className="text-xs text-red-600 dark:text-red-400 font-medium">
+                {formatTimerRemaining(timerStatus.remainingMs)}
+              </span>
+            )}
+            <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400 text-sm">
+              {getUnlockIcon(site.unlockType)}
+              <span className="hidden sm:inline">{getUnlockLabel(site)}</span>
+            </div>
+            {/* Timer controls for timer-type sites */}
+            {site.unlockType === 'timer' ? (
+              isTimerActive ? (
+                <button
+                  onClick={() => clearTimerBlock(site.id)}
+                  className="text-xs py-1 rounded-full bg-red-100 dark:bg-red-700/80 text-red-700 dark:text-red-200 hover:bg-red-200 dark:hover:bg-red-700 transition-colors w-[72px]"
+                >
+                  Stop
+                </button>
+              ) : (
+                <button
+                  onClick={() => startTimerBlock(site.id)}
+                  className="text-xs py-1 rounded-full bg-gray-100 dark:bg-gray-600/80 text-gray-500 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors w-[72px]"
+                >
+                  Disabled
+                </button>
+              )
+            ) : (
+              /* Standard toggle for non-timer sites */
+              <button
+                onClick={() => toggleSite(site)}
+                className={`text-xs py-1 rounded-full transition-colors w-[72px] ${
+                  site.enabled
+                    ? 'bg-red-100 dark:bg-red-700/80 text-red-700 dark:text-red-200 hover:bg-red-200 dark:hover:bg-red-700'
+                    : 'bg-gray-100 dark:bg-gray-600/80 text-gray-500 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                }`}
+              >
+                {site.enabled ? 'Blocking' : 'Disabled'}
+              </button>
+            )}
+            <button onClick={() => openEditModal(site)} className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded">
+              <Edit2 className="w-4 h-4" />
+            </button>
+            <button onClick={() => deleteSite(site.id)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded">
+              <Trash2 className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+      </Draggable>
+    );
+  };
 
   const renderFolderSection = (folder: BlockedSiteFolder | null, folderSites: BlockedSite[], index: number) => {
     const folderId = folder?.id;
     const isCollapsed = folder?.collapsed;
-    const allEnabled = folderSites.length > 0 && folderSites.every(s => s.enabled);
-    const someEnabled = folderSites.some(s => s.enabled);
+    // For timer sites, "enabled" means timer is active; for others, use site.enabled
+    const isSiteBlocking = (s: BlockedSite) =>
+      s.unlockType === 'timer' ? timerStatuses[s.id]?.isActive : s.enabled;
+    const allEnabled = folderSites.length > 0 && folderSites.every(isSiteBlocking);
+    const someEnabled = folderSites.some(isSiteBlocking);
 
     const content = (dragHandleProps?: React.HTMLAttributes<HTMLDivElement>) => (
       <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
@@ -680,20 +870,32 @@ export default function BlockedSites() {
               {formData.unlockType === 'timer' && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Timer Duration (minutes)
+                    Block Duration (minutes)
                   </label>
                   <input
                     type="number"
-                    value={formData.timerDuration}
-                    onChange={(e) =>
-                      setFormData({ ...formData, timerDuration: parseInt(e.target.value) || 30 })
-                    }
+                    value={formData.timerDuration || ''}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      // Allow empty input, otherwise parse the number
+                      setFormData({
+                        ...formData,
+                        timerDuration: value === '' ? 0 : parseInt(value) || 0,
+                      });
+                    }}
+                    onBlur={(e) => {
+                      // On blur, if empty or 0, set to default 30
+                      const value = parseInt(e.target.value);
+                      if (!value || value < 1) {
+                        setFormData({ ...formData, timerDuration: 30 });
+                      }
+                    }}
                     min={1}
                     max={480}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    Site will be blocked again after this time
+                    Enable timer to block site for this duration
                   </p>
                 </div>
               )}
@@ -823,7 +1025,7 @@ export default function BlockedSites() {
                   type="text"
                   value={folderName}
                   onChange={(e) => setFolderName(e.target.value)}
-                  placeholder="e.g., Social Media, Adult Content"
+                  placeholder="e.g., Social Media, Shopping"
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   required
                   autoFocus
