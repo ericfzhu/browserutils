@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Calendar, Clock, TrendingDown, TrendingUp, ChevronLeft, ChevronRight, ChevronDown, Layers, Youtube } from 'lucide-react';
-import { DailyStats, SiteSession, Settings, ActiveYouTubeSession } from '../../shared/types';
+import { DailyStatsSummary, SiteSession, Settings, ActiveYouTubeSession, YouTubeChannelSession } from '../../shared/types';
 import { CATEGORIES, getCategoryForDomain, getCategoryInfo } from '../../shared/categories';
-import { computeYouTubeStatsWithUrls } from '../../shared/storage';
+import { computeYouTubeStatsWithUrlsLegacy } from '../../shared/storage';
 
 function formatTime(seconds: number): string {
   const hours = Math.floor(seconds / 3600);
@@ -501,7 +501,11 @@ function Timeline({ sessions, sites, startDate, endDate, animationDirection }: T
 }
 
 export default function Metrics() {
-  const [allStats, setAllStats] = useState<Record<string, DailyStats>>({});
+  // Summary stats (without sessions) - loaded once on mount
+  const [allStats, setAllStats] = useState<Record<string, DailyStatsSummary>>({});
+  // Session data for timeline - loaded for selected date range
+  const [sessionData, setSessionData] = useState<{ sessions: SiteSession[]; youtubeSessions: YouTubeChannelSession[] }>({ sessions: [], youtubeSessions: [] });
+  const [loadingSessions, setLoadingSessions] = useState(false);
   const [loading, setLoading] = useState(true);
   const [hoveredSegment, setHoveredSegment] = useState<{ date: string; domain: string; time: number; percent: number } | null>(null);
   const [domainCategories, setDomainCategories] = useState<Record<string, string>>({});
@@ -510,12 +514,7 @@ export default function Metrics() {
 
   // Unified date range state
   const today = getDateString(new Date());
-  const [dateRangeStart, setDateRangeStart] = useState(() => {
-    // Default to last 7 days (week)
-    const weekAgo = new Date();
-    weekAgo.setDate(weekAgo.getDate() - 6);
-    return getDateString(weekAgo);
-  });
+  const [dateRangeStart, setDateRangeStart] = useState(() => today);
   const [dateRangeEnd, setDateRangeEnd] = useState(() => today);
   const [showDateRangePicker, setShowDateRangePicker] = useState(false);
   const [youtubeExpanded, setYoutubeExpanded] = useState(false);
@@ -565,6 +564,13 @@ export default function Metrics() {
     loadStats();
   }, []);
 
+  // Load sessions when date range changes
+  useEffect(() => {
+    if (!loading) {
+      loadSessionsForRange(dateRangeStart, dateRangeEnd);
+    }
+  }, [dateRangeStart, dateRangeEnd, loading]);
+
   // Scroll to anchor when loading completes
   useEffect(() => {
     if (!loading && location.hash) {
@@ -578,12 +584,12 @@ export default function Metrics() {
   async function loadStats() {
     try {
       const [stats, categories, settingsResult, activeYt] = await Promise.all([
-        chrome.runtime.sendMessage({ type: 'GET_STATS' }),
+        chrome.runtime.sendMessage({ type: 'GET_STATS_SUMMARY' }),
         chrome.runtime.sendMessage({ type: 'GET_DOMAIN_CATEGORIES' }),
         chrome.runtime.sendMessage({ type: 'GET_SETTINGS' }),
         chrome.runtime.sendMessage({ type: 'GET_ACTIVE_YOUTUBE_SESSIONS' }),
       ]);
-      setAllStats(stats);
+      setAllStats(stats || {});
       setDomainCategories(categories || {});
       setSettings(settingsResult);
       setActiveYoutubeSessions(activeYt || {});
@@ -591,6 +597,22 @@ export default function Metrics() {
       console.error('Failed to load stats:', err);
     } finally {
       setLoading(false);
+    }
+  }
+
+  // Load sessions for the selected date range (for timeline and YouTube sections)
+  async function loadSessionsForRange(startDate: string, endDate: string) {
+    setLoadingSessions(true);
+    try {
+      const data = await chrome.runtime.sendMessage({
+        type: 'GET_SESSIONS_FOR_RANGE',
+        payload: { startDate, endDate },
+      });
+      setSessionData(data || { sessions: [], youtubeSessions: [] });
+    } catch (err) {
+      console.error('Failed to load sessions:', err);
+    } finally {
+      setLoadingSessions(false);
     }
   }
 
@@ -615,24 +637,18 @@ export default function Metrics() {
       .sort((a, b) => b.time - a.time);
   }
 
-  // Get timeline stats for the selected period
-  const getTimelineStats = (datesToUse: string[]): { sessions: SiteSession[]; sites: Record<string, number> } => {
-    const allSessions: SiteSession[] = [];
+  // Get aggregated sites for the selected period (from summary data)
+  const getAggregatedSites = (datesToUse: string[]): Record<string, number> => {
     const aggregatedSites: Record<string, number> = {};
-
     for (const dateStr of datesToUse) {
       const dayStats = allStats[dateStr];
       if (dayStats) {
-        if (dayStats.sessions) {
-          allSessions.push(...dayStats.sessions);
-        }
         for (const [domain, time] of Object.entries(dayStats.sites || {})) {
           aggregatedSites[domain] = (aggregatedSites[domain] || 0) + time;
         }
       }
     }
-
-    return { sessions: allSessions, sites: aggregatedSites };
+    return aggregatedSites;
   };
 
   if (loading) {
@@ -819,13 +835,19 @@ export default function Metrics() {
       <div id="activity-timeline" className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 mb-6">
         <h2 className="text-lg font-semibold mb-4">Activity timeline</h2>
         <div className="overflow-hidden">
-          <Timeline
-            sessions={getTimelineStats(dates).sessions}
-            sites={getTimelineStats(dates).sites}
-            startDate={dateRangeStart}
-            endDate={dateRangeEnd}
-            animationDirection={null}
-          />
+          {loadingSessions ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            </div>
+          ) : (
+            <Timeline
+              sessions={sessionData.sessions}
+              sites={getAggregatedSites(dates)}
+              startDate={dateRangeStart}
+              endDate={dateRangeEnd}
+              animationDirection={null}
+            />
+          )}
         </div>
       </div>
 
@@ -968,9 +990,12 @@ export default function Metrics() {
             <Youtube className="w-5 h-5 text-red-600" />
             YouTube channels
           </h2>
-          {(() => {
-            // Aggregate YouTube sessions for the selected period
-            const allYouTubeSessions = periodStats.flatMap(s => s.youtubeSessions || []);
+          {loadingSessions ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
+            </div>
+          ) : (() => {
+            const allYouTubeSessions = sessionData.youtubeSessions;
 
             if (allYouTubeSessions.length === 0) {
               return (
@@ -980,7 +1005,7 @@ export default function Metrics() {
               );
             }
 
-            const channelStats = computeYouTubeStatsWithUrls(allYouTubeSessions);
+            const channelStats = computeYouTubeStatsWithUrlsLegacy(allYouTubeSessions);
 
             // Build a map of channel URLs from active sessions
             const activeUrls: Record<string, string> = {};

@@ -1,9 +1,26 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Clock, Globe, Shield, TrendingUp, Layers, Youtube } from 'lucide-react';
-import { DailyStats, BlockedSite, SiteSession, DailyLimit, Settings, ActiveYouTubeSession } from '../../shared/types';
+import { DailyStats, BlockedSite, SiteSession, DailyLimit, Settings, ActiveYouTubeSession, CompactSessions, CompactYouTubeSessions } from '../../shared/types';
 import { CATEGORIES, getCategoryForDomain, getCategoryInfo } from '../../shared/categories';
 import { computeYouTubeStatsWithUrls } from '../../shared/storage';
+
+// Expand compact sessions to SiteSession[] for UI components
+function expandCompactSessions(sessions: CompactSessions | undefined): SiteSession[] {
+  if (!sessions || Array.isArray(sessions)) return [];
+  const result: SiteSession[] = [];
+  for (const [domain, times] of Object.entries(sessions)) {
+    for (const [startSec, endSec] of times) {
+      result.push({
+        domain,
+        startTime: startSec * 1000,
+        endTime: endSec * 1000,
+        windowId: 0,
+      });
+    }
+  }
+  return result;
+}
 
 function formatTime(seconds: number): string {
   const hours = Math.floor(seconds / 3600);
@@ -365,7 +382,7 @@ export default function Overview() {
           </Link>
         </div>
         <TimelinePreview
-          sessions={todayStats?.sessions || []}
+          sessions={expandCompactSessions(todayStats?.sessions as CompactSessions)}
           sites={todayStats?.sites || {}}
         />
       </div>
@@ -498,8 +515,8 @@ export default function Overview() {
             </Link>
           </div>
           {(() => {
-            const youtubeSessions = todayStats?.youtubeSessions || [];
-            if (youtubeSessions.length === 0) {
+            const youtubeSessions = (todayStats?.youtubeSessions || {}) as CompactYouTubeSessions;
+            if (Object.keys(youtubeSessions).length === 0) {
               return (
                 <p className="text-gray-500 dark:text-gray-400 text-center py-8">
                   No YouTube activity recorded today

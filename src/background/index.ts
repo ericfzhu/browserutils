@@ -13,6 +13,8 @@ import {
   updateSettings,
   getDailyStats,
   getAllDailyStats,
+  getAllDailyStatsSummary,
+  getSessionsForRange,
   incrementBlockedAttempt,
   recordSession,
   getActiveSessions,
@@ -40,6 +42,7 @@ import {
   deleteCustomCategory,
   getBuiltInCategoryOverrides,
   setBuiltInCategoryName,
+  migrateSessionsToCompactFormat,
 } from '../shared/storage';
 import { BlockedSite, MessageType } from '../shared/types';
 
@@ -157,9 +160,11 @@ async function startAllVisibleSessions(): Promise<void> {
 
 // Initialize extension
 chrome.runtime.onInstalled.addListener(async () => {
-  console.log('BrowserUtils extension installed');
+  console.log('BrowserUtils extension installed/updated');
   await updateBlockingRules();
   await setupIdleDetection();
+  // Run one-time migration to compact session format
+  await migrateSessionsToCompactFormat();
 });
 
 // Service worker startup - restore state and recover session
@@ -233,6 +238,12 @@ async function handleMessage(message: MessageType, sender?: chrome.runtime.Messa
         return getDailyStats(message.payload.date);
       }
       return getAllDailyStats();
+    }
+    case 'GET_STATS_SUMMARY': {
+      return getAllDailyStatsSummary();
+    }
+    case 'GET_SESSIONS_FOR_RANGE': {
+      return getSessionsForRange(message.payload.startDate, message.payload.endDate);
     }
     case 'ADD_BLOCKED_SITE': {
       const site = await addBlockedSite(message.payload);

@@ -3,7 +3,7 @@ import { Tag, Plus, Wrench, Bug, ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 // Changelog data - update this when releasing new versions
-const CURRENT_VERSION = '0.10.4';
+const CURRENT_VERSION = '0.10.5';
 
 interface ChangelogEntry {
   version: string;
@@ -14,6 +14,16 @@ interface ChangelogEntry {
 }
 
 const changelog: ChangelogEntry[] = [
+  {
+    version: '0.10.5',
+    date: '2026-01-10',
+    changed: [
+      'Compact session storage format reduces data size by ~65%',
+      'Faster loading of Categories and Metrics pages by loading summary data first',
+      'Timeline and YouTube data now loads on-demand for selected date range only',
+      'One-time migration converts existing data to compact format on update',
+    ],
+  },
   {
     version: '0.10.4',
     date: '2026-01-10',

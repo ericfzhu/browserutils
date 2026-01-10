@@ -1,4 +1,4 @@
-import { BlockedSite, BlockedSiteFolder, DailyStats, SiteSession, ActiveSession, Settings, DEFAULT_SETTINGS, SiteCategory, DailyLimit, YouTubeChannelSession, ActiveYouTubeSession, CustomCategory } from './types';
+import { BlockedSite, BlockedSiteFolder, DailyStats, SiteSession, ActiveSession, Settings, DEFAULT_SETTINGS, SiteCategory, DailyLimit, YouTubeChannelSession, ActiveYouTubeSession, CustomCategory, CompactSessions, CompactYouTubeSessions } from './types';
 
 const STORAGE_KEYS = {
   BLOCKED_SITES: 'blockedSites',
@@ -114,8 +114,9 @@ export async function getDailyStats(date?: string): Promise<DailyStats> {
   const allStats = result[STORAGE_KEYS.DAILY_STATS] || {};
   const stats = allStats[targetDate];
   if (stats) {
-    // Ensure youtubeSessions exists for backwards compatibility
-    if (!stats.youtubeSessions) stats.youtubeSessions = [];
+    // Ensure sessions are in compact format
+    if (!stats.sessions || Array.isArray(stats.sessions)) stats.sessions = {};
+    if (!stats.youtubeSessions || Array.isArray(stats.youtubeSessions)) stats.youtubeSessions = {};
     return stats;
   }
   return {
@@ -124,14 +125,90 @@ export async function getDailyStats(date?: string): Promise<DailyStats> {
     sites: {},
     visits: 0,
     blockedAttempts: 0,
-    sessions: [],
-    youtubeSessions: [],
+    sessions: {},
+    youtubeSessions: {},
   };
 }
 
 export async function getAllDailyStats(): Promise<Record<string, DailyStats>> {
   const result = await chrome.storage.local.get(STORAGE_KEYS.DAILY_STATS);
   return result[STORAGE_KEYS.DAILY_STATS] || {};
+}
+
+// Get all stats without session arrays (much faster for aggregate views)
+export async function getAllDailyStatsSummary(): Promise<Record<string, { date: string; totalTime: number; sites: Record<string, number>; visits: number; blockedAttempts: number }>> {
+  const result = await chrome.storage.local.get(STORAGE_KEYS.DAILY_STATS);
+  const allStats = result[STORAGE_KEYS.DAILY_STATS] || {};
+
+  // Strip out sessions and youtubeSessions to reduce data size
+  const summary: Record<string, { date: string; totalTime: number; sites: Record<string, number>; visits: number; blockedAttempts: number }> = {};
+  for (const [date, stats] of Object.entries(allStats as Record<string, DailyStats>)) {
+    summary[date] = {
+      date: stats.date,
+      totalTime: stats.totalTime,
+      sites: stats.sites,
+      visits: stats.visits,
+      blockedAttempts: stats.blockedAttempts,
+    };
+  }
+  return summary;
+}
+
+// Get sessions and YouTube sessions for a specific date range (for timeline)
+// Expands compact format to UI-compatible format
+export async function getSessionsForRange(startDate: string, endDate: string): Promise<{
+  sessions: SiteSession[];
+  youtubeSessions: YouTubeChannelSession[];
+}> {
+  const result = await chrome.storage.local.get(STORAGE_KEYS.DAILY_STATS);
+  const allStats = result[STORAGE_KEYS.DAILY_STATS] || {};
+
+  const sessions: SiteSession[] = [];
+  const youtubeSessions: YouTubeChannelSession[] = [];
+
+  // Iterate through dates in range
+  let currentDate = new Date(startDate + 'T00:00:00');
+  const endDateObj = new Date(endDate + 'T00:00:00');
+
+  while (currentDate <= endDateObj) {
+    const dateStr = getLocalDateString(currentDate);
+    const dayStats = allStats[dateStr];
+    if (dayStats) {
+      // Expand compact sessions to SiteSession[]
+      if (dayStats.sessions && typeof dayStats.sessions === 'object' && !Array.isArray(dayStats.sessions)) {
+        // Compact format: { domain: [[start, end], ...] }
+        for (const [domain, times] of Object.entries(dayStats.sessions as CompactSessions)) {
+          for (const [startSec, endSec] of times) {
+            sessions.push({
+              domain,
+              startTime: startSec * 1000,
+              endTime: endSec * 1000,
+              windowId: 0, // windowId not preserved in compact format
+            });
+          }
+        }
+      }
+
+      // Expand compact YouTube sessions
+      if (dayStats.youtubeSessions && typeof dayStats.youtubeSessions === 'object' && !Array.isArray(dayStats.youtubeSessions)) {
+        // Compact format: { channelName: { url?, times: [[start, end], ...] } }
+        for (const [channelName, data] of Object.entries(dayStats.youtubeSessions as CompactYouTubeSessions)) {
+          for (const [startSec, endSec] of data.times) {
+            youtubeSessions.push({
+              channelName,
+              channelUrl: data.url,
+              startTime: startSec * 1000,
+              endTime: endSec * 1000,
+              windowId: 0,
+            });
+          }
+        }
+      }
+    }
+    currentDate.setDate(currentDate.getDate() + 1);
+  }
+
+  return { sessions, youtubeSessions };
 }
 
 export async function updateDailyStats(date: string, stats: DailyStats): Promise<void> {
@@ -149,7 +226,8 @@ export async function incrementBlockedAttempt(_domain: string): Promise<void> {
 }
 
 // Merge overlapping intervals and return total duration in seconds
-export function mergeIntervals(intervals: { start: number; end: number }[]): { merged: { start: number; end: number }[]; totalSeconds: number } {
+// Intervals are in the same unit (either ms or seconds)
+export function mergeIntervals(intervals: { start: number; end: number }[], inputInSeconds = false): { merged: { start: number; end: number }[]; totalSeconds: number } {
   if (intervals.length === 0) return { merged: [], totalSeconds: 0 };
 
   // Sort by start time
@@ -169,11 +247,31 @@ export function mergeIntervals(intervals: { start: number; end: number }[]): { m
     }
   }
 
-  const totalSeconds = merged.reduce((sum, interval) => sum + Math.round((interval.end - interval.start) / 1000), 0);
+  const divisor = inputInSeconds ? 1 : 1000;
+  const totalSeconds = merged.reduce((sum, interval) => sum + Math.round((interval.end - interval.start) / divisor), 0);
   return { merged, totalSeconds };
 }
 
-// Compute stats from sessions (totalTime and sites using interval union)
+// Compute stats from compact sessions format
+export function computeStatsFromCompactSessions(sessions: CompactSessions): { totalTime: number; sites: Record<string, number> } {
+  // Calculate per-site time using union of that site's intervals
+  const sites: Record<string, number> = {};
+  const allIntervals: { start: number; end: number }[] = [];
+
+  for (const [domain, times] of Object.entries(sessions)) {
+    const intervals = times.map(([start, end]) => ({ start, end }));
+    allIntervals.push(...intervals);
+    const { totalSeconds } = mergeIntervals(intervals, true);
+    sites[domain] = totalSeconds;
+  }
+
+  // Calculate total time using union of all intervals
+  const { totalSeconds } = mergeIntervals(allIntervals, true);
+
+  return { totalTime: totalSeconds, sites };
+}
+
+// Legacy: Compute stats from old session format (for migration)
 export function computeStatsFromSessions(sessions: SiteSession[]): { totalTime: number; sites: Record<string, number> } {
   // Calculate total time using union of all intervals
   const allIntervals = sessions.map(s => ({ start: s.startTime, end: s.endTime }));
@@ -211,22 +309,33 @@ export async function recordSession(session: SiteSession): Promise<void> {
     sites: {},
     visits: 0,
     blockedAttempts: 0,
-    sessions: [],
-    youtubeSessions: [],
+    sessions: {},
+    youtubeSessions: {},
   };
 
-  // Add session
-  if (!stats.sessions) stats.sessions = [];
-  stats.sessions.push(session);
+  // Ensure sessions is in compact format (object, not array)
+  if (!stats.sessions || Array.isArray(stats.sessions)) {
+    stats.sessions = {};
+  }
+
+  // Add session in compact format: domain -> [[startSec, endSec], ...]
+  const domain = session.domain;
+  const startSec = Math.floor(session.startTime / 1000);
+  const endSec = Math.floor(session.endTime / 1000);
+
+  if (!stats.sessions[domain]) {
+    stats.sessions[domain] = [];
+  }
+  stats.sessions[domain].push([startSec, endSec]);
   stats.visits++;
 
-  // Recompute totals from sessions
-  const computed = computeStatsFromSessions(stats.sessions);
+  // Recompute totals from compact sessions
+  const computed = computeStatsFromCompactSessions(stats.sessions);
   stats.totalTime = computed.totalTime;
   stats.sites = computed.sites;
 
   // Preserve youtubeSessions if they exist
-  if (!stats.youtubeSessions) stats.youtubeSessions = [];
+  if (!stats.youtubeSessions) stats.youtubeSessions = {};
 
   allStats[dateStr] = stats;
   await chrome.storage.local.set({ [STORAGE_KEYS.DAILY_STATS]: allStats });
@@ -261,10 +370,24 @@ export interface YouTubeChannelStats {
   url?: string;
 }
 
-// Compute YouTube channel stats with URLs from sessions
-export function computeYouTubeStatsWithUrls(sessions: YouTubeChannelSession[]): Record<string, YouTubeChannelStats> {
-  // Group intervals by channelName to ensure consistent merging
-  // (channelId may be present in some sessions but not others for the same channel)
+// Compute YouTube channel stats with URLs from compact sessions
+export function computeYouTubeStatsWithUrls(sessions: CompactYouTubeSessions): Record<string, YouTubeChannelStats> {
+  const channels: Record<string, YouTubeChannelStats> = {};
+
+  for (const [channelName, data] of Object.entries(sessions)) {
+    const intervals = data.times.map(([start, end]) => ({ start, end }));
+    const { totalSeconds } = mergeIntervals(intervals, true);
+    channels[channelName] = {
+      time: totalSeconds,
+      url: data.url,
+    };
+  }
+
+  return channels;
+}
+
+// Legacy: Compute YouTube stats from old format (for migration)
+export function computeYouTubeStatsWithUrlsLegacy(sessions: YouTubeChannelSession[]): Record<string, YouTubeChannelStats> {
   const channelIntervals = new Map<string, { start: number; end: number }[]>();
   const channelUrls = new Map<string, string>();
 
@@ -273,13 +396,11 @@ export function computeYouTubeStatsWithUrls(sessions: YouTubeChannelSession[]): 
     const intervals = channelIntervals.get(key) || [];
     intervals.push({ start: session.startTime, end: session.endTime });
     channelIntervals.set(key, intervals);
-    // Store channel URL if available (use the most recent one)
     if (session.channelUrl) {
       channelUrls.set(key, session.channelUrl);
     }
   }
 
-  // Merge overlapping intervals and calculate time per channel
   const channels: Record<string, YouTubeChannelStats> = {};
   for (const [channelName, intervals] of channelIntervals) {
     const { totalSeconds } = mergeIntervals(intervals);
@@ -297,7 +418,6 @@ export async function recordYouTubeSession(session: YouTubeChannelSession): Prom
   const dateStr = getLocalDateString(sessionDate);
 
   // Use atomic read-modify-write to prevent race conditions with recordSession
-  // We fetch the latest stats right before writing and only modify youtubeSessions
   const result = await chrome.storage.local.get(STORAGE_KEYS.DAILY_STATS);
   const allStats = result[STORAGE_KEYS.DAILY_STATS] || {};
 
@@ -308,13 +428,28 @@ export async function recordYouTubeSession(session: YouTubeChannelSession): Prom
     sites: {},
     visits: 0,
     blockedAttempts: 0,
-    sessions: [],
-    youtubeSessions: [],
+    sessions: {},
+    youtubeSessions: {},
   };
 
-  // Only modify youtubeSessions, preserve everything else
-  if (!existingStats.youtubeSessions) existingStats.youtubeSessions = [];
-  existingStats.youtubeSessions.push(session);
+  // Ensure youtubeSessions is in compact format (object, not array)
+  if (!existingStats.youtubeSessions || Array.isArray(existingStats.youtubeSessions)) {
+    existingStats.youtubeSessions = {};
+  }
+
+  // Add session in compact format: channelName -> { url?, times: [[startSec, endSec], ...] }
+  const channelName = session.channelName;
+  const startSec = Math.floor(session.startTime / 1000);
+  const endSec = Math.floor(session.endTime / 1000);
+
+  if (!existingStats.youtubeSessions[channelName]) {
+    existingStats.youtubeSessions[channelName] = { times: [] };
+  }
+  existingStats.youtubeSessions[channelName].times.push([startSec, endSec]);
+  // Update URL if available (most recent wins)
+  if (session.channelUrl) {
+    existingStats.youtubeSessions[channelName].url = session.channelUrl;
+  }
 
   allStats[dateStr] = existingStats;
   await chrome.storage.local.set({ [STORAGE_KEYS.DAILY_STATS]: allStats });
@@ -606,4 +741,82 @@ export async function checkDailyLimitForDomain(domain: string): Promise<{
   }
 
   return { exceeded: false, timeSpent: 0, remaining: Infinity };
+}
+
+// Migration: Convert old session format to compact format
+const MIGRATION_KEY = 'sessionFormatMigrated';
+
+export async function migrateSessionsToCompactFormat(): Promise<boolean> {
+  // Check if already migrated
+  const migrationStatus = await chrome.storage.local.get(MIGRATION_KEY);
+  if (migrationStatus[MIGRATION_KEY]) {
+    return false; // Already migrated
+  }
+
+  console.log('[Migration] Starting session format migration...');
+  const result = await chrome.storage.local.get(STORAGE_KEYS.DAILY_STATS);
+  const allStats = result[STORAGE_KEYS.DAILY_STATS] || {};
+
+  let migratedCount = 0;
+
+  for (const stats of Object.values(allStats)) {
+    const dayStats = stats as Record<string, unknown>;
+    let needsUpdate = false;
+
+    // Migrate sessions array to compact format
+    if (Array.isArray(dayStats.sessions)) {
+      const oldSessions = dayStats.sessions as SiteSession[];
+      const compactSessions: CompactSessions = {};
+
+      for (const session of oldSessions) {
+        const domain = session.domain;
+        const startSec = Math.floor(session.startTime / 1000);
+        const endSec = Math.floor(session.endTime / 1000);
+
+        if (!compactSessions[domain]) {
+          compactSessions[domain] = [];
+        }
+        compactSessions[domain].push([startSec, endSec]);
+      }
+
+      dayStats.sessions = compactSessions;
+      needsUpdate = true;
+    }
+
+    // Migrate youtubeSessions array to compact format
+    if (Array.isArray(dayStats.youtubeSessions)) {
+      const oldYtSessions = dayStats.youtubeSessions as YouTubeChannelSession[];
+      const compactYtSessions: CompactYouTubeSessions = {};
+
+      for (const session of oldYtSessions) {
+        const channelName = session.channelName;
+        const startSec = Math.floor(session.startTime / 1000);
+        const endSec = Math.floor(session.endTime / 1000);
+
+        if (!compactYtSessions[channelName]) {
+          compactYtSessions[channelName] = { times: [] };
+        }
+        compactYtSessions[channelName].times.push([startSec, endSec]);
+        if (session.channelUrl) {
+          compactYtSessions[channelName].url = session.channelUrl;
+        }
+      }
+
+      dayStats.youtubeSessions = compactYtSessions;
+      needsUpdate = true;
+    }
+
+    if (needsUpdate) {
+      migratedCount++;
+    }
+  }
+
+  // Save migrated data
+  await chrome.storage.local.set({
+    [STORAGE_KEYS.DAILY_STATS]: allStats,
+    [MIGRATION_KEY]: true,
+  });
+
+  console.log(`[Migration] Completed. Migrated ${migratedCount} days of data.`);
+  return true;
 }

@@ -74,6 +74,7 @@ export interface SiteVisit {
   duration: number; // seconds spent on page
 }
 
+// Legacy session format (for migration)
 export interface SiteSession {
   domain: string;
   startTime: number; // timestamp (ms)
@@ -81,6 +82,7 @@ export interface SiteSession {
   windowId: number;
 }
 
+// Legacy YouTube session format (for migration)
 export interface YouTubeChannelSession {
   channelName: string;
   channelId?: string; // for deduplication (handle or ID)
@@ -90,14 +92,22 @@ export interface YouTubeChannelSession {
   windowId: number;
 }
 
+// Compact session format: domain -> array of [startTimeSec, endTimeSec] tuples
+export type CompactSessions = Record<string, [number, number][]>;
+
+// Compact YouTube session format: channelName -> { url?, times: [[start, end], ...] }
+export type CompactYouTubeSessions = Record<string, { url?: string; times: [number, number][] }>;
+
 export interface DailyStats {
   date: string; // YYYY-MM-DD
   totalTime: number; // seconds (computed from sessions union)
   sites: Record<string, number>; // domain -> seconds (computed from sessions)
   visits: number;
   blockedAttempts: number;
-  sessions: SiteSession[]; // detailed session records
-  youtubeSessions?: YouTubeChannelSession[]; // YouTube channel watch sessions
+  // Compact format: domain -> [[startSec, endSec], ...]
+  sessions: CompactSessions;
+  // Compact format: channelName -> { url?, times: [[startSec, endSec], ...] }
+  youtubeSessions?: CompactYouTubeSessions;
 }
 
 export interface Settings {
@@ -159,8 +169,19 @@ export const DEFAULT_SETTINGS: Settings = {
   quickLinks: [],
 };
 
+// Lightweight stats without session arrays (for faster loading)
+export interface DailyStatsSummary {
+  date: string;
+  totalTime: number;
+  sites: Record<string, number>;
+  visits: number;
+  blockedAttempts: number;
+}
+
 export type MessageType =
   | { type: 'GET_STATS'; payload?: { date?: string } }
+  | { type: 'GET_STATS_SUMMARY' } // Returns all stats without sessions (faster)
+  | { type: 'GET_SESSIONS_FOR_RANGE'; payload: { startDate: string; endDate: string } } // Get sessions for timeline
   | { type: 'ADD_BLOCKED_SITE'; payload: Omit<BlockedSite, 'id' | 'createdAt'> }
   | { type: 'REMOVE_BLOCKED_SITE'; payload: { id: string } }
   | { type: 'UPDATE_BLOCKED_SITE'; payload: BlockedSite }

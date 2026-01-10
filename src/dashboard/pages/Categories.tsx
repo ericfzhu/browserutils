@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import { Plus, Pencil, Trash2, GripVertical, X, ChevronRight, CheckSquare, Square } from 'lucide-react';
-import { DailyStats, CustomCategory } from '../../shared/types';
+import { DailyStatsSummary, CustomCategory } from '../../shared/types';
 import { CATEGORIES, getCategoryForDomain, getCategoryInfoWithOverrides, isBuiltInCategory, DEFAULT_DOMAIN_CATEGORIES, CATEGORY_COLOR_OPTIONS } from '../../shared/categories';
 
 function formatTime(seconds: number): string {
@@ -151,7 +151,7 @@ function CategoryModal({ isOpen, onClose, onSave, pendingDomain, editingCategory
 }
 
 export default function Categories() {
-  const [allStats, setAllStats] = useState<Record<string, DailyStats>>({});
+  const [allStats, setAllStats] = useState<Record<string, DailyStatsSummary>>({});
   const [domainCategories, setDomainCategories] = useState<Record<string, string>>({});
   const [customCategories, setCustomCategories] = useState<CustomCategory[]>([]);
   const [builtInOverrides, setBuiltInOverrides] = useState<Record<string, string>>({});
@@ -275,7 +275,7 @@ export default function Categories() {
   async function loadData() {
     try {
       const [stats, categories, custom, overrides] = await Promise.all([
-        chrome.runtime.sendMessage({ type: 'GET_STATS' }),
+        chrome.runtime.sendMessage({ type: 'GET_STATS_SUMMARY' }),
         chrome.runtime.sendMessage({ type: 'GET_DOMAIN_CATEGORIES' }),
         chrome.runtime.sendMessage({ type: 'GET_CUSTOM_CATEGORIES' }),
         chrome.runtime.sendMessage({ type: 'GET_BUILTIN_CATEGORY_OVERRIDES' }),
