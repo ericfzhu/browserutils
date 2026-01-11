@@ -2,6 +2,7 @@
   "manifest_version": 3,
   "name": "BrowserUtils",
   "version": "0.10.6",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA0ZwZFeVw/QRQxMczn842PdXL3Z7viI9j3CRKtntoLIdXciuk8BAl0k3Oz+sAkrwoXFUrvrdygL7tG4GvLck4JtiQPRWj+d4S1FhoCM6sUZG+f0d7CRB6p2t03XCeIOA9e/tlAEE78+RNEOp3nu99tc7OhhztNGrDv69VT3J7TIatRVmiUC1YeCwREuUgQD0OKdgbAT/g/QqEaWkyO33GDh4A2GwvWkkxb1z84bQPE3y0JeHCaoUCDTAWPK+JTY4vsjdaPhlrbz6V5Wr6i5pwOF3QNGd37gKDbw2BXRvvBh9dJPHGy4AoyXvzhU8ZRFU9raxzwsjpkFVgpgMGkGgQGwIDAQAB",
   "description": "Track website usage and block distracting sites with password or timer protection",
   "icons": {
     "16": "icons/icon16.png",
