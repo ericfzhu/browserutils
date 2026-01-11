@@ -64,9 +64,10 @@ export default function App() {
 
   async function doToggleBlocking() {
     if (!settings) return;
+    const newEnabled = !settings.blockingEnabled;
     const updated = await chrome.runtime.sendMessage({
       type: 'UPDATE_SETTINGS',
-      payload: { blockingEnabled: !settings.blockingEnabled },
+      payload: { blockingEnabled: newEnabled, trackingEnabled: newEnabled },
     });
     setSettings(updated);
     setShowPasswordInput(false);
