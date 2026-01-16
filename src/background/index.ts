@@ -20,7 +20,6 @@ import {
   getActiveSessions,
   addActiveSession,
   removeActiveSession,
-  clearActiveSessions,
   verifyPassword,
   matchesPattern,
   getDomainCategories,
@@ -34,7 +33,6 @@ import {
   getActiveYouTubeSessions,
   addActiveYouTubeSession,
   removeActiveYouTubeSession,
-  clearActiveYouTubeSessions,
   getCustomCategories,
   setCustomCategories,
   addCustomCategory,
@@ -760,25 +758,12 @@ async function endYouTubeSession(tabId: number): Promise<void> {
 // End all active YouTube sessions
 async function endAllYouTubeSessions(): Promise<void> {
   const activeYoutubeSessions = await getActiveYouTubeSessions();
-  const now = Date.now();
 
-  for (const [, session] of Object.entries(activeYoutubeSessions)) {
-    if (session.startTime) {
-      const duration = Math.round((now - session.startTime) / 1000);
-      if (duration > 0) {
-        await recordYouTubeSession({
-          channelName: session.channelName,
-          channelId: session.channelId,
-          channelUrl: session.channelUrl,
-          startTime: session.startTime,
-          endTime: now,
-          windowId: session.windowId,
-        });
-      }
-    }
+  // Use removeActiveYouTubeSession for each to prevent race conditions
+  // (if endYouTubeSession is called concurrently, we won't double-record)
+  for (const [tabIdStr] of Object.entries(activeYoutubeSessions)) {
+    await endYouTubeSession(parseInt(tabIdStr));
   }
-
-  await clearActiveYouTubeSessions();
 }
 
 async function unlockSite(id: string, password?: string): Promise<{ success: boolean; error?: string }> {
@@ -1070,23 +1055,12 @@ async function endSession(tabId: number): Promise<void> {
 // End all active sessions
 async function endAllSessions(): Promise<void> {
   const activeSessions = await getActiveSessions();
-  const now = Date.now();
 
-  for (const [, session] of Object.entries(activeSessions)) {
-    if (session.startTime) {
-      const duration = Math.round((now - session.startTime) / 1000);
-      if (duration > 0) {
-        await recordSession({
-          domain: session.domain,
-          startTime: session.startTime,
-          endTime: now,
-          windowId: session.windowId,
-        });
-      }
-    }
+  // Use endSession for each to prevent race conditions
+  // (if endSession is called concurrently, we won't double-record)
+  for (const [tabIdStr] of Object.entries(activeSessions)) {
+    await endSession(parseInt(tabIdStr));
   }
-
-  await clearActiveSessions();
 }
 
 // Start a session for a specific tab
@@ -1216,11 +1190,29 @@ chrome.webNavigation.onBeforeNavigate.addListener(async (details) => {
 });
 
 chrome.windows.onFocusChanged.addListener(async (windowId) => {
-  // For multi-window tracking, we don't end sessions when focus changes
-  // Sessions continue in all visible windows
-  // Only start a session for the newly focused window's active tab if needed
-  if (windowId !== chrome.windows.WINDOW_ID_NONE && !isUserIdle) {
+  // End all sessions when Chrome loses focus entirely (user switched to another app)
+  if (windowId === chrome.windows.WINDOW_ID_NONE) {
+    await endAllSessions();
+    return;
+  }
+
+  if (!isUserIdle) {
     try {
+      // Check all windows for minimized state and end those sessions
+      const activeSessions = await getActiveSessions();
+      for (const [tabIdStr, session] of Object.entries(activeSessions)) {
+        try {
+          const win = await chrome.windows.get(session.windowId);
+          if (win.state === 'minimized') {
+            await endSession(parseInt(tabIdStr));
+          }
+        } catch {
+          // Window no longer exists
+          await endSession(parseInt(tabIdStr));
+        }
+      }
+
+      // Start a session for the newly focused window's active tab if not minimized
       const window = await chrome.windows.get(windowId);
       if (window.state !== 'minimized') {
         const [tab] = await chrome.tabs.query({ active: true, windowId });
@@ -1229,7 +1221,7 @@ chrome.windows.onFocusChanged.addListener(async (windowId) => {
         }
       }
     } catch {
-      // No active tab
+      // No active tab or window
     }
   }
 });
