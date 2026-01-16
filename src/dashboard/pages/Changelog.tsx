@@ -3,7 +3,7 @@ import { Tag, Plus, Wrench, Bug, ArrowLeft, Minus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 // Changelog data - update this when releasing new versions
-const CURRENT_VERSION = '0.10.6';
+const CURRENT_VERSION = '0.10.7';
 
 interface ChangelogEntry {
   version: string;
@@ -15,6 +15,15 @@ interface ChangelogEntry {
 }
 
 const changelog: ChangelogEntry[] = [
+  {
+    version: '0.10.7',
+    date: '2026-01-16',
+    fixed: [
+      'Minimized windows now stop tracking immediately on focus change instead of waiting for periodic check',
+      'Sessions now cap recorded time at last confirmed activity + 30 seconds, preventing hours of phantom time if alarms fail',
+      'Fixed race condition that could cause sessions to be recorded twice when multiple end events occurred simultaneously',
+    ],
+  },
   {
     version: '0.10.6',
     date: '2026-01-10',

@@ -546,10 +546,11 @@ async function handleHeartbeat(sender?: chrome.runtime.MessageSender): Promise<v
         endTime: now,
         windowId: session.windowId,
       });
-      // Reset session start time
+      // Reset session start time and update last active time
       await addActiveSession(tabId, {
         domain: session.domain,
         startTime: now,
+        lastActiveTime: now,
         tabId,
         windowId: session.windowId,
       });
@@ -562,6 +563,7 @@ async function handleHeartbeat(sender?: chrome.runtime.MessageSender): Promise<v
         await addActiveSession(tabId, {
           domain,
           startTime: now,
+          lastActiveTime: now,
           tabId,
           windowId,
         });
@@ -596,9 +598,11 @@ async function handleVisibilityChange(
           const activeSessions = await getActiveSessions();
           // Start new session if we don't have one for this tab
           if (!activeSessions[tabId]) {
+            const now = Date.now();
             await addActiveSession(tabId, {
               domain,
-              startTime: Date.now(),
+              startTime: now,
+              lastActiveTime: now,
               tabId,
               windowId,
             });
@@ -668,22 +672,20 @@ async function handleYouTubeChannelUpdate(
         channelId: payload.channelId,
         channelUrl: payload.channelUrl,
         startTime: now,
+        lastActiveTime: now,
         tabId,
         windowId,
       });
       console.log('[YouTube] Started new session for:', payload.channelName);
     } else {
-      // Same channel - update channelId/channelUrl if we got them now but didn't have them before
-      if ((payload.channelId && !existingSession.channelId) || (payload.channelUrl && !existingSession.channelUrl)) {
-        console.log('[YouTube] Updating session with channelId/channelUrl:', payload.channelId, payload.channelUrl);
-        await addActiveYouTubeSession(tabId, {
-          ...existingSession,
-          channelId: payload.channelId || existingSession.channelId,
-          channelUrl: payload.channelUrl || existingSession.channelUrl,
-        });
-      } else {
-        console.log('[YouTube] Same channel, keeping session alive');
-      }
+      // Same channel - update lastActiveTime and channelId/channelUrl if needed
+      console.log('[YouTube] Same channel, updating lastActiveTime');
+      await addActiveYouTubeSession(tabId, {
+        ...existingSession,
+        lastActiveTime: now,
+        channelId: payload.channelId || existingSession.channelId,
+        channelUrl: payload.channelUrl || existingSession.channelUrl,
+      });
     }
     // Same channel - just keep the session alive, don't record yet
     // Session will be recorded when user leaves or channel changes
@@ -697,6 +699,7 @@ async function handleYouTubeChannelUpdate(
     channelId: payload.channelId,
     channelUrl: payload.channelUrl,
     startTime: now,
+    lastActiveTime: now,
     tabId,
     windowId,
   });
@@ -735,7 +738,11 @@ async function endYouTubeSession(tabId: number): Promise<void> {
   console.log('[YouTube] Ending session:', session);
 
   if (session && session.startTime) {
-    const duration = Math.round((Date.now() - session.startTime) / 1000);
+    const now = Date.now();
+    // Cap end time at lastActiveTime + 30 seconds to prevent over-recording
+    const maxEndTime = session.lastActiveTime ? session.lastActiveTime + 30000 : now;
+    const endTime = Math.min(now, maxEndTime);
+    const duration = Math.round((endTime - session.startTime) / 1000);
     console.log('[YouTube] Session duration:', duration, 'seconds');
     if (duration > 0) {
       await recordYouTubeSession({
@@ -743,7 +750,7 @@ async function endYouTubeSession(tabId: number): Promise<void> {
         channelId: session.channelId,
         channelUrl: session.channelUrl,
         startTime: session.startTime,
-        endTime: Date.now(),
+        endTime,
         windowId: session.windowId,
       });
       console.log('[YouTube] Session recorded for:', session.channelName);
@@ -1040,12 +1047,17 @@ function getDomainFromUrl(url: string): string | null {
 async function endSession(tabId: number): Promise<void> {
   const session = await removeActiveSession(tabId);
   if (session && session.startTime) {
-    const duration = Math.round((Date.now() - session.startTime) / 1000);
+    const now = Date.now();
+    // Cap end time at lastActiveTime + 30 seconds to prevent over-recording
+    // when sessions become stale (e.g., window minimized but alarm didn't fire)
+    const maxEndTime = session.lastActiveTime ? session.lastActiveTime + 30000 : now;
+    const endTime = Math.min(now, maxEndTime);
+    const duration = Math.round((endTime - session.startTime) / 1000);
     if (duration > 0) {
       await recordSession({
         domain: session.domain,
         startTime: session.startTime,
-        endTime: Date.now(),
+        endTime,
         windowId: session.windowId,
       });
     }
@@ -1114,9 +1126,11 @@ async function startSession(tabId: number, url: string, windowId?: number): Prom
   }
 
   // Start new session
+  const now = Date.now();
   await addActiveSession(tabId, {
     domain,
-    startTime: Date.now(),
+    startTime: now,
+    lastActiveTime: now,
     tabId,
     windowId: actualWindowId,
   });
@@ -1190,39 +1204,44 @@ chrome.webNavigation.onBeforeNavigate.addListener(async (details) => {
 });
 
 chrome.windows.onFocusChanged.addListener(async (windowId) => {
-  // End all sessions when Chrome loses focus entirely (user switched to another app)
+  if (isUserIdle) return;
+
+  // Check all windows for minimized state and end those sessions
+  // (runs on both WINDOW_ID_NONE and normal focus changes)
+  try {
+    const activeSessions = await getActiveSessions();
+    for (const [tabIdStr, session] of Object.entries(activeSessions)) {
+      try {
+        const win = await chrome.windows.get(session.windowId);
+        if (win.state === 'minimized') {
+          await endSession(parseInt(tabIdStr));
+        }
+      } catch {
+        // Window no longer exists
+        await endSession(parseInt(tabIdStr));
+      }
+    }
+  } catch {
+    // Error checking sessions
+  }
+
+  // When Chrome loses focus (user switched to another app), don't start new sessions
+  // but let existing sessions continue via heartbeat (visible windows keep tracking)
   if (windowId === chrome.windows.WINDOW_ID_NONE) {
-    await endAllSessions();
     return;
   }
 
-  if (!isUserIdle) {
-    try {
-      // Check all windows for minimized state and end those sessions
-      const activeSessions = await getActiveSessions();
-      for (const [tabIdStr, session] of Object.entries(activeSessions)) {
-        try {
-          const win = await chrome.windows.get(session.windowId);
-          if (win.state === 'minimized') {
-            await endSession(parseInt(tabIdStr));
-          }
-        } catch {
-          // Window no longer exists
-          await endSession(parseInt(tabIdStr));
-        }
+  // Start a session for the newly focused window's active tab if not minimized
+  try {
+    const window = await chrome.windows.get(windowId);
+    if (window.state !== 'minimized') {
+      const [tab] = await chrome.tabs.query({ active: true, windowId });
+      if (tab?.url && tab.id) {
+        await startSession(tab.id, tab.url, windowId);
       }
-
-      // Start a session for the newly focused window's active tab if not minimized
-      const window = await chrome.windows.get(windowId);
-      if (window.state !== 'minimized') {
-        const [tab] = await chrome.tabs.query({ active: true, windowId });
-        if (tab?.url && tab.id) {
-          await startSession(tab.id, tab.url, windowId);
-        }
-      }
-    } catch {
-      // No active tab or window
     }
+  } catch {
+    // No active tab or window
   }
 });
 
@@ -1275,10 +1294,11 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
                 endTime: now,
                 windowId: session.windowId,
               });
-              // Reset start time for next interval
+              // Reset start time and update last active time
               await addActiveSession(tabId, {
                 ...session,
                 startTime: now,
+                lastActiveTime: now,
               });
             }
             continue;

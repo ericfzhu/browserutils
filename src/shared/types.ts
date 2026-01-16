@@ -135,6 +135,7 @@ export interface QuickLink {
 export interface ActiveSession {
   domain: string;
   startTime: number;
+  lastActiveTime: number; // Last confirmed activity (heartbeat), used to cap recording on stale sessions
   tabId: number;
   windowId: number;
 }
@@ -144,6 +145,7 @@ export interface ActiveYouTubeSession {
   channelId?: string;
   channelUrl?: string;
   startTime: number;
+  lastActiveTime: number; // Last confirmed activity (heartbeat), used to cap recording on stale sessions
   tabId: number;
   windowId: number;
 }
