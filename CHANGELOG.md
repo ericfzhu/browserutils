@@ -5,6 +5,16 @@ All notable changes to BrowserUtils will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.8] - 2026-02-19
+
+### Changed
+- Tracking now requires fresh content-script heartbeats, so tabs stop counting when they are no longer verifiably visible
+- Periodic session save now records only up to last confirmed activity instead of assuming continuous visibility
+
+### Fixed
+- Improved multi-window tracking accuracy by ending stale sessions quickly when windows are minimized, hidden, or no longer emitting visibility heartbeats
+- Two visible windows on the same site now continue tracking independently while dashboard totals still use interval union to avoid overlap double-counting
+
 ## [0.10.7] - 2026-01-16
 
 ### Fixed

@@ -42,7 +42,7 @@ import {
   setBuiltInCategoryName,
   migrateSessionsToCompactFormat,
 } from '../shared/storage';
-import { BlockedSite, MessageType } from '../shared/types';
+import { ActiveSession, BlockedSite, MessageType } from '../shared/types';
 
 // Session state keys for chrome.storage.session
 const SESSION_KEYS = {
@@ -52,6 +52,14 @@ const SESSION_KEYS = {
 
 // In-memory idle state (restored from session storage on startup)
 let isUserIdle = false;
+
+// Session freshness: content heartbeats are every 15s, so allow a small buffer
+// before considering a session stale.
+const HEARTBEAT_STALE_MS = 45000;
+
+function isSessionFresh(session: ActiveSession, now: number = Date.now()): boolean {
+  return now - session.lastActiveTime <= HEARTBEAT_STALE_MS;
+}
 
 // Session state helpers
 async function saveIdleState(): Promise<void> {
@@ -103,10 +111,10 @@ async function recoverSession(): Promise<void> {
     try {
       const tab = await chrome.tabs.get(tabId);
 
-      // Check if tab is still active in a visible window
+      // Check if tab is still active in a visible window with recent heartbeat
       if (tab.active && tab.windowId) {
         const window = await chrome.windows.get(tab.windowId);
-        if (window.state !== 'minimized') {
+        if (window.state !== 'minimized' && isSessionFresh(session)) {
           // Session is still valid, continue tracking
           console.log('Recovered active session for:', session.domain);
           continue;
@@ -1250,6 +1258,7 @@ chrome.windows.onFocusChanged.addListener(async (windowId) => {
 
 // Check for minimized windows periodically and handle them
 async function checkMinimizedWindows(): Promise<void> {
+  const now = Date.now();
   const activeSessions = await getActiveSessions();
   const windows = await chrome.windows.getAll({ windowTypes: ['normal'] });
   const minimizedWindowIds = new Set(
@@ -1257,7 +1266,7 @@ async function checkMinimizedWindows(): Promise<void> {
   );
 
   for (const [tabIdStr, session] of Object.entries(activeSessions)) {
-    if (minimizedWindowIds.has(session.windowId)) {
+    if (minimizedWindowIds.has(session.windowId) || !isSessionFresh(session, now)) {
       await endSession(parseInt(tabIdStr));
     }
   }
@@ -1279,26 +1288,33 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
 
     for (const [tabIdStr, session] of Object.entries(activeSessions)) {
       const tabId = parseInt(tabIdStr);
+
+      // No recent heartbeat means page is no longer verifiably visible.
+      if (!isSessionFresh(session, now)) {
+        await endSession(tabId);
+        continue;
+      }
+
       // Verify tab still exists and is active
       try {
         const tab = await chrome.tabs.get(tabId);
         if (tab.active && tab.windowId) {
           const window = await chrome.windows.get(tab.windowId);
           if (window.state !== 'minimized') {
+            const endTime = Math.min(now, session.lastActiveTime);
             // Save session progress
-            const duration = Math.round((now - session.startTime) / 1000);
+            const duration = Math.round((endTime - session.startTime) / 1000);
             if (duration > 0) {
               await recordSession({
                 domain: session.domain,
                 startTime: session.startTime,
-                endTime: now,
+                endTime,
                 windowId: session.windowId,
               });
-              // Reset start time and update last active time
+              // Reset start time to the last confirmed activity point.
               await addActiveSession(tabId, {
                 ...session,
-                startTime: now,
-                lastActiveTime: now,
+                startTime: endTime,
               });
             }
             continue;

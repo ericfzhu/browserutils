@@ -3,7 +3,7 @@ import { Tag, Plus, Wrench, Bug, ArrowLeft, Minus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 // Changelog data - update this when releasing new versions
-const CURRENT_VERSION = '0.10.7';
+const CURRENT_VERSION = '0.10.8';
 
 interface ChangelogEntry {
   version: string;
@@ -15,6 +15,18 @@ interface ChangelogEntry {
 }
 
 const changelog: ChangelogEntry[] = [
+  {
+    version: '0.10.8',
+    date: '2026-02-19',
+    changed: [
+      'Tracking now requires fresh content-script heartbeats, so tabs stop counting when they are no longer verifiably visible',
+      'Periodic session save now records only up to last confirmed activity instead of assuming continuous visibility',
+    ],
+    fixed: [
+      'Improved multi-window tracking accuracy by ending stale sessions quickly when windows are minimized, hidden, or no longer emitting visibility heartbeats',
+      'Two visible windows on the same site now continue tracking independently while dashboard totals still use interval union to avoid overlap double-counting',
+    ],
+  },
   {
     version: '0.10.7',
     date: '2026-01-16',

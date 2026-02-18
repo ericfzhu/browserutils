@@ -4,9 +4,9 @@ import {
   getCategoryInfo,
   getCategoryInfoWithOverrides,
   getCategoryForDomain,
-  CATEGORIES,
   BUILTIN_CATEGORY_IDS,
 } from './categories';
+import { CustomCategory } from './types';
 
 describe('isBuiltInCategory', () => {
   it('returns true for built-in categories', () => {
@@ -53,9 +53,9 @@ describe('getCategoryInfo', () => {
 });
 
 describe('getCategoryInfoWithOverrides', () => {
-  const customCategories = [
-    { id: 'custom-1', name: 'My Custom', color: 'bg-red-500' },
-    { id: 'custom-2', name: 'Another Custom', color: 'bg-blue-500' },
+  const customCategories: CustomCategory[] = [
+    { id: 'custom-1', name: 'My Custom', color: 'bg-red-500', order: 0 },
+    { id: 'custom-2', name: 'Another Custom', color: 'bg-blue-500', order: 1 },
   ];
 
   const builtInOverrides = {
@@ -90,8 +90,8 @@ describe('getCategoryInfoWithOverrides', () => {
   });
 
   it('prefers custom category over built-in with same ID', () => {
-    const customWithBuiltInId = [
-      { id: 'social', name: 'Custom Social', color: 'bg-green-500' },
+    const customWithBuiltInId: CustomCategory[] = [
+      { id: 'social', name: 'Custom Social', color: 'bg-green-500', order: 0 },
     ];
     const result = getCategoryInfoWithOverrides('social', customWithBuiltInId, {});
     expect(result.name).toBe('Custom Social');
