@@ -112,6 +112,15 @@ function TimelinePreview({ sessions, sites }: TimelinePreviewProps) {
     sessionsByDomain.set(domain, merged);
   }
 
+  // Precompute unique window counts per domain to avoid repeated filtering in render.
+  const windowIdsByDomain = new Map<string, Set<number>>();
+  sessions.forEach(session => {
+    if (!windowIdsByDomain.has(session.domain)) {
+      windowIdsByDomain.set(session.domain, new Set());
+    }
+    windowIdsByDomain.get(session.domain)?.add(session.windowId);
+  });
+
   // Generate hour markers
   const hourMarkers: { hour: number; label: string; position: number }[] = [];
   const startHour = new Date(minTime).getHours();
@@ -165,10 +174,7 @@ function TimelinePreview({ sessions, sites }: TimelinePreviewProps) {
         {displayedSites.map(([domain, totalTime]) => {
           const domainIntervals = sessionsByDomain.get(domain) || [];
           const color = getDomainColor(domain);
-          // Check if original sessions had multiple windows
-          const originalSessions = sessions.filter(s => s.domain === domain);
-          const windowIds = new Set(originalSessions.map(s => s.windowId));
-          const hasMultipleWindows = windowIds.size > 1;
+          const hasMultipleWindows = (windowIdsByDomain.get(domain)?.size || 0) > 1;
 
           return (
             <div key={domain} className="flex items-center gap-2">

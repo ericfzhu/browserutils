@@ -354,6 +354,15 @@ function Timeline({ sessions, sites, startDate, endDate, animationDirection }: T
     sessionsByDomain.set(domain, merged);
   }
 
+  // Precompute unique window counts per domain to avoid repeated filtering in render.
+  const windowIdsByDomain = new Map<string, Set<number>>();
+  sessions.forEach(session => {
+    if (!windowIdsByDomain.has(session.domain)) {
+      windowIdsByDomain.set(session.domain, new Set());
+    }
+    windowIdsByDomain.get(session.domain)?.add(session.windowId);
+  });
+
   // Generate time markers - hours for single day, days for multi-day
   // Limit to ~8-10 markers max to avoid crowding
   const MAX_MARKERS = 8;
@@ -426,10 +435,7 @@ function Timeline({ sessions, sites, startDate, endDate, animationDirection }: T
         {sortedSites.map(([domain, totalTime]) => {
           const domainIntervals = sessionsByDomain.get(domain) || [];
           const color = getDomainColor(domain);
-          // Check if original sessions had multiple windows
-          const originalSessions = sessions.filter(s => s.domain === domain);
-          const windowIds = new Set(originalSessions.map(s => s.windowId));
-          const hasMultipleWindows = windowIds.size > 1;
+          const hasMultipleWindows = (windowIdsByDomain.get(domain)?.size || 0) > 1;
 
           return (
             <div key={domain} className="flex items-center gap-3">
