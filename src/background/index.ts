@@ -42,7 +42,7 @@ import {
   setBuiltInCategoryName,
   migrateSessionsToCompactFormat,
 } from '../shared/storage';
-import { ActiveSession, BlockedSite, MessageType } from '../shared/types';
+import { ActiveSession, BlockedSite, MessageType, Settings } from '../shared/types';
 import { isTimeWithinScheduleWindow } from '../shared/time';
 
 // Session state keys for chrome.storage.session
@@ -53,6 +53,7 @@ const SESSION_KEYS = {
 
 // In-memory idle state (restored from session storage on startup)
 let isUserIdle = false;
+let cachedSettings: Settings | null = null;
 
 // Session freshness: content heartbeats are every 15s, so allow a small buffer
 // before considering a session stale.
@@ -60,6 +61,12 @@ const HEARTBEAT_STALE_MS = 45000;
 
 function isSessionFresh(session: ActiveSession, now: number = Date.now()): boolean {
   return now - session.lastActiveTime <= HEARTBEAT_STALE_MS;
+}
+
+async function getCachedSettings(): Promise<Settings> {
+  if (cachedSettings) return cachedSettings;
+  cachedSettings = await getSettings();
+  return cachedSettings;
 }
 
 // Session state helpers
@@ -147,7 +154,7 @@ async function recoverSession(): Promise<void> {
 
 // Start sessions for all visible (non-minimized) windows
 async function startAllVisibleSessions(): Promise<void> {
-  const settings = await getSettings();
+  const settings = await getCachedSettings();
   if (!settings.trackingEnabled) return;
 
   try {
@@ -176,13 +183,14 @@ chrome.runtime.onInstalled.addListener(async () => {
 
 // Service worker startup - restore state and recover session
 (async () => {
+  await getCachedSettings();
   await setupIdleDetection();
   await recoverSession();
 })();
 
 // Set up idle detection based on settings
 async function setupIdleDetection(): Promise<void> {
-  const settings = await getSettings();
+  const settings = await getCachedSettings();
   if (settings.idleThreshold > 0) {
     // Minimum is 15 seconds for chrome.idle API
     const threshold = Math.max(15, settings.idleThreshold);
@@ -192,7 +200,7 @@ async function setupIdleDetection(): Promise<void> {
 
 // Handle idle state changes
 chrome.idle.onStateChanged.addListener(async (state) => {
-  const settings = await getSettings();
+  const settings = await getCachedSettings();
 
   // If idle detection is disabled, ignore
   if (settings.idleThreshold === 0) {
@@ -302,10 +310,11 @@ async function handleMessage(message: MessageType, sender?: chrome.runtime.Messa
       return getBlockedSites();
     }
     case 'GET_SETTINGS': {
-      return getSettings();
+      return getCachedSettings();
     }
     case 'UPDATE_SETTINGS': {
       const settings = await updateSettings(message.payload);
+      cachedSettings = settings;
       await updateBlockingRules();
       // Update idle detection if threshold changed
       if (message.payload.idleThreshold !== undefined) {
@@ -527,7 +536,7 @@ async function handleMessage(message: MessageType, sender?: chrome.runtime.Messa
 async function handleHeartbeat(sender?: chrome.runtime.MessageSender): Promise<void> {
   if (!sender?.tab?.id || !sender.tab.url) return;
 
-  const settings = await getSettings();
+  const settings = await getCachedSettings();
   if (!settings.trackingEnabled) return;
 
   const tabId = sender.tab.id;
@@ -590,7 +599,7 @@ async function handleVisibilityChange(
 ): Promise<void> {
   if (!sender?.tab?.id || !sender.tab.url) return;
 
-  const settings = await getSettings();
+  const settings = await getCachedSettings();
   if (!settings.trackingEnabled) return;
 
   const tabId = sender.tab.id;
@@ -878,7 +887,7 @@ async function bypassDailyLimit(id: string, password?: string): Promise<{ succes
 }
 
 async function checkIfBlocked(url: string): Promise<{ blocked: boolean; site?: BlockedSite }> {
-  const settings = await getSettings();
+  const settings = await getCachedSettings();
   if (!settings.blockingEnabled) {
     return { blocked: false };
   }
@@ -930,7 +939,7 @@ async function checkIfBlocked(url: string): Promise<{ blocked: boolean; site?: B
 }
 
 async function updateBlockingRules(): Promise<void> {
-  const settings = await getSettings();
+  const settings = await getCachedSettings();
   const sites = await getBlockedSites();
   const folders = await getBlockedSiteFolders();
   const now = Date.now();
@@ -1073,7 +1082,7 @@ async function endAllSessions(): Promise<void> {
 
 // Start a session for a specific tab
 async function startSession(tabId: number, url: string, windowId?: number): Promise<void> {
-  const settings = await getSettings();
+  const settings = await getCachedSettings();
   if (!settings.trackingEnabled) return;
 
   // Don't start session if user is idle
