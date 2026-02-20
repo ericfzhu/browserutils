@@ -5,6 +5,16 @@ All notable changes to BrowserUtils will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.9] - 2026-02-20
+
+### Changed
+- Reduced background storage reads by caching settings in the service worker for hot tracking and blocking paths
+- Improved timeline rendering performance by precomputing per-domain window counts instead of filtering sessions during each row render
+
+### Fixed
+- Session recording now splits cross-midnight intervals into per-day segments, improving daily totals accuracy
+- Scheduled blocking now correctly handles overnight windows (for example, 23:00 to 06:00)
+
 ## [0.10.8] - 2026-02-19
 
 ### Changed

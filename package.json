@@ -1,6 +1,6 @@
 {
     "name": "browserutils",
-    "version": "0.10.8",
+    "version": "0.10.9",
     "private": true,
     "type": "module",
     "packageManager": "yarn@4.0.2",

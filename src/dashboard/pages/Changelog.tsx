@@ -3,7 +3,7 @@ import { Tag, Plus, Wrench, Bug, ArrowLeft, Minus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 // Changelog data - update this when releasing new versions
-const CURRENT_VERSION = '0.10.8';
+const CURRENT_VERSION = '0.10.9';
 
 interface ChangelogEntry {
   version: string;
@@ -15,6 +15,18 @@ interface ChangelogEntry {
 }
 
 const changelog: ChangelogEntry[] = [
+  {
+    version: '0.10.9',
+    date: '2026-02-20',
+    changed: [
+      'Reduced background storage reads by caching settings in the service worker for hot tracking and blocking paths',
+      'Improved timeline rendering performance by precomputing per-domain window counts instead of filtering sessions during each row render',
+    ],
+    fixed: [
+      'Session recording now splits cross-midnight intervals into per-day segments, improving daily totals accuracy',
+      'Scheduled blocking now correctly handles overnight windows (for example, 23:00 to 06:00)',
+    ],
+  },
   {
     version: '0.10.8',
     date: '2026-02-19',
