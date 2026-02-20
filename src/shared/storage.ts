@@ -1,4 +1,5 @@
 import { BlockedSite, BlockedSiteFolder, DailyStats, SiteSession, ActiveSession, Settings, DEFAULT_SETTINGS, SiteCategory, DailyLimit, YouTubeChannelSession, ActiveYouTubeSession, CustomCategory, CompactSessions, CompactYouTubeSessions } from './types';
+import { getLocalDateString, splitIntervalByLocalDay } from './time';
 
 const STORAGE_KEYS = {
   BLOCKED_SITES: 'blockedSites',
@@ -102,10 +103,6 @@ export async function updateSettings(settings: Partial<Settings>): Promise<Setti
   const updated = { ...current, ...settings };
   await chrome.storage.local.set({ [STORAGE_KEYS.SETTINGS]: updated });
   return updated;
-}
-
-function getLocalDateString(d: Date = new Date()): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 export async function getDailyStats(date?: string): Promise<DailyStats> {
@@ -295,49 +292,55 @@ export function computeStatsFromSessions(sessions: SiteSession[]): { totalTime: 
 }
 
 export async function recordSession(session: SiteSession): Promise<void> {
-  const sessionDate = new Date(session.startTime);
-  const dateStr = getLocalDateString(sessionDate);
+  const segments = splitIntervalByLocalDay(session.startTime, session.endTime);
+  if (segments.length === 0) return;
 
   // Use atomic read-modify-write to prevent race conditions with recordYouTubeSession
   const result = await chrome.storage.local.get(STORAGE_KEYS.DAILY_STATS);
   const allStats = result[STORAGE_KEYS.DAILY_STATS] || {};
 
-  // Get existing stats for this date, or create minimal structure
-  const stats = allStats[dateStr] || {
-    date: dateStr,
-    totalTime: 0,
-    sites: {},
-    visits: 0,
-    blockedAttempts: 0,
-    sessions: {},
-    youtubeSessions: {},
-  };
-
-  // Ensure sessions is in compact format (object, not array)
-  if (!stats.sessions || Array.isArray(stats.sessions)) {
-    stats.sessions = {};
-  }
-
-  // Add session in compact format: domain -> [[startSec, endSec], ...]
   const domain = session.domain;
-  const startSec = Math.floor(session.startTime / 1000);
-  const endSec = Math.floor(session.endTime / 1000);
+  let visitCounted = false;
 
-  if (!stats.sessions[domain]) {
-    stats.sessions[domain] = [];
+  for (const segment of segments) {
+    // Get existing stats for this date, or create minimal structure
+    const stats = allStats[segment.date] || {
+      date: segment.date,
+      totalTime: 0,
+      sites: {},
+      visits: 0,
+      blockedAttempts: 0,
+      sessions: {},
+      youtubeSessions: {},
+    };
+
+    // Ensure sessions is in compact format (object, not array)
+    if (!stats.sessions || Array.isArray(stats.sessions)) {
+      stats.sessions = {};
+    }
+
+    if (!stats.sessions[domain]) {
+      stats.sessions[domain] = [];
+    }
+    stats.sessions[domain].push([segment.startSec, segment.endSec]);
+
+    // Keep visit semantics consistent with previous behavior: one visit per recorded session.
+    if (!visitCounted) {
+      stats.visits++;
+      visitCounted = true;
+    }
+
+    // Recompute totals from compact sessions
+    const computed = computeStatsFromCompactSessions(stats.sessions);
+    stats.totalTime = computed.totalTime;
+    stats.sites = computed.sites;
+
+    // Preserve youtubeSessions if they exist
+    if (!stats.youtubeSessions) stats.youtubeSessions = {};
+
+    allStats[segment.date] = stats;
   }
-  stats.sessions[domain].push([startSec, endSec]);
-  stats.visits++;
 
-  // Recompute totals from compact sessions
-  const computed = computeStatsFromCompactSessions(stats.sessions);
-  stats.totalTime = computed.totalTime;
-  stats.sites = computed.sites;
-
-  // Preserve youtubeSessions if they exist
-  if (!stats.youtubeSessions) stats.youtubeSessions = {};
-
-  allStats[dateStr] = stats;
   await chrome.storage.local.set({ [STORAGE_KEYS.DAILY_STATS]: allStats });
 }
 
@@ -414,44 +417,43 @@ export function computeYouTubeStatsWithUrlsLegacy(sessions: YouTubeChannelSessio
 }
 
 export async function recordYouTubeSession(session: YouTubeChannelSession): Promise<void> {
-  const sessionDate = new Date(session.startTime);
-  const dateStr = getLocalDateString(sessionDate);
+  const segments = splitIntervalByLocalDay(session.startTime, session.endTime);
+  if (segments.length === 0) return;
 
   // Use atomic read-modify-write to prevent race conditions with recordSession
   const result = await chrome.storage.local.get(STORAGE_KEYS.DAILY_STATS);
   const allStats = result[STORAGE_KEYS.DAILY_STATS] || {};
 
-  // Get existing stats for this date, or create minimal structure
-  const existingStats = allStats[dateStr] || {
-    date: dateStr,
-    totalTime: 0,
-    sites: {},
-    visits: 0,
-    blockedAttempts: 0,
-    sessions: {},
-    youtubeSessions: {},
-  };
-
-  // Ensure youtubeSessions is in compact format (object, not array)
-  if (!existingStats.youtubeSessions || Array.isArray(existingStats.youtubeSessions)) {
-    existingStats.youtubeSessions = {};
-  }
-
-  // Add session in compact format: channelName -> { url?, times: [[startSec, endSec], ...] }
   const channelName = session.channelName;
-  const startSec = Math.floor(session.startTime / 1000);
-  const endSec = Math.floor(session.endTime / 1000);
+  for (const segment of segments) {
+    // Get existing stats for this date, or create minimal structure
+    const existingStats = allStats[segment.date] || {
+      date: segment.date,
+      totalTime: 0,
+      sites: {},
+      visits: 0,
+      blockedAttempts: 0,
+      sessions: {},
+      youtubeSessions: {},
+    };
 
-  if (!existingStats.youtubeSessions[channelName]) {
-    existingStats.youtubeSessions[channelName] = { times: [] };
-  }
-  existingStats.youtubeSessions[channelName].times.push([startSec, endSec]);
-  // Update URL if available (most recent wins)
-  if (session.channelUrl) {
-    existingStats.youtubeSessions[channelName].url = session.channelUrl;
+    // Ensure youtubeSessions is in compact format (object, not array)
+    if (!existingStats.youtubeSessions || Array.isArray(existingStats.youtubeSessions)) {
+      existingStats.youtubeSessions = {};
+    }
+
+    if (!existingStats.youtubeSessions[channelName]) {
+      existingStats.youtubeSessions[channelName] = { times: [] };
+    }
+    existingStats.youtubeSessions[channelName].times.push([segment.startSec, segment.endSec]);
+    // Update URL if available (most recent wins)
+    if (session.channelUrl) {
+      existingStats.youtubeSessions[channelName].url = session.channelUrl;
+    }
+
+    allStats[segment.date] = existingStats;
   }
 
-  allStats[dateStr] = existingStats;
   await chrome.storage.local.set({ [STORAGE_KEYS.DAILY_STATS]: allStats });
 }
 

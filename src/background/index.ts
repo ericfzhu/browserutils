@@ -43,6 +43,7 @@ import {
   migrateSessionsToCompactFormat,
 } from '../shared/storage';
 import { ActiveSession, BlockedSite, MessageType } from '../shared/types';
+import { isTimeWithinScheduleWindow } from '../shared/time';
 
 // Session state keys for chrome.storage.session
 const SESSION_KEYS = {
@@ -915,14 +916,8 @@ async function checkIfBlocked(url: string): Promise<{ blocked: boolean; site?: B
 
       // Check schedule
       if (site.unlockType === 'schedule' && site.schedule) {
-        const nowDate = new Date();
-        const day = nowDate.getDay();
-        const time = `${nowDate.getHours().toString().padStart(2, '0')}:${nowDate.getMinutes().toString().padStart(2, '0')}`;
-
-        if (site.schedule.days.includes(day)) {
-          if (time >= site.schedule.startTime && time <= site.schedule.endTime) {
-            return { blocked: true, site };
-          }
+        if (isTimeWithinScheduleWindow(site.schedule)) {
+          return { blocked: true, site };
         }
         return { blocked: false };
       }
@@ -983,14 +978,7 @@ async function updateBlockingRules(): Promise<void> {
 
       // Skip if outside scheduled blocking period
       if (site.unlockType === 'schedule' && site.schedule) {
-        const nowDate = new Date();
-        const day = nowDate.getDay();
-        const time = `${nowDate.getHours().toString().padStart(2, '0')}:${nowDate.getMinutes().toString().padStart(2, '0')}`;
-
-        const isBlockingDay = site.schedule.days.includes(day);
-        const isBlockingTime = time >= site.schedule.startTime && time <= site.schedule.endTime;
-
-        if (!isBlockingDay || !isBlockingTime) {
+        if (!isTimeWithinScheduleWindow(site.schedule)) {
           continue;
         }
       }
