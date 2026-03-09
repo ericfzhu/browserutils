@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Shield, Lock, Clock, ArrowLeft, Timer } from 'lucide-react';
-import { BlockedSite, DailyLimit, DailyStats } from '../shared/types';
+import { BlockedSite, BlockedSiteFolder, DailyLimit, DailyStats } from '../shared/types';
 
 function formatTime(seconds: number): string {
   const hours = Math.floor(seconds / 3600);
@@ -46,6 +46,11 @@ interface LimitInfo {
   timeSpent: number;
 }
 
+interface FocusInfo {
+  folderName: string;
+  focusUntil: number;
+}
+
 export default function App() {
   const [blockType, setBlockType] = useState<BlockType>('site');
   const [site, setSite] = useState<BlockedSite | null>(null);
@@ -57,6 +62,7 @@ export default function App() {
   const [countdown, setCountdown] = useState(0);
   const [timerRemainingMs, setTimerRemainingMs] = useState(0);
   const [timerBlockedUntil, setTimerBlockedUntil] = useState<number | null>(null);
+  const [focusInfo, setFocusInfo] = useState<FocusInfo | null>(null);
 
   useEffect(() => {
     loadData();
@@ -80,6 +86,24 @@ export default function App() {
       return () => clearInterval(interval);
     }
   }, [site, timerBlockedUntil]);
+
+  const focusRemainingMs = focusInfo ? Math.max(0, focusInfo.focusUntil - Date.now()) : 0;
+
+  useEffect(() => {
+    if (!focusInfo) return;
+
+    const interval = setInterval(() => {
+      setFocusInfo((current) => {
+        if (!current) return null;
+        if (current.focusUntil <= Date.now()) {
+          return null;
+        }
+        return { ...current };
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [focusInfo]);
 
   // Countdown effect for daily limit cooldown bypass
   useEffect(() => {
@@ -132,9 +156,31 @@ export default function App() {
 
   async function loadSite(siteId: string) {
     try {
-      const sites = await chrome.runtime.sendMessage({ type: 'GET_BLOCKED_SITES' });
+      const [sites, folders]: [BlockedSite[], BlockedSiteFolder[]] = await Promise.all([
+        chrome.runtime.sendMessage({ type: 'GET_BLOCKED_SITES' }),
+        chrome.runtime.sendMessage({ type: 'GET_BLOCKED_SITE_FOLDERS' }),
+      ]);
       const found = sites.find((s: BlockedSite) => s.id === siteId);
       setSite(found || null);
+
+      if (found?.folderId) {
+        const folder = folders.find((f: BlockedSiteFolder) => f.id === found.folderId);
+        const focusStatus = await chrome.runtime.sendMessage({
+          type: 'GET_FOCUS_STATUS',
+          payload: { folderId: found.folderId },
+        });
+
+        if (folder && focusStatus?.isActive) {
+          setFocusInfo({
+            folderName: folder.name,
+            focusUntil: focusStatus.focusUntil,
+          });
+        } else {
+          setFocusInfo(null);
+        }
+      } else {
+        setFocusInfo(null);
+      }
 
       // For timer sites, get the timer status
       if (found?.unlockType === 'timer') {
@@ -383,14 +429,37 @@ export default function App() {
           <div className="w-16 h-16 bg-red-100 dark:bg-red-900/50 rounded-full flex items-center justify-center mx-auto mb-4">
             <Shield className="w-8 h-8 text-red-600 dark:text-red-400" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">Site Blocked</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">
+            {focusInfo ? 'Focus Mode Active' : 'Site Blocked'}
+          </h1>
           <p className="text-gray-500 dark:text-gray-400">
-            <span className="font-medium text-gray-700 dark:text-gray-300">{site.pattern}</span> is blocked
+            <span className="font-medium text-gray-700 dark:text-gray-300">{site.pattern}</span>
+            {focusInfo ? ' is blocked by your current focus session' : ' is blocked'}
           </p>
         </div>
 
+        {focusInfo && (
+          <div className="space-y-4">
+            <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-4">
+              <div className="flex items-center gap-2 text-sm text-red-800 dark:text-red-300 mb-3">
+                <Clock className="w-4 h-4" />
+                <span>Focus session active{focusInfo.folderName ? `: ${focusInfo.folderName}` : ''}</span>
+              </div>
+              <div className="text-center">
+                <div className="text-3xl font-bold text-red-600 dark:text-red-400 mb-1">
+                  {formatTimeRemaining(focusRemainingMs)}
+                </div>
+                <p className="text-sm text-red-600/70 dark:text-red-400/70">remaining</p>
+              </div>
+            </div>
+            <p className="text-sm text-gray-500 dark:text-gray-400 text-center">
+              Focus mode takes priority over this site's normal block settings until the session ends.
+            </p>
+          </div>
+        )}
+
         {/* Password Unlock */}
-        {site.unlockType === 'password' && (
+        {!focusInfo && site.unlockType === 'password' && (
           <form onSubmit={handlePasswordUnlock} className="space-y-4">
             <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 mb-4">
               <Lock className="w-4 h-4" />
@@ -419,7 +488,7 @@ export default function App() {
         )}
 
         {/* Timer Block - shows remaining time */}
-        {site.unlockType === 'timer' && timerRemainingMs > 0 && (
+        {!focusInfo && site.unlockType === 'timer' && timerRemainingMs > 0 && (
           <div className="space-y-4">
             <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-4">
               <div className="flex items-center gap-2 text-sm text-red-800 dark:text-red-300 mb-3">
@@ -440,7 +509,7 @@ export default function App() {
         )}
 
         {/* Always Blocked */}
-        {site.unlockType === 'none' && (
+        {!focusInfo && site.unlockType === 'none' && (
           <div className="text-center py-4">
             <p className="text-gray-600 dark:text-gray-400">
               This site is permanently blocked. Go to the dashboard to change settings.
@@ -449,7 +518,7 @@ export default function App() {
         )}
 
         {/* Schedule Info */}
-        {site.unlockType === 'schedule' && site.schedule && (
+        {!focusInfo && site.unlockType === 'schedule' && site.schedule && (
           <div className="text-center py-4">
             <p className="text-gray-600 dark:text-gray-400 mb-2">
               This site is blocked during scheduled hours.
