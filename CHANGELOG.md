@@ -5,6 +5,17 @@ All notable changes to BrowserUtils will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.10] - 2026-03-09
+
+### Added
+- Global Focus mode from the Blocked Sites page can now block every blocked site at once, including uncategorized sites
+
+### Changed
+- Blocked pages now prioritize focus mode messaging over the site's normal block reason when a focus session is active
+
+### Fixed
+- Prevented stale tracking sessions from resuming across sleep, lid-close, restart, or next-day login gaps and logging phantom overnight time
+
 ## [0.10.9] - 2026-02-20
 
 ### Changed

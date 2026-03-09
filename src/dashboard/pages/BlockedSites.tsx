@@ -71,6 +71,8 @@ interface FocusStatus {
   focusDuration?: number;
 }
 
+type FocusTarget = { type: 'folder'; folderId: string } | { type: 'global' } | null;
+
 export default function BlockedSites() {
   const [sites, setSites] = useState<BlockedSite[]>([]);
   const [folders, setFolders] = useState<BlockedSiteFolder[]>([]);
@@ -83,8 +85,9 @@ export default function BlockedSites() {
   const [folderName, setFolderName] = useState('');
   const [timerStatuses, setTimerStatuses] = useState<Record<string, TimerStatus>>({});
   const [focusStatuses, setFocusStatuses] = useState<Record<string, FocusStatus>>({});
+  const [globalFocusStatus, setGlobalFocusStatus] = useState<FocusStatus | null>(null);
   const [showFocusModal, setShowFocusModal] = useState(false);
-  const [focusTargetFolder, setFocusTargetFolder] = useState<string | null>(null);
+  const [focusTarget, setFocusTarget] = useState<FocusTarget>(null);
   const [focusDuration, setFocusDuration] = useState(30);
   const { withLockdownCheck } = useLockdown();
 
@@ -126,8 +129,6 @@ export default function BlockedSites() {
 
   // Update focus session statuses periodically
   useEffect(() => {
-    if (folders.length === 0) return;
-
     const updateFocusStatuses = async () => {
       const statuses: Record<string, FocusStatus> = {};
       for (const folder of folders) {
@@ -149,6 +150,20 @@ export default function BlockedSites() {
         }
       }
       setFocusStatuses(statuses);
+
+      try {
+        const globalStatus = await chrome.runtime.sendMessage({
+          type: 'GET_GLOBAL_FOCUS_STATUS',
+        });
+        setGlobalFocusStatus({
+          isActive: !!globalStatus?.isActive,
+          focusUntil: globalStatus?.focusUntil,
+          remainingMs: globalStatus?.remainingMs || 0,
+          focusDuration: globalStatus?.focusDuration,
+        });
+      } catch {
+        setGlobalFocusStatus(null);
+      }
     };
 
     updateFocusStatuses();
@@ -472,32 +487,53 @@ export default function BlockedSites() {
 
   function openFocusModal(folderId: string) {
     const folder = folders.find(f => f.id === folderId);
-    setFocusTargetFolder(folderId);
+    setFocusTarget({ type: 'folder', folderId });
     setFocusDuration(folder?.focusDuration || 30);
     setShowFocusModal(true);
   }
 
+  function openGlobalFocusModal() {
+    setFocusTarget({ type: 'global' });
+    setFocusDuration(globalFocusStatus?.focusDuration || 30);
+    setShowFocusModal(true);
+  }
+
   async function startFocusSession() {
-    if (!focusTargetFolder) return;
+    if (!focusTarget) return;
 
     try {
-      const result = await chrome.runtime.sendMessage({
-        type: 'START_FOCUS_SESSION',
-        payload: { folderId: focusTargetFolder, durationMinutes: focusDuration },
-      });
+      const result = focusTarget.type === 'global'
+        ? await chrome.runtime.sendMessage({
+            type: 'START_GLOBAL_FOCUS_SESSION',
+            payload: { durationMinutes: focusDuration },
+          })
+        : await chrome.runtime.sendMessage({
+            type: 'START_FOCUS_SESSION',
+            payload: { folderId: focusTarget.folderId, durationMinutes: focusDuration },
+          });
       // Immediately update local state for responsive UI
       if (result?.success && result.focusUntil) {
-        setFocusStatuses(prev => ({
-          ...prev,
-          [focusTargetFolder]: {
+        if (focusTarget.type === 'global') {
+          setGlobalFocusStatus({
             isActive: true,
             focusUntil: result.focusUntil,
             remainingMs: result.focusUntil - Date.now(),
-            focusDuration: focusDuration,
-          },
-        }));
+            focusDuration,
+          });
+        } else {
+          setFocusStatuses(prev => ({
+            ...prev,
+            [focusTarget.folderId]: {
+              isActive: true,
+              focusUntil: result.focusUntil,
+              remainingMs: result.focusUntil - Date.now(),
+              focusDuration: focusDuration,
+            },
+          }));
+        }
       }
       setShowFocusModal(false);
+      setFocusTarget(null);
     } catch (err) {
       console.error('Failed to start focus session:', err);
     }
@@ -521,6 +557,24 @@ export default function BlockedSites() {
         }));
       } catch (err) {
         console.error('Failed to stop focus session:', err);
+      }
+    });
+  }
+
+  async function stopGlobalFocusSession() {
+    await withLockdownCheck(async () => {
+      try {
+        await chrome.runtime.sendMessage({
+          type: 'STOP_GLOBAL_FOCUS_SESSION',
+        });
+        setGlobalFocusStatus({
+          isActive: false,
+          focusUntil: undefined,
+          remainingMs: 0,
+          focusDuration: globalFocusStatus?.focusDuration,
+        });
+      } catch (err) {
+        console.error('Failed to stop global focus session:', err);
       }
     });
   }
@@ -866,6 +920,30 @@ export default function BlockedSites() {
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Blocked Sites</h1>
         <div className="flex items-center gap-2">
+          {sites.length > 0 && (
+            globalFocusStatus?.isActive ? (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-purple-600 dark:text-purple-400 font-medium">
+                  {formatTimerRemaining(globalFocusStatus.remainingMs)}
+                </span>
+                <button
+                  onClick={stopGlobalFocusSession}
+                  className="flex items-center gap-2 bg-purple-100 dark:bg-purple-700/80 hover:bg-purple-200 dark:hover:bg-purple-700 text-purple-700 dark:text-purple-200 px-4 py-2 rounded-lg transition-colors"
+                >
+                  <Focus className="w-5 h-5" />
+                  Stop Focus
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={openGlobalFocusModal}
+                className="flex items-center gap-2 bg-purple-100 dark:bg-purple-700/80 hover:bg-purple-200 dark:hover:bg-purple-700 text-purple-700 dark:text-purple-200 px-4 py-2 rounded-lg transition-colors"
+              >
+                <Focus className="w-5 h-5" />
+                Focus All
+              </button>
+            )
+          )}
           <button
             onClick={openAddFolderModal}
             className="flex items-center gap-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 px-4 py-2 rounded-lg transition-colors"
@@ -1179,7 +1257,7 @@ export default function BlockedSites() {
       )}
 
       {/* Focus Session Modal */}
-      {showFocusModal && focusTargetFolder && (
+      {showFocusModal && focusTarget && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white dark:bg-gray-800 rounded-xl w-full max-w-sm mx-4 overflow-hidden">
             <div className="flex items-center justify-between px-6 py-4 border-b dark:border-gray-700">
@@ -1188,7 +1266,10 @@ export default function BlockedSites() {
                 Start Focus Session
               </h2>
               <button
-                onClick={() => setShowFocusModal(false)}
+                onClick={() => {
+                  setShowFocusModal(false);
+                  setFocusTarget(null);
+                }}
                 className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
               >
                 <X className="w-5 h-5" />
@@ -1197,7 +1278,9 @@ export default function BlockedSites() {
 
             <div className="p-6 space-y-4">
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                Block all sites in "{folders.find(f => f.id === focusTargetFolder)?.name}" for:
+                {focusTarget.type === 'global'
+                  ? 'Block all blocked sites for:'
+                  : `Block all sites in "${folders.find(f => f.id === focusTarget.folderId)?.name}" for:`}
               </p>
 
               <div>
@@ -1243,7 +1326,10 @@ export default function BlockedSites() {
               <div className="flex justify-end gap-3 pt-4">
                 <button
                   type="button"
-                  onClick={() => setShowFocusModal(false)}
+                  onClick={() => {
+                    setShowFocusModal(false);
+                    setFocusTarget(null);
+                  }}
                   className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
                 >
                   Cancel

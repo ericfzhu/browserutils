@@ -69,6 +69,17 @@ async function getCachedSettings(): Promise<Settings> {
   return cachedSettings;
 }
 
+function getGlobalFocusStatus(settings: Settings, now: number = Date.now()) {
+  const isActive = !!settings.globalFocusUntil && now < settings.globalFocusUntil;
+  const remainingMs = isActive && settings.globalFocusUntil ? settings.globalFocusUntil - now : 0;
+  return {
+    isActive,
+    focusUntil: settings.globalFocusUntil,
+    remainingMs,
+    focusDuration: settings.globalFocusDuration,
+  };
+}
+
 // Session state helpers
 async function saveIdleState(): Promise<void> {
   await chrome.storage.session.set({
@@ -414,6 +425,28 @@ async function handleMessage(message: MessageType, sender?: chrome.runtime.Messa
         remainingMs,
         focusDuration: folder.focusDuration,
       };
+    }
+    case 'START_GLOBAL_FOCUS_SESSION': {
+      const focusUntil = Date.now() + message.payload.durationMinutes * 60 * 1000;
+      const updatedSettings = await updateSettings({
+        globalFocusUntil: focusUntil,
+        globalFocusDuration: message.payload.durationMinutes,
+      });
+      cachedSettings = updatedSettings;
+      await updateBlockingRules();
+      return { success: true, focusUntil };
+    }
+    case 'STOP_GLOBAL_FOCUS_SESSION': {
+      const updatedSettings = await updateSettings({
+        globalFocusUntil: undefined,
+      });
+      cachedSettings = updatedSettings;
+      await updateBlockingRules();
+      return { success: true };
+    }
+    case 'GET_GLOBAL_FOCUS_STATUS': {
+      const settings = await getCachedSettings();
+      return getGlobalFocusStatus(settings);
     }
     // Content script messages
     case 'HEARTBEAT': {
@@ -917,6 +950,7 @@ async function checkIfBlocked(url: string): Promise<{ blocked: boolean; site?: B
   const sites = await getBlockedSites();
   const folders = await getBlockedSiteFolders();
   const now = Date.now();
+  const globalFocus = getGlobalFocusStatus(settings, now);
 
   // Build a map of folder IDs with active focus sessions
   const activeFocusFolders = new Set<string>();
@@ -928,6 +962,10 @@ async function checkIfBlocked(url: string): Promise<{ blocked: boolean; site?: B
 
   for (const site of sites) {
     if (matchesPattern(url, site.pattern)) {
+      if (globalFocus.isActive) {
+        return { blocked: true, site };
+      }
+
       // Check if site's folder has an active focus session - blocks regardless of site settings
       if (site.folderId && activeFocusFolders.has(site.folderId)) {
         return { blocked: true, site };
@@ -965,6 +1003,7 @@ async function updateBlockingRules(): Promise<void> {
   const sites = await getBlockedSites();
   const folders = await getBlockedSiteFolders();
   const now = Date.now();
+  const globalFocus = getGlobalFocusStatus(settings, now);
 
   // Remove all existing dynamic rules
   const existingRules = await chrome.declarativeNetRequest.getDynamicRules();
@@ -993,7 +1032,7 @@ async function updateBlockingRules(): Promise<void> {
 
   for (const site of sites) {
     // Check if site's folder has an active focus session - always block
-    const inFocusSession = site.folderId && activeFocusFolders.has(site.folderId);
+    const inFocusSession = globalFocus.isActive || (site.folderId && activeFocusFolders.has(site.folderId));
 
     if (!inFocusSession) {
       // Not in focus session - check individual site rules

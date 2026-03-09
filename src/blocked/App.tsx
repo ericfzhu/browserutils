@@ -47,7 +47,7 @@ interface LimitInfo {
 }
 
 interface FocusInfo {
-  folderName: string;
+  label: string;
   focusUntil: number;
 }
 
@@ -156,14 +156,20 @@ export default function App() {
 
   async function loadSite(siteId: string) {
     try {
-      const [sites, folders]: [BlockedSite[], BlockedSiteFolder[]] = await Promise.all([
+      const [sites, folders, globalFocusStatus]: [BlockedSite[], BlockedSiteFolder[], { isActive?: boolean; focusUntil?: number }] = await Promise.all([
         chrome.runtime.sendMessage({ type: 'GET_BLOCKED_SITES' }),
         chrome.runtime.sendMessage({ type: 'GET_BLOCKED_SITE_FOLDERS' }),
+        chrome.runtime.sendMessage({ type: 'GET_GLOBAL_FOCUS_STATUS' }),
       ]);
       const found = sites.find((s: BlockedSite) => s.id === siteId);
       setSite(found || null);
 
-      if (found?.folderId) {
+      if (globalFocusStatus?.isActive && globalFocusStatus.focusUntil) {
+        setFocusInfo({
+          label: 'All blocked sites',
+          focusUntil: globalFocusStatus.focusUntil,
+        });
+      } else if (found?.folderId) {
         const folder = folders.find((f: BlockedSiteFolder) => f.id === found.folderId);
         const focusStatus = await chrome.runtime.sendMessage({
           type: 'GET_FOCUS_STATUS',
@@ -172,7 +178,7 @@ export default function App() {
 
         if (folder && focusStatus?.isActive) {
           setFocusInfo({
-            folderName: folder.name,
+            label: folder.name,
             focusUntil: focusStatus.focusUntil,
           });
         } else {
@@ -443,7 +449,7 @@ export default function App() {
             <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-4">
               <div className="flex items-center gap-2 text-sm text-red-800 dark:text-red-300 mb-3">
                 <Clock className="w-4 h-4" />
-                <span>Focus session active{focusInfo.folderName ? `: ${focusInfo.folderName}` : ''}</span>
+                <span>Focus session active: {focusInfo.label}</span>
               </div>
               <div className="text-center">
                 <div className="text-3xl font-bold text-red-600 dark:text-red-400 mb-1">

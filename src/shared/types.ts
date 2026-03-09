@@ -118,6 +118,8 @@ export interface Settings {
   youtubeTrackingEnabled: boolean; // track YouTube channel watch time
   passwordHash?: string; // master password for unlocking
   lockdownEnabled?: boolean; // require master password to disable blocking
+  globalFocusUntil?: number; // Timestamp when global focus session expires
+  globalFocusDuration?: number; // Default global focus duration in minutes
   theme: 'light' | 'dark' | 'system';
   retentionDays: number; // how long to keep history
   idleThreshold: number; // seconds before considered idle (0 = disabled)
@@ -209,6 +211,9 @@ export type MessageType =
   | { type: 'START_FOCUS_SESSION'; payload: { folderId: string; durationMinutes: number } }
   | { type: 'STOP_FOCUS_SESSION'; payload: { folderId: string } }
   | { type: 'GET_FOCUS_STATUS'; payload: { folderId: string } }
+  | { type: 'START_GLOBAL_FOCUS_SESSION'; payload: { durationMinutes: number } }
+  | { type: 'STOP_GLOBAL_FOCUS_SESSION' }
+  | { type: 'GET_GLOBAL_FOCUS_STATUS' }
   // Content script messages
   | { type: 'HEARTBEAT'; payload: { url: string; timestamp: number } }
   | { type: 'VISIBILITY_CHANGE'; payload: { visible: boolean; url: string; timestamp: number } }

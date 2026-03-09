@@ -3,7 +3,7 @@ import { Tag, Plus, Wrench, Bug, ArrowLeft, Minus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 // Changelog data - update this when releasing new versions
-const CURRENT_VERSION = '0.10.9';
+const CURRENT_VERSION = '0.10.10';
 
 interface ChangelogEntry {
   version: string;
@@ -15,6 +15,19 @@ interface ChangelogEntry {
 }
 
 const changelog: ChangelogEntry[] = [
+  {
+    version: '0.10.10',
+    date: '2026-03-09',
+    added: [
+      'Global Focus mode from the Blocked Sites page can now block every blocked site at once, including uncategorized sites',
+    ],
+    changed: [
+      'Blocked pages now prioritize focus mode messaging over the site\'s normal block reason when a focus session is active',
+    ],
+    fixed: [
+      'Prevented stale tracking sessions from resuming across sleep, lid-close, restart, or next-day login gaps and logging phantom overnight time',
+    ],
+  },
   {
     version: '0.10.9',
     date: '2026-02-20',
