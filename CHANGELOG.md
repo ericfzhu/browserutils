@@ -5,6 +5,18 @@ All notable changes to BrowserUtils will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.11] - 2026-03-09
+
+### Added
+- Lockdown Mode can now use an authenticator app as an alternative to the master password
+- Authenticator setup now shows a QR code for standard TOTP app enrollment
+
+### Changed
+- Settings now let you configure both master password and authenticator app, then choose which one Lockdown Mode requires for protected actions
+
+### Fixed
+- Lockdown-protected actions now respect the currently selected authentication method immediately instead of sometimes prompting for the old method until reload
+
 ## [0.10.10] - 2026-03-09
 
 ### Added

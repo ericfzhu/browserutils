@@ -3,7 +3,7 @@ import { Tag, Plus, Wrench, Bug, ArrowLeft, Minus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 // Changelog data - update this when releasing new versions
-const CURRENT_VERSION = '0.10.10';
+const CURRENT_VERSION = '0.10.11';
 
 interface ChangelogEntry {
   version: string;
@@ -15,6 +15,20 @@ interface ChangelogEntry {
 }
 
 const changelog: ChangelogEntry[] = [
+  {
+    version: '0.10.11',
+    date: '2026-03-09',
+    added: [
+      'Lockdown Mode can now use an authenticator app as an alternative to the master password',
+      'Authenticator setup now shows a QR code for standard TOTP app enrollment',
+    ],
+    changed: [
+      'Settings now let you configure both master password and authenticator app, then choose which one Lockdown Mode requires for protected actions',
+    ],
+    fixed: [
+      'Lockdown-protected actions now respect the currently selected authentication method immediately instead of sometimes prompting for the old method until reload',
+    ],
+  },
   {
     version: '0.10.10',
     date: '2026-03-09',
