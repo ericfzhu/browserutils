@@ -9,7 +9,7 @@ import Categories from './pages/Categories';
 import SettingsPage from './pages/Settings';
 import Changelog, { CURRENT_VERSION } from './pages/Changelog';
 import { LockdownProvider, useLockdown } from './hooks/useLockdown';
-import PasswordModal from '../shared/components/PasswordModal';
+import LockdownAuthModal from '../shared/components/LockdownAuthModal';
 
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Overview' },
@@ -22,7 +22,7 @@ const navItems = [
 
 // Component that handles the lockdown password modal
 function LockdownModal() {
-  const { showPasswordModal, setShowPasswordModal, authenticate, pendingAction, clearSession } = useLockdown();
+  const { status, showAuthModal, setShowAuthModal, authenticate, pendingAction, clearSession } = useLockdown();
 
   // Clear session when dashboard is closed
   useEffect(() => {
@@ -36,8 +36,8 @@ function LockdownModal() {
     };
   }, [clearSession]);
 
-  async function handlePasswordSubmit(password: string) {
-    const result = await authenticate(password);
+  async function handleAuthSubmit(credential: string) {
+    const result = await authenticate(credential);
     if (result.success && pendingAction) {
       // Execute the pending action after successful authentication
       await pendingAction();
@@ -46,10 +46,11 @@ function LockdownModal() {
   }
 
   return (
-    <PasswordModal
-      isOpen={showPasswordModal}
-      onClose={() => setShowPasswordModal(false)}
-      onSubmit={handlePasswordSubmit}
+    <LockdownAuthModal
+      isOpen={showAuthModal}
+      onClose={() => setShowAuthModal(false)}
+      onSubmit={handleAuthSubmit}
+      authMethod={status?.authMethod ?? 'password'}
     />
   );
 }

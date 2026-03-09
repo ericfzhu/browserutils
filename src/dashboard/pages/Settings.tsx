@@ -1,15 +1,22 @@
 import { useEffect, useState } from 'react';
-import { Save, Trash2, AlertTriangle, Sun, Moon, Monitor, Lock, Github } from 'lucide-react';
+import { Save, Trash2, AlertTriangle, Sun, Moon, Monitor, Lock, Github, ShieldCheck } from 'lucide-react';
+import QRCode from 'react-qr-code';
 import { Settings as SettingsType } from '../../shared/types';
 import { applyTheme } from '../../shared/theme';
+import { buildOtpAuthUri, generateTotpSecret, verifyTotpCode } from '../../shared/totp';
+import { useLockdown } from '../hooks/useLockdown';
 
 export default function SettingsPage() {
+  const { refreshStatus } = useLockdown();
   const [settings, setSettings] = useState<SettingsType | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordError, setPasswordError] = useState('');
+  const [totpSecretDraft, setTotpSecretDraft] = useState('');
+  const [totpCode, setTotpCode] = useState('');
+  const [totpError, setTotpError] = useState('');
 
   useEffect(() => {
     loadSettings();
@@ -62,15 +69,58 @@ export default function SettingsPage() {
         type: 'UPDATE_SETTINGS',
         payload: { passwordHash },
       });
+      await refreshStatus();
 
       setNewPassword('');
       setConfirmPassword('');
       setPasswordError('');
       alert('Master password set successfully!');
+      await loadSettings();
     } catch (err) {
       console.error('Failed to set password:', err);
       setPasswordError('Failed to set password');
     }
+  }
+
+  function beginTotpSetup() {
+    setTotpSecretDraft(generateTotpSecret());
+    setTotpCode('');
+    setTotpError('');
+  }
+
+  async function confirmTotpSetup() {
+    if (!totpSecretDraft) return;
+
+    const valid = await verifyTotpCode(totpSecretDraft, totpCode);
+    if (!valid) {
+      setTotpError('Invalid code. Check the authenticator entry and try again.');
+      return;
+    }
+
+    await chrome.runtime.sendMessage({
+      type: 'UPDATE_SETTINGS',
+      payload: { lockdownTotpSecret: totpSecretDraft },
+    });
+    await refreshStatus();
+    setSettings({ ...settings!, lockdownTotpSecret: totpSecretDraft });
+    setTotpSecretDraft('');
+    setTotpCode('');
+    setTotpError('');
+  }
+
+  async function clearTotpSetup() {
+    await chrome.runtime.sendMessage({
+      type: 'UPDATE_SETTINGS',
+      payload: {
+        lockdownTotpSecret: undefined,
+        lockdownAuthMethod: settings?.lockdownAuthMethod === 'totp' ? 'password' : settings?.lockdownAuthMethod,
+      },
+    });
+    await refreshStatus();
+    await loadSettings();
+    setTotpSecretDraft('');
+    setTotpCode('');
+    setTotpError('');
   }
 
   async function clearAllData() {
@@ -124,6 +174,9 @@ export default function SettingsPage() {
       </div>
     );
   }
+
+  const hasLockdownMethod = !!settings.passwordHash || !!settings.lockdownTotpSecret;
+  const otpauthUri = totpSecretDraft ? buildOtpAuthUri(totpSecretDraft, 'BrowserUtils', 'Lockdown') : '';
 
   return (
     <div className="max-w-2xl">
@@ -351,16 +404,65 @@ export default function SettingsPage() {
 
         {/* Lockdown Mode */}
         <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-          <label className={`flex items-center justify-between ${!settings.passwordHash ? 'opacity-50' : ''}`}>
+          <div className="mb-4">
+            <span className="font-medium">Lockdown Authentication Method</span>
+            <p className="text-sm text-gray-500 mt-1">
+              Choose the one method Lockdown Mode should require for protected actions.
+            </p>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                disabled={!settings.passwordHash}
+                onClick={async () => {
+                  setSettings({ ...settings, lockdownAuthMethod: 'password' });
+                  await chrome.runtime.sendMessage({
+                    type: 'UPDATE_SETTINGS',
+                    payload: { lockdownAuthMethod: 'password' },
+                  });
+                  await refreshStatus();
+                }}
+                className={`flex items-center gap-2 p-3 border rounded-lg transition-colors ${
+                  settings.lockdownAuthMethod === 'password'
+                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+                    : 'border-gray-200 dark:border-gray-600'
+                } ${!settings.passwordHash ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+              >
+                <Lock className="w-4 h-4" />
+                Master password
+              </button>
+              <button
+                type="button"
+                disabled={!settings.lockdownTotpSecret}
+                onClick={async () => {
+                  setSettings({ ...settings, lockdownAuthMethod: 'totp' });
+                  await chrome.runtime.sendMessage({
+                    type: 'UPDATE_SETTINGS',
+                    payload: { lockdownAuthMethod: 'totp' },
+                  });
+                  await refreshStatus();
+                }}
+                className={`flex items-center gap-2 p-3 border rounded-lg transition-colors ${
+                  settings.lockdownAuthMethod === 'totp'
+                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+                    : 'border-gray-200 dark:border-gray-600'
+                } ${!settings.lockdownTotpSecret ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+              >
+                <ShieldCheck className="w-4 h-4" />
+                Authenticator app
+              </button>
+            </div>
+          </div>
+
+          <label className={`flex items-center justify-between ${!hasLockdownMethod ? 'opacity-50' : ''}`}>
             <div className="flex items-start gap-3">
               <Lock className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5" />
               <div>
                 <span className="font-medium">Lockdown Mode</span>
                 <p className="text-sm text-gray-500">
-                  Require master password to disable blocking, remove sites, or disable limits.
-                  {!settings.passwordHash && (
+                  Require the selected Lockdown authentication method to disable blocking, remove sites, or disable limits.
+                  {!hasLockdownMethod && (
                     <span className="block text-amber-600 dark:text-amber-400 mt-1">
-                      Set a master password first to enable this feature.
+                      Set up a master password or authenticator app first to enable this feature.
                     </span>
                   )}
                 </p>
@@ -376,12 +478,107 @@ export default function SettingsPage() {
                   type: 'UPDATE_SETTINGS',
                   payload: { lockdownEnabled: newValue },
                 });
+                await refreshStatus();
               }}
-              disabled={!settings.passwordHash}
+              disabled={!hasLockdownMethod}
               className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 disabled:cursor-not-allowed"
             />
           </label>
         </div>
+      </div>
+
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 mb-6">
+        <h2 className="text-lg font-semibold mb-4">Authenticator App</h2>
+        <p className="text-sm text-gray-500 mb-4">
+          Set up a TOTP authenticator app as an alternative Lockdown authentication method.
+          {settings.lockdownTotpSecret && (
+            <span className="ml-1 text-green-600">(Currently set)</span>
+          )}
+        </p>
+
+        {!totpSecretDraft ? (
+          <div className="flex items-center gap-3">
+            <button
+              onClick={beginTotpSetup}
+              className="bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 px-4 py-2 rounded-lg transition-colors"
+            >
+              {settings.lockdownTotpSecret ? 'Replace Authenticator Setup' : 'Set Up Authenticator'}
+            </button>
+            {settings.lockdownTotpSecret && (
+              <button
+                onClick={clearTotpSetup}
+                className="px-4 py-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+              >
+                Remove Authenticator
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="rounded-lg bg-gray-50 dark:bg-gray-700/50 p-4">
+              <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
+                Scan this QR code with your authenticator app, then enter the 6-digit code to confirm setup.
+              </p>
+              <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-start">
+                <div className="rounded-lg bg-white p-4 shadow-sm">
+                  <QRCode
+                    value={otpauthUri}
+                    size={160}
+                    bgColor="#ffffff"
+                    fgColor="#111827"
+                    level="M"
+                  />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">
+                    Backup setup key
+                  </p>
+                  <div className="font-mono text-sm break-all text-gray-900 dark:text-gray-100">
+                    {totpSecretDraft}
+                  </div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-3">
+                    Use the setup key only if your authenticator app cannot scan QR codes.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <input
+              type="text"
+              inputMode="numeric"
+              maxLength={6}
+              value={totpCode}
+              onChange={(e) => {
+                setTotpCode(e.target.value.replace(/\D+/g, '').slice(0, 6));
+                setTotpError('');
+              }}
+              placeholder="Enter 6-digit code to confirm"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+            {totpError && (
+              <p className="text-sm text-red-600">{totpError}</p>
+            )}
+
+            <div className="flex gap-3">
+              <button
+                onClick={confirmTotpSetup}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
+              >
+                Confirm Authenticator
+              </button>
+              <button
+                onClick={() => {
+                  setTotpSecretDraft('');
+                  setTotpCode('');
+                  setTotpError('');
+                }}
+                className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Data Management */}

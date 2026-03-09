@@ -44,6 +44,7 @@ import {
 } from '../shared/storage';
 import { ActiveSession, BlockedSite, MessageType, Settings } from '../shared/types';
 import { isTimeWithinScheduleWindow } from '../shared/time';
+import { verifyTotpCode } from '../shared/totp';
 
 // Session state keys for chrome.storage.session
 const SESSION_KEYS = {
@@ -531,24 +532,37 @@ async function handleMessage(message: MessageType, sender?: chrome.runtime.Messa
     }
     // Lockdown mode operations
     case 'LOCKDOWN_GET_STATUS': {
-      const settings = await getSettings();
+      const settings = await getCachedSettings();
       const sessionValid = await isLockdownSessionValid();
       const authUntil = await getLockdownAuthUntil();
       return {
         lockdownEnabled: settings.lockdownEnabled ?? false,
         hasPassword: !!settings.passwordHash,
+        hasTotp: !!settings.lockdownTotpSecret,
+        authMethod: settings.lockdownAuthMethod ?? 'password',
         sessionValid,
         sessionExpiresAt: authUntil,
       };
     }
     case 'LOCKDOWN_AUTHENTICATE': {
-      const settings = await getSettings();
-      if (!settings.passwordHash) {
-        return { success: false, error: 'No master password set' };
+      const settings = await getCachedSettings();
+      const authMethod = settings.lockdownAuthMethod ?? 'password';
+      let valid = false;
+
+      if (authMethod === 'totp') {
+        if (!settings.lockdownTotpSecret) {
+          return { success: false, error: 'Authenticator app is not set up' };
+        }
+        valid = await verifyTotpCode(settings.lockdownTotpSecret, message.payload.credential);
+      } else {
+        if (!settings.passwordHash) {
+          return { success: false, error: 'No master password set' };
+        }
+        valid = await verifyPassword(message.payload.credential, settings.passwordHash);
       }
-      const valid = await verifyPassword(message.payload.password, settings.passwordHash);
+
       if (!valid) {
-        return { success: false, error: 'Invalid password' };
+        return { success: false, error: authMethod === 'totp' ? 'Invalid code' : 'Invalid password' };
       }
       const expiresAt = await startLockdownSession();
       return { success: true, expiresAt };

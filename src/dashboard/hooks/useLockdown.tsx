@@ -4,11 +4,11 @@ import { LockdownStatus } from '../../shared/types';
 interface LockdownContextValue {
   status: LockdownStatus | null;
   loading: boolean;
-  refreshStatus: () => Promise<void>;
-  authenticate: (password: string) => Promise<{ success: boolean; error?: string }>;
+  refreshStatus: () => Promise<LockdownStatus | null>;
+  authenticate: (credential: string) => Promise<{ success: boolean; error?: string }>;
   clearSession: () => Promise<void>;
-  showPasswordModal: boolean;
-  setShowPasswordModal: (show: boolean) => void;
+  showAuthModal: boolean;
+  setShowAuthModal: (show: boolean) => void;
   pendingAction: (() => Promise<void>) | null;
   withLockdownCheck: (action: () => Promise<void>) => Promise<void>;
 }
@@ -30,15 +30,17 @@ interface LockdownProviderProps {
 export function LockdownProvider({ children }: LockdownProviderProps) {
   const [status, setStatus] = useState<LockdownStatus | null>(null);
   const [loading, setLoading] = useState(true);
-  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
   const [pendingAction, setPendingAction] = useState<(() => Promise<void>) | null>(null);
 
-  const refreshStatus = useCallback(async () => {
+  const refreshStatus = useCallback(async (): Promise<LockdownStatus | null> => {
     try {
       const result = await chrome.runtime.sendMessage({ type: 'LOCKDOWN_GET_STATUS' });
       setStatus(result);
+      return result;
     } catch (err) {
       console.error('Failed to get lockdown status:', err);
+      return null;
     }
   }, []);
 
@@ -46,11 +48,11 @@ export function LockdownProvider({ children }: LockdownProviderProps) {
     refreshStatus().finally(() => setLoading(false));
   }, [refreshStatus]);
 
-  const authenticate = useCallback(async (password: string): Promise<{ success: boolean; error?: string }> => {
+  const authenticate = useCallback(async (credential: string): Promise<{ success: boolean; error?: string }> => {
     try {
       const result = await chrome.runtime.sendMessage({
         type: 'LOCKDOWN_AUTHENTICATE',
-        payload: { password },
+        payload: { credential },
       });
       if (result.success) {
         await refreshStatus();
@@ -72,22 +74,24 @@ export function LockdownProvider({ children }: LockdownProviderProps) {
   }, [refreshStatus]);
 
   const withLockdownCheck = useCallback(async (action: () => Promise<void>) => {
+    const latestStatus = await refreshStatus();
+
     // If lockdown is not enabled, just run the action
-    if (!status?.lockdownEnabled) {
+    if (!latestStatus?.lockdownEnabled) {
       await action();
       return;
     }
 
     // If session is valid, run the action
-    if (status.sessionValid) {
+    if (latestStatus.sessionValid) {
       await action();
       return;
     }
 
     // Session not valid - show password modal and save action for later
     setPendingAction(() => action);
-    setShowPasswordModal(true);
-  }, [status]);
+    setShowAuthModal(true);
+  }, [refreshStatus]);
 
   const value: LockdownContextValue = {
     status,
@@ -95,8 +99,8 @@ export function LockdownProvider({ children }: LockdownProviderProps) {
     refreshStatus,
     authenticate,
     clearSession,
-    showPasswordModal,
-    setShowPasswordModal,
+    showAuthModal,
+    setShowAuthModal,
     pendingAction,
     withLockdownCheck,
   };

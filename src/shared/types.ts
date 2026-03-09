@@ -118,6 +118,8 @@ export interface Settings {
   youtubeTrackingEnabled: boolean; // track YouTube channel watch time
   passwordHash?: string; // master password for unlocking
   lockdownEnabled?: boolean; // require master password to disable blocking
+  lockdownAuthMethod?: 'password' | 'totp';
+  lockdownTotpSecret?: string;
   globalFocusUntil?: number; // Timestamp when global focus session expires
   globalFocusDuration?: number; // Default global focus duration in minutes
   theme: 'light' | 'dark' | 'system';
@@ -168,6 +170,7 @@ export const DEFAULT_SETTINGS: Settings = {
   trackingEnabled: true,
   blockingEnabled: true,
   youtubeTrackingEnabled: false, // off by default
+  lockdownAuthMethod: 'password',
   theme: 'system',
   retentionDays: 30,
   idleThreshold: 60, // 60 seconds default
@@ -243,13 +246,15 @@ export type MessageType =
   | { type: 'GET_ACTIVE_YOUTUBE_SESSIONS' }
   // Lockdown mode messages
   | { type: 'LOCKDOWN_GET_STATUS' }
-  | { type: 'LOCKDOWN_AUTHENTICATE'; payload: { password: string } }
+  | { type: 'LOCKDOWN_AUTHENTICATE'; payload: { credential: string } }
   | { type: 'LOCKDOWN_CLEAR_SESSION' };
 
 // Lockdown status response
 export interface LockdownStatus {
   lockdownEnabled: boolean;
   hasPassword: boolean;
+  hasTotp: boolean;
+  authMethod: 'password' | 'totp';
   sessionValid: boolean;
   sessionExpiresAt?: number;
 }
