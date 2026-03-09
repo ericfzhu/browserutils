@@ -556,6 +556,28 @@ async function handleHeartbeat(sender?: chrome.runtime.MessageSender): Promise<v
 
   // If this tab has an active session, save progress
   if (session) {
+    if (session.domain !== domain || !isSessionFresh(session, now)) {
+      await endSession(tabId);
+
+      if (sender.tab.active && !isUserIdle) {
+        try {
+          const window = await chrome.windows.get(windowId);
+          if (window.state !== 'minimized') {
+            await addActiveSession(tabId, {
+              domain,
+              startTime: now,
+              lastActiveTime: now,
+              tabId,
+              windowId,
+            });
+          }
+        } catch {
+          // Window doesn't exist
+        }
+      }
+      return;
+    }
+
     const duration = Math.round((now - session.startTime) / 1000);
     if (duration > 0) {
       await recordSession({
