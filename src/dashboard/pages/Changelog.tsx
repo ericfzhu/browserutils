@@ -3,7 +3,7 @@ import { Tag, Plus, Wrench, Bug, ArrowLeft, Minus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 // Changelog data - update this when releasing new versions
-const CURRENT_VERSION = '0.10.11';
+const CURRENT_VERSION = '0.10.12';
 
 interface ChangelogEntry {
   version: string;
@@ -15,6 +15,13 @@ interface ChangelogEntry {
 }
 
 const changelog: ChangelogEntry[] = [
+  {
+    version: '0.10.12',
+    date: '2026-03-23',
+    added: [
+      'The extension popup now shows which folder, website, or all-sites focus mode is active along with the remaining time',
+    ],
+  },
   {
     version: '0.10.11',
     date: '2026-03-09',

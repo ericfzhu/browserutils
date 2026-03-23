@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Clock, Shield, ShieldOff, BarChart3, Settings, Lock } from 'lucide-react';
-import { DailyStats, Settings as SettingsType, LockdownStatus } from '../shared/types';
+import { Clock, Shield, ShieldOff, BarChart3, Settings, Lock, Focus } from 'lucide-react';
+import { BlockedSite, BlockedSiteFolder, DailyStats, Settings as SettingsType, LockdownStatus } from '../shared/types';
 
 function formatTime(seconds: number): string {
+  if (seconds < 60) {
+    return `${seconds}s`;
+  }
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
   if (hours > 0) {
@@ -16,6 +19,13 @@ export default function App() {
   const [settings, setSettings] = useState<SettingsType | null>(null);
   const [loading, setLoading] = useState(true);
   const [isHovered, setIsHovered] = useState(false);
+  const [now, setNow] = useState(Date.now());
+  const [activeFocusTargets, setActiveFocusTargets] = useState<Array<{
+    id: string;
+    label: string;
+    typeLabel: 'All' | 'Folder' | 'Website';
+    focusUntil: number;
+  }>>([]);
 
   // Lockdown state
   const [lockdownStatus, setLockdownStatus] = useState<LockdownStatus | null>(null);
@@ -28,18 +38,61 @@ export default function App() {
     loadData();
   }, []);
 
+  useEffect(() => {
+    const interval = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  function getActiveFocusTargets(nextSettings: SettingsType, folders: BlockedSiteFolder[], sites: BlockedSite[]) {
+    const currentTime = Date.now();
+    const targets: Array<{
+      id: string;
+      label: string;
+      typeLabel: 'All' | 'Folder' | 'Website';
+      focusUntil: number;
+    }> = [];
+
+    if (nextSettings.globalFocusUntil && nextSettings.globalFocusUntil > currentTime) {
+      targets.push({
+        id: 'global',
+        label: 'All blocked sites',
+        typeLabel: 'All',
+        focusUntil: nextSettings.globalFocusUntil,
+      });
+    }
+
+    for (const folder of folders) {
+      if (!folder.focusUntil || folder.focusUntil <= currentTime) continue;
+
+      const folderSites = sites.filter((site) => site.folderId === folder.id);
+      const singleSite = folderSites.length === 1 ? folderSites[0] : null;
+
+      targets.push({
+        id: folder.id,
+        label: singleSite ? singleSite.pattern : folder.name,
+        typeLabel: singleSite ? 'Website' : 'Folder',
+        focusUntil: folder.focusUntil,
+      });
+    }
+
+    return targets.sort((a, b) => a.focusUntil - b.focusUntil);
+  }
+
   async function loadData() {
     try {
       const now = new Date();
       const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-      const [statsRes, settingsRes, lockdownRes] = await Promise.all([
+      const [statsRes, settingsRes, lockdownRes, foldersRes, sitesRes] = await Promise.all([
         chrome.runtime.sendMessage({ type: 'GET_STATS', payload: { date: today } }),
         chrome.runtime.sendMessage({ type: 'GET_SETTINGS' }),
         chrome.runtime.sendMessage({ type: 'LOCKDOWN_GET_STATUS' }),
+        chrome.runtime.sendMessage({ type: 'GET_BLOCKED_SITE_FOLDERS' }),
+        chrome.runtime.sendMessage({ type: 'GET_BLOCKED_SITES' }),
       ]);
       setStats(statsRes);
       setSettings(settingsRes);
       setLockdownStatus(lockdownRes);
+      setActiveFocusTargets(getActiveFocusTargets(settingsRes, foldersRes, sitesRes));
     } catch (err) {
       console.error('Failed to load data:', err);
     } finally {
@@ -119,6 +172,7 @@ export default function App() {
         .sort((a, b) => b[1] - a[1])
         .slice(0, 3)
     : [];
+  const visibleFocusTargets = activeFocusTargets.filter((target) => target.focusUntil > now);
 
   return (
     <div className="w-80 bg-white dark:bg-gray-900">
@@ -197,6 +251,35 @@ export default function App() {
           </form>
         )}
       </div>
+
+      {visibleFocusTargets.length > 0 && (
+        <div className="p-4 border-b dark:border-gray-700 bg-purple-50/70 dark:bg-purple-950/30">
+          <div className="flex items-center gap-2 mb-3">
+            <Focus className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+            <h2 className="text-sm font-medium text-purple-800 dark:text-purple-200">Focus Mode</h2>
+          </div>
+          <div className="space-y-2">
+            {visibleFocusTargets.map((target) => (
+              <div
+                key={target.id}
+                className="flex items-center justify-between gap-3 rounded-lg bg-white/70 dark:bg-gray-900/40 px-3 py-2"
+              >
+                <div className="min-w-0">
+                  <div className="text-xs uppercase tracking-wide text-purple-600 dark:text-purple-300">
+                    {target.typeLabel}
+                  </div>
+                  <div className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                    {target.label}
+                  </div>
+                </div>
+                <div className="text-sm font-semibold text-purple-700 dark:text-purple-200 whitespace-nowrap">
+                  {formatTime(Math.max(0, Math.ceil((target.focusUntil - now) / 1000)))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Today's Stats */}
       <div className="p-4 border-b dark:border-gray-700">
