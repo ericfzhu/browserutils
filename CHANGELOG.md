@@ -5,6 +5,11 @@ All notable changes to BrowserUtils will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.13] - 2026-03-30
+
+### Changed
+- Focus sessions now offer 30m, 1h, and 1.5h presets, 30-minute step adjustments, and a custom minutes input for any positive duration
+
 ## [0.10.12] - 2026-03-23
 
 ### Added

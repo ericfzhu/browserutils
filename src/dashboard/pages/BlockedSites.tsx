@@ -1287,27 +1287,45 @@ export default function BlockedSites() {
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Duration (minutes)
                 </label>
-                <input
-                  type="number"
-                  value={focusDuration || ''}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    setFocusDuration(value === '' ? 0 : parseInt(value) || 0);
-                  }}
-                  onBlur={() => {
-                    if (!focusDuration || focusDuration < 1) {
-                      setFocusDuration(30);
-                    }
-                  }}
-                  min={1}
-                  max={480}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                  autoFocus
-                />
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setFocusDuration(Math.max(1, (focusDuration || 30) - 30))}
+                    className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                  >
+                    -30m
+                  </button>
+                  <input
+                    type="number"
+                    value={focusDuration || ''}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setFocusDuration(value === '' ? 0 : parseInt(value) || 0);
+                    }}
+                    onBlur={() => {
+                      if (!focusDuration || focusDuration < 1) {
+                        setFocusDuration(30);
+                      }
+                    }}
+                    min={1}
+                    className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setFocusDuration((focusDuration || 0) + 30)}
+                    className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                  >
+                    +30m
+                  </button>
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  Use 30-minute steps or enter any positive number for a custom duration.
+                </p>
               </div>
 
               <div className="flex gap-2">
-                {[15, 30, 60, 120].map(mins => (
+                {[30, 60, 90].map(mins => (
                   <button
                     key={mins}
                     type="button"
@@ -1318,7 +1336,7 @@ export default function BlockedSites() {
                         : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                     }`}
                   >
-                    {mins >= 60 ? `${mins / 60}h` : `${mins}m`}
+                    {mins === 90 ? '1.5h' : mins >= 60 ? `${mins / 60}h` : `${mins}m`}
                   </button>
                 ))}
               </div>

@@ -3,7 +3,7 @@ import { Tag, Plus, Wrench, Bug, ArrowLeft, Minus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 // Changelog data - update this when releasing new versions
-const CURRENT_VERSION = '0.10.12';
+const CURRENT_VERSION = '0.10.13';
 
 interface ChangelogEntry {
   version: string;
@@ -15,6 +15,13 @@ interface ChangelogEntry {
 }
 
 const changelog: ChangelogEntry[] = [
+  {
+    version: '0.10.13',
+    date: '2026-03-30',
+    changed: [
+      'Focus sessions now offer 30m, 1h, and 1.5h presets, 30-minute step adjustments, and a custom minutes input for any positive duration',
+    ],
+  },
   {
     version: '0.10.12',
     date: '2026-03-23',
