@@ -3,7 +3,7 @@ import { Tag, Plus, Wrench, Bug, ArrowLeft, Minus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 // Changelog data - update this when releasing new versions
-const CURRENT_VERSION = '0.10.13';
+const CURRENT_VERSION = '0.10.14';
 
 interface ChangelogEntry {
   version: string;
@@ -15,6 +15,13 @@ interface ChangelogEntry {
 }
 
 const changelog: ChangelogEntry[] = [
+  {
+    version: '0.10.14',
+    date: '2026-03-30',
+    changed: [
+      'Active focus sessions can now be extended with the same 30m, 1h, 1.5h presets, 30-minute step controls, and custom duration input used when starting focus',
+    ],
+  },
   {
     version: '0.10.13',
     date: '2026-03-30',

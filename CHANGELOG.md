@@ -5,6 +5,11 @@ All notable changes to BrowserUtils will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.14] - 2026-03-30
+
+### Changed
+- Active focus sessions can now be extended with the same 30m, 1h, 1.5h presets, 30-minute step controls, and custom duration input used when starting focus
+
 ## [0.10.13] - 2026-03-30
 
 ### Changed

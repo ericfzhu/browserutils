@@ -72,6 +72,7 @@ interface FocusStatus {
 }
 
 type FocusTarget = { type: 'folder'; folderId: string } | { type: 'global' } | null;
+type FocusModalMode = 'start' | 'edit';
 
 export default function BlockedSites() {
   const [sites, setSites] = useState<BlockedSite[]>([]);
@@ -88,7 +89,9 @@ export default function BlockedSites() {
   const [globalFocusStatus, setGlobalFocusStatus] = useState<FocusStatus | null>(null);
   const [showFocusModal, setShowFocusModal] = useState(false);
   const [focusTarget, setFocusTarget] = useState<FocusTarget>(null);
+  const [focusModalMode, setFocusModalMode] = useState<FocusModalMode>('start');
   const [focusDuration, setFocusDuration] = useState(30);
+  const [minimumFocusDuration, setMinimumFocusDuration] = useState(1);
   const { withLockdownCheck } = useLockdown();
 
   useEffect(() => {
@@ -487,19 +490,41 @@ export default function BlockedSites() {
 
   function openFocusModal(folderId: string) {
     const folder = folders.find(f => f.id === folderId);
+    setFocusModalMode('start');
     setFocusTarget({ type: 'folder', folderId });
+    setMinimumFocusDuration(1);
     setFocusDuration(folder?.focusDuration || 30);
     setShowFocusModal(true);
   }
 
   function openGlobalFocusModal() {
+    setFocusModalMode('start');
     setFocusTarget({ type: 'global' });
+    setMinimumFocusDuration(1);
     setFocusDuration(globalFocusStatus?.focusDuration || 30);
     setShowFocusModal(true);
   }
 
+  function openEditFocusModal(folderId: string, remainingMs: number) {
+    const minimumMinutes = Math.max(1, Math.ceil(remainingMs / 60000));
+    setFocusModalMode('edit');
+    setFocusTarget({ type: 'folder', folderId });
+    setMinimumFocusDuration(minimumMinutes);
+    setFocusDuration(minimumMinutes);
+    setShowFocusModal(true);
+  }
+
+  function openEditGlobalFocusModal(remainingMs: number) {
+    const minimumMinutes = Math.max(1, Math.ceil(remainingMs / 60000));
+    setFocusModalMode('edit');
+    setFocusTarget({ type: 'global' });
+    setMinimumFocusDuration(minimumMinutes);
+    setFocusDuration(minimumMinutes);
+    setShowFocusModal(true);
+  }
+
   async function startFocusSession() {
-    if (!focusTarget) return;
+    if (!focusTarget || focusDuration < minimumFocusDuration) return;
 
     try {
       const result = focusTarget.type === 'global'
@@ -534,6 +559,8 @@ export default function BlockedSites() {
       }
       setShowFocusModal(false);
       setFocusTarget(null);
+      setFocusModalMode('start');
+      setMinimumFocusDuration(1);
     } catch (err) {
       console.error('Failed to start focus session:', err);
     }
@@ -835,6 +862,13 @@ export default function BlockedSites() {
                   {formatTimerRemaining(focusStatus.remainingMs)}
                 </span>
                 <button
+                  onClick={() => openEditFocusModal(folder.id, focusStatus.remainingMs)}
+                  className="text-xs py-1 rounded bg-white dark:bg-gray-800 text-purple-700 dark:text-purple-200 border border-purple-200 dark:border-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/30 transition-colors w-[72px] flex items-center justify-center gap-1"
+                >
+                  <Focus className="w-3 h-3" />
+                  Extend
+                </button>
+                <button
                   onClick={() => stopFocusSession(folder.id)}
                   className="text-xs py-1 rounded bg-purple-100 dark:bg-purple-700/80 text-purple-700 dark:text-purple-200 hover:bg-purple-200 dark:hover:bg-purple-700 transition-colors w-[72px] flex items-center justify-center gap-1"
                 >
@@ -926,6 +960,13 @@ export default function BlockedSites() {
                 <span className="text-xs text-purple-600 dark:text-purple-400 font-medium">
                   {formatTimerRemaining(globalFocusStatus.remainingMs)}
                 </span>
+                <button
+                  onClick={() => openEditGlobalFocusModal(globalFocusStatus.remainingMs)}
+                  className="flex items-center gap-2 bg-white dark:bg-gray-800 border border-purple-200 dark:border-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/30 text-purple-700 dark:text-purple-200 px-4 py-2 rounded-lg transition-colors"
+                >
+                  <Focus className="w-5 h-5" />
+                  Extend Focus
+                </button>
                 <button
                   onClick={stopGlobalFocusSession}
                   className="flex items-center gap-2 bg-purple-100 dark:bg-purple-700/80 hover:bg-purple-200 dark:hover:bg-purple-700 text-purple-700 dark:text-purple-200 px-4 py-2 rounded-lg transition-colors"
@@ -1263,12 +1304,14 @@ export default function BlockedSites() {
             <div className="flex items-center justify-between px-6 py-4 border-b dark:border-gray-700">
               <h2 className="text-lg font-semibold flex items-center gap-2">
                 <Focus className="w-5 h-5 text-purple-600" />
-                Start Focus Session
+                {focusModalMode === 'edit' ? 'Extend Focus Session' : 'Start Focus Session'}
               </h2>
               <button
                 onClick={() => {
                   setShowFocusModal(false);
                   setFocusTarget(null);
+                  setFocusModalMode('start');
+                  setMinimumFocusDuration(1);
                 }}
                 className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
               >
@@ -1279,8 +1322,10 @@ export default function BlockedSites() {
             <div className="p-6 space-y-4">
               <p className="text-sm text-gray-600 dark:text-gray-400">
                 {focusTarget.type === 'global'
-                  ? 'Block all blocked sites for:'
-                  : `Block all sites in "${folders.find(f => f.id === focusTarget.folderId)?.name}" for:`}
+                  ? (focusModalMode === 'edit' ? 'Set the new total remaining time for all blocked sites:' : 'Block all blocked sites for:')
+                  : (focusModalMode === 'edit'
+                    ? `Set the new total remaining time for "${folders.find(f => f.id === focusTarget.folderId)?.name}":`
+                    : `Block all sites in "${folders.find(f => f.id === focusTarget.folderId)?.name}" for:`)}
               </p>
 
               <div>
@@ -1290,8 +1335,9 @@ export default function BlockedSites() {
                 <div className="flex gap-2">
                   <button
                     type="button"
-                    onClick={() => setFocusDuration(Math.max(1, (focusDuration || 30) - 30))}
-                    className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                    onClick={() => setFocusDuration(Math.max(minimumFocusDuration, (focusDuration || 30) - 30))}
+                    disabled={(focusDuration || 0) - 30 < minimumFocusDuration}
+                    className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
                     -30m
                   </button>
@@ -1303,11 +1349,11 @@ export default function BlockedSites() {
                       setFocusDuration(value === '' ? 0 : parseInt(value) || 0);
                     }}
                     onBlur={() => {
-                      if (!focusDuration || focusDuration < 1) {
-                        setFocusDuration(30);
+                      if (!focusDuration || focusDuration < minimumFocusDuration) {
+                        setFocusDuration(focusModalMode === 'edit' ? minimumFocusDuration : 30);
                       }
                     }}
-                    min={1}
+                    min={minimumFocusDuration}
                     className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
                     autoFocus
                   />
@@ -1322,6 +1368,11 @@ export default function BlockedSites() {
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                   Use 30-minute steps or enter any positive number for a custom duration.
                 </p>
+                {focusModalMode === 'edit' && (
+                  <p className="text-xs text-purple-600 dark:text-purple-300 mt-1">
+                    Minimum allowed: {minimumFocusDuration} minutes remaining.
+                  </p>
+                )}
               </div>
 
               <div className="flex gap-2">
@@ -1330,11 +1381,12 @@ export default function BlockedSites() {
                     key={mins}
                     type="button"
                     onClick={() => setFocusDuration(mins)}
+                    disabled={mins < minimumFocusDuration}
                     className={`flex-1 py-1.5 text-sm rounded-lg transition-colors ${
                       focusDuration === mins
                         ? 'bg-purple-600 text-white'
                         : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                    }`}
+                    } disabled:opacity-50 disabled:cursor-not-allowed`}
                   >
                     {mins === 90 ? '1.5h' : mins >= 60 ? `${mins / 60}h` : `${mins}m`}
                   </button>
@@ -1347,6 +1399,8 @@ export default function BlockedSites() {
                   onClick={() => {
                     setShowFocusModal(false);
                     setFocusTarget(null);
+                    setFocusModalMode('start');
+                    setMinimumFocusDuration(1);
                   }}
                   className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
                 >
@@ -1354,9 +1408,10 @@ export default function BlockedSites() {
                 </button>
                 <button
                   onClick={startFocusSession}
+                  disabled={focusDuration < minimumFocusDuration}
                   className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
                 >
-                  Start Focus
+                  {focusModalMode === 'edit' ? 'Update Focus' : 'Start Focus'}
                 </button>
               </div>
             </div>
