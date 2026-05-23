@@ -3,7 +3,7 @@ import { Tag, Plus, Wrench, Bug, ArrowLeft, Minus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 // Changelog data - update this when releasing new versions
-const CURRENT_VERSION = '0.10.14';
+const CURRENT_VERSION = '0.10.15';
 
 interface ChangelogEntry {
   version: string;
@@ -15,6 +15,13 @@ interface ChangelogEntry {
 }
 
 const changelog: ChangelogEntry[] = [
+  {
+    version: '0.10.15',
+    date: '2026-03-30',
+    fixed: [
+      'Daily limits now normalize pasted URLs down to the tracked domain format, keeping limit matching and reported usage aligned',
+    ],
+  },
   {
     version: '0.10.14',
     date: '2026-03-30',

@@ -343,7 +343,7 @@ async function handleMessage(message: MessageType, sender?: chrome.runtime.Messa
       if (result.blocked && result.site) {
         return {
           blocked: true,
-          redirectUrl: chrome.runtime.getURL(`blocked.html?site=${result.site.id}`),
+          redirectUrl: chrome.runtime.getURL(`blocked.html?site=${result.site.id}&returnUrl=${encodeURIComponent(message.payload.url)}`),
         };
       }
 
@@ -354,7 +354,7 @@ async function handleMessage(message: MessageType, sender?: chrome.runtime.Messa
         if (limitResult.exceeded && limitResult.limit) {
           return {
             blocked: true,
-            redirectUrl: chrome.runtime.getURL(`blocked.html?type=limit&limitId=${limitResult.limit.id}`),
+            redirectUrl: chrome.runtime.getURL(`blocked.html?type=limit&limitId=${limitResult.limit.id}&returnUrl=${encodeURIComponent(message.payload.url)}`),
           };
         }
       }
@@ -1267,7 +1267,7 @@ chrome.webNavigation.onBeforeNavigate.addListener(async (details) => {
     await incrementBlockedAttempt(result.site.pattern);
 
     // Redirect to blocked page
-    const blockedUrl = chrome.runtime.getURL(`blocked.html?site=${result.site.id}`);
+    const blockedUrl = chrome.runtime.getURL(`blocked.html?site=${result.site.id}&returnUrl=${encodeURIComponent(details.url)}`);
     chrome.tabs.update(details.tabId, { url: blockedUrl });
     return;
   }
@@ -1277,7 +1277,7 @@ chrome.webNavigation.onBeforeNavigate.addListener(async (details) => {
   if (domain) {
     const limitResult = await checkDailyLimitForDomain(domain);
     if (limitResult.exceeded && limitResult.limit) {
-      const blockedUrl = chrome.runtime.getURL(`blocked.html?type=limit&limitId=${limitResult.limit.id}`);
+      const blockedUrl = chrome.runtime.getURL(`blocked.html?type=limit&limitId=${limitResult.limit.id}&returnUrl=${encodeURIComponent(details.url)}`);
       chrome.tabs.update(details.tabId, { url: blockedUrl });
     }
   }

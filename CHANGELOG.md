@@ -5,6 +5,11 @@ All notable changes to BrowserUtils will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.15] - 2026-03-30
+
+### Fixed
+- Daily limits now normalize pasted URLs down to the tracked domain format, keeping limit matching and reported usage aligned
+
 ## [0.10.14] - 2026-03-30
 
 ### Changed

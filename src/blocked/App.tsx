@@ -39,6 +39,18 @@ function getDateString(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
+function getReturnUrl(): string | null {
+  const value = new URLSearchParams(window.location.search).get('returnUrl');
+  if (!value) return null;
+
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:' ? parsed.href : null;
+  } catch {
+    return null;
+  }
+}
+
 type BlockType = 'site' | 'limit';
 
 interface LimitInfo {
@@ -52,6 +64,7 @@ interface FocusInfo {
 }
 
 export default function App() {
+  const [loading, setLoading] = useState(true);
   const [blockType, setBlockType] = useState<BlockType>('site');
   const [site, setSite] = useState<BlockedSite | null>(null);
   const [limitInfo, setLimitInfo] = useState<LimitInfo | null>(null);
@@ -68,6 +81,15 @@ export default function App() {
     loadData();
   }, []);
 
+  function returnToBlockedUrl() {
+    const returnUrl = getReturnUrl();
+    if (returnUrl) {
+      window.location.href = returnUrl;
+      return;
+    }
+    window.history.back();
+  }
+
   // Timer countdown effect for timer-blocked sites
   useEffect(() => {
     if (site?.unlockType === 'timer' && timerBlockedUntil) {
@@ -75,7 +97,7 @@ export default function App() {
         const remaining = timerBlockedUntil - Date.now();
         if (remaining <= 0) {
           // Timer expired, site is now unblocked
-          window.history.back();
+          returnToBlockedUrl();
         } else {
           setTimerRemainingMs(remaining);
         }
@@ -116,17 +138,21 @@ export default function App() {
   }, [countdown, timerStarted, blockType]);
 
   async function loadData() {
-    const params = new URLSearchParams(window.location.search);
-    const type = params.get('type');
-    const siteId = params.get('site');
-    const limitId = params.get('limitId');
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const type = params.get('type');
+      const siteId = params.get('site');
+      const limitId = params.get('limitId');
 
-    if (type === 'limit' && limitId) {
-      setBlockType('limit');
-      await loadLimit(limitId);
-    } else if (siteId) {
-      setBlockType('site');
-      await loadSite(siteId);
+      if (type === 'limit' && limitId) {
+        setBlockType('limit');
+        await loadLimit(limitId);
+      } else if (siteId) {
+        setBlockType('site');
+        await loadSite(siteId);
+      }
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -162,13 +188,13 @@ export default function App() {
         chrome.runtime.sendMessage({ type: 'GET_GLOBAL_FOCUS_STATUS' }),
       ]);
       const found = sites.find((s: BlockedSite) => s.id === siteId);
-      setSite(found || null);
+      let nextFocusInfo: FocusInfo | null = null;
 
       if (globalFocusStatus?.isActive && globalFocusStatus.focusUntil) {
-        setFocusInfo({
+        nextFocusInfo = {
           label: 'All blocked sites',
           focusUntil: globalFocusStatus.focusUntil,
-        });
+        };
       } else if (found?.folderId) {
         const folder = folders.find((f: BlockedSiteFolder) => f.id === found.folderId);
         const focusStatus = await chrome.runtime.sendMessage({
@@ -177,15 +203,11 @@ export default function App() {
         });
 
         if (folder && focusStatus?.isActive) {
-          setFocusInfo({
+          nextFocusInfo = {
             label: folder.name,
             focusUntil: focusStatus.focusUntil,
-          });
-        } else {
-          setFocusInfo(null);
+          };
         }
-      } else {
-        setFocusInfo(null);
       }
 
       // For timer sites, get the timer status
@@ -199,6 +221,9 @@ export default function App() {
           setTimerRemainingMs(status.remainingMs);
         }
       }
+
+      setFocusInfo(nextFocusInfo);
+      setSite(found || null);
 
       // Increment blocked attempt counter
       if (found) {
@@ -226,8 +251,7 @@ export default function App() {
       });
 
       if (result.success) {
-        // Redirect back
-        window.history.back();
+        returnToBlockedUrl();
       } else {
         setError(result.error || 'Failed to unlock');
       }
@@ -240,7 +264,7 @@ export default function App() {
   }
 
   function goBack() {
-    window.history.back();
+    returnToBlockedUrl();
   }
 
   function startLimitCooldown() {
@@ -260,7 +284,7 @@ export default function App() {
       });
 
       if (result.success) {
-        window.history.back();
+        returnToBlockedUrl();
       } else {
         setError(result.error || 'Failed to bypass limit');
       }
@@ -284,7 +308,7 @@ export default function App() {
       });
 
       if (result.success) {
-        window.history.back();
+        returnToBlockedUrl();
       } else {
         setError(result.error || 'Failed to bypass limit');
       }
@@ -294,6 +318,14 @@ export default function App() {
     } finally {
       setUnlocking(false);
     }
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-red-50 to-orange-50 dark:from-gray-900 dark:to-red-950 flex items-center justify-center p-4">
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-red-600 dark:border-red-400"></div>
+      </div>
+    );
   }
 
   // Show limit exceeded UI

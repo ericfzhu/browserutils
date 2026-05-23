@@ -318,7 +318,6 @@ export async function recordSession(session: SiteSession): Promise<void> {
     if (!stats.sessions || Array.isArray(stats.sessions)) {
       stats.sessions = {};
     }
-
     if (!stats.sessions[domain]) {
       stats.sessions[domain] = [];
     }
@@ -716,7 +715,6 @@ export async function checkDailyLimitForDomain(domain: string): Promise<{
       continue;
     }
 
-    // Check if domain matches pattern
     const normalizedDomain = domain.replace(/^www\./, '');
     const pattern = limit.pattern.replace(/^www\./, '');
 
@@ -729,7 +727,6 @@ export async function checkDailyLimitForDomain(domain: string): Promise<{
     }
 
     if (matches) {
-      // Get time spent on this domain today
       const timeSpent = stats.sites[domain] || stats.sites['www.' + domain] || stats.sites[normalizedDomain] || 0;
       const remaining = Math.max(0, limit.limitSeconds - timeSpent);
 

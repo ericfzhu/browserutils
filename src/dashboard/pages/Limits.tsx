@@ -17,6 +17,15 @@ function getDateString(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
 
+function normalizeLimitDomain(input: string): string {
+  let value = input.trim().toLowerCase();
+  value = value.replace(/^https?:\/\//, '');
+  value = value.split(/[/?#]/, 1)[0] || '';
+  value = value.replace(/\/+$/, '');
+  value = value.replace(/^www\./, '');
+  return value;
+}
+
 interface LimitFormData {
   pattern: string;
   limitHours: number;
@@ -88,7 +97,9 @@ export default function Limits() {
   }
 
   async function handleSubmit() {
-    if (!formData.pattern.trim()) {
+    const normalizedPattern = normalizeLimitDomain(formData.pattern);
+
+    if (!normalizedPattern) {
       setError('Domain is required');
       return;
     }
@@ -117,7 +128,7 @@ export default function Limits() {
           type: 'UPDATE_DAILY_LIMIT',
           payload: {
             ...editingLimit,
-            pattern: formData.pattern.trim().toLowerCase(),
+            pattern: normalizedPattern,
             limitSeconds: totalSeconds,
             bypassType: formData.bypassType,
             passwordHash,
@@ -128,7 +139,7 @@ export default function Limits() {
         await chrome.runtime.sendMessage({
           type: 'ADD_DAILY_LIMIT',
           payload: {
-            pattern: formData.pattern.trim().toLowerCase(),
+            pattern: normalizedPattern,
             limitSeconds: totalSeconds,
             enabled: true,
             bypassType: formData.bypassType,
@@ -343,9 +354,13 @@ export default function Limits() {
                   type="text"
                   value={formData.pattern}
                   onChange={(e) => setFormData({ ...formData, pattern: e.target.value })}
-                  placeholder="e.g., twitter.com"
+                  onBlur={(e) => setFormData({ ...formData, pattern: normalizeLimitDomain(e.target.value) })}
+                  placeholder="e.g., youtube.com"
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  Full URLs are reduced to a domain, for example `https://www.youtube.com/watch?v=123` becomes `youtube.com`.
+                </p>
               </div>
 
               {/* Time Limit */}
