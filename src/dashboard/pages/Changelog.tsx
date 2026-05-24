@@ -3,7 +3,7 @@ import { Tag, Plus, Wrench, Bug, ArrowLeft, Minus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 // Changelog data - update this when releasing new versions
-const CURRENT_VERSION = '0.10.15';
+const CURRENT_VERSION = '0.10.16';
 
 interface ChangelogEntry {
   version: string;
@@ -15,6 +15,13 @@ interface ChangelogEntry {
 }
 
 const changelog: ChangelogEntry[] = [
+  {
+    version: '0.10.16',
+    date: '2026-05-24',
+    fixed: [
+      'Blocked pages now resolve focus mode before rendering, preventing the generic blocked message from flashing first',
+    ],
+  },
   {
     version: '0.10.15',
     date: '2026-03-30',
