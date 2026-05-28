@@ -1,5 +1,18 @@
 import { useEffect, useState } from 'react';
 import { Shield, Lock, Clock, ArrowLeft, Timer } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Progress } from '@/components/ui/progress';
 import { BlockedSite, BlockedSiteFolder, DailyLimit, DailyStats } from '../shared/types';
 
 function formatTime(seconds: number): string {
@@ -322,8 +335,8 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-red-50 to-orange-50 dark:from-gray-900 dark:to-red-950 flex items-center justify-center p-4">
-        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-red-600 dark:border-red-400"></div>
+      <div className="flex min-h-screen items-center justify-center bg-background p-4">
+        <div className="size-10 animate-spin rounded-full border-b-2 border-primary"></div>
       </div>
     );
   }
@@ -331,118 +344,105 @@ export default function App() {
   // Show limit exceeded UI
   if (blockType === 'limit' && limitInfo) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-50 dark:from-gray-900 dark:to-amber-950 flex items-center justify-center p-4">
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-md w-full p-8">
-          <div className="text-center mb-6">
-            <div className="w-16 h-16 bg-amber-100 dark:bg-amber-900/50 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Timer className="w-8 h-8 text-amber-600 dark:text-amber-400" />
+      <div className="flex min-h-screen items-center justify-center bg-background p-4">
+        <Card className="w-full max-w-md shadow-xl">
+          <CardHeader className="items-center text-center">
+            <div className="mb-2 flex size-16 items-center justify-center rounded-full bg-muted">
+              <Timer className="size-8 text-primary" />
             </div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">Daily Limit Reached</h1>
-            <p className="text-gray-500 dark:text-gray-400">
-              <span className="font-medium text-gray-700 dark:text-gray-300">{limitInfo.limit.pattern}</span>
-            </p>
-          </div>
+            <CardTitle className="text-2xl">Daily Limit Reached</CardTitle>
+            <CardDescription>
+              <Badge variant="secondary">{limitInfo.limit.pattern}</Badge>
+            </CardDescription>
+          </CardHeader>
 
-          {/* Time Info */}
-          <div className="bg-amber-50 dark:bg-amber-900/20 rounded-lg p-4 mb-6">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-amber-800 dark:text-amber-300">Time spent today</span>
-              <span className="font-medium text-amber-900 dark:text-amber-200">{formatTime(limitInfo.timeSpent)}</span>
-            </div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-amber-800 dark:text-amber-300">Daily limit</span>
-              <span className="font-medium text-amber-900 dark:text-amber-200">{formatTime(limitInfo.limit.limitSeconds)}</span>
-            </div>
-            <div className="h-2 bg-amber-200 dark:bg-amber-900/50 rounded-full overflow-hidden mt-3">
-              <div className="h-full bg-amber-500 rounded-full" style={{ width: '100%' }} />
-            </div>
-          </div>
-
-          <p className="text-sm text-gray-500 dark:text-gray-400 text-center mb-6">
-            Limit resets in {getTimeUntilMidnight()}
-          </p>
-
-          {/* Cooldown Bypass */}
-          {limitInfo.limit.bypassType === 'cooldown' && (
-            <div className="space-y-4">
-              {!timerStarted ? (
-                <button
-                  onClick={startLimitCooldown}
-                  className="w-full bg-amber-600 hover:bg-amber-700 text-white py-3 rounded-lg transition-colors"
-                >
-                  Wait {limitInfo.limit.cooldownSeconds || 30}s to continue
-                </button>
-              ) : countdown > 0 ? (
-                <div className="text-center py-4">
-                  <div className="text-4xl font-bold text-amber-600 dark:text-amber-400 mb-2">{countdown}</div>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">Taking a moment to reconsider...</p>
-                </div>
-              ) : (
-                <div className="text-center py-4">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-600 mx-auto"></div>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">Granting access...</p>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Password Bypass */}
-          {limitInfo.limit.bypassType === 'password' && (
-            <form onSubmit={handleLimitPasswordBypass} className="space-y-4">
-              <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 mb-4">
-                <Lock className="w-4 h-4" />
-                <span>Enter password to continue for 15 minutes</span>
+          <CardContent className="flex flex-col gap-6">
+            <div className="rounded-lg border bg-muted/50 p-4">
+              <div className="mb-2 flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Time spent today</span>
+                <span className="font-medium">{formatTime(limitInfo.timeSpent)}</span>
               </div>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => {
-                  setPassword(e.target.value);
-                  setError('');
-                }}
-                placeholder="Enter password"
-                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500"
-                autoFocus
-              />
-              {error && <p className="text-sm text-red-600">{error}</p>}
-              <button
-                type="submit"
-                disabled={unlocking || !password}
-                className="w-full bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white py-3 rounded-lg transition-colors"
-              >
-                {unlocking ? 'Verifying...' : 'Continue for 15 minutes'}
-              </button>
-            </form>
-          )}
-
-          {/* No Bypass */}
-          {limitInfo.limit.bypassType === 'none' && (
-            <div className="text-center py-4">
-              <p className="text-gray-600 dark:text-gray-400">
-                This limit cannot be bypassed. Check back after midnight.
-              </p>
+              <div className="mb-3 flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Daily limit</span>
+                <span className="font-medium">{formatTime(limitInfo.limit.limitSeconds)}</span>
+              </div>
+              <Progress value={100} />
             </div>
-          )}
 
-          {/* Back Button */}
-          <button
-            onClick={goBack}
-            className="w-full mt-4 flex items-center justify-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 py-2 transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Go Back
-          </button>
+            <p className="text-center text-sm text-muted-foreground">
+              Limit resets in {getTimeUntilMidnight()}
+            </p>
 
-          {/* Dashboard Link */}
-          <div className="mt-6 pt-6 border-t dark:border-gray-700 text-center">
+            {limitInfo.limit.bypassType === 'cooldown' && (
+              <div className="flex flex-col gap-4">
+                {!timerStarted ? (
+                  <Button onClick={startLimitCooldown} className="w-full" size="lg">
+                    Wait {limitInfo.limit.cooldownSeconds || 30}s to continue
+                  </Button>
+                ) : countdown > 0 ? (
+                  <div className="py-4 text-center">
+                    <div className="mb-2 text-4xl font-bold">{countdown}</div>
+                    <p className="text-sm text-muted-foreground">Taking a moment to reconsider...</p>
+                  </div>
+                ) : (
+                  <div className="py-4 text-center">
+                    <div className="mx-auto size-8 animate-spin rounded-full border-b-2 border-primary"></div>
+                    <p className="mt-2 text-sm text-muted-foreground">Granting access...</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {limitInfo.limit.bypassType === 'password' && (
+              <form onSubmit={handleLimitPasswordBypass} className="flex flex-col gap-4">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Lock data-icon="inline-start" />
+                  <span>Enter password to continue for 15 minutes</span>
+                </div>
+                <Input
+                  type="password"
+                  value={password}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    setError('');
+                  }}
+                  placeholder="Enter password"
+                  aria-invalid={!!error}
+                  autoFocus
+                />
+                {error && (
+                  <Alert variant="destructive">
+                    <AlertDescription>{error}</AlertDescription>
+                  </Alert>
+                )}
+                <Button type="submit" disabled={unlocking || !password} className="w-full" size="lg">
+                  {unlocking ? 'Verifying...' : 'Continue for 15 minutes'}
+                </Button>
+              </form>
+            )}
+
+            {limitInfo.limit.bypassType === 'none' && (
+              <Alert>
+                <AlertDescription>
+                  This limit cannot be bypassed. Check back after midnight.
+                </AlertDescription>
+              </Alert>
+            )}
+          </CardContent>
+
+          <CardFooter className="flex flex-col gap-4">
+            <Button onClick={goBack} variant="ghost" className="w-full">
+              <ArrowLeft data-icon="inline-start" />
+              Go Back
+            </Button>
             <a
               href={chrome.runtime.getURL('dashboard.html#/limits')}
-              className="text-sm text-amber-600 hover:text-amber-700"
+              className="text-sm text-muted-foreground hover:text-foreground"
             >
               Manage daily limits in dashboard
             </a>
-          </div>
-        </div>
+          </CardFooter>
+        </Card>
       </div>
     );
   }
@@ -450,142 +450,140 @@ export default function App() {
   // Show blocked site UI (original behavior)
   if (!site) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-red-50 to-orange-50 dark:from-gray-900 dark:to-red-950 flex items-center justify-center p-4">
-        <div className="text-center">
-          <Shield className="w-16 h-16 text-red-500 dark:text-red-400 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">Site Blocked</h1>
-          <p className="text-gray-600 dark:text-gray-400">This site has been blocked by BrowserUtils.</p>
-        </div>
+      <div className="flex min-h-screen items-center justify-center bg-background p-4">
+        <Card className="w-full max-w-md shadow-xl">
+          <CardHeader className="items-center text-center">
+            <div className="mb-2 flex size-16 items-center justify-center rounded-full bg-muted">
+              <Shield className="size-8 text-destructive" />
+            </div>
+            <CardTitle className="text-2xl">Site Blocked</CardTitle>
+            <CardDescription>This site has been blocked by BrowserUtils.</CardDescription>
+          </CardHeader>
+        </Card>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-red-50 to-orange-50 dark:from-gray-900 dark:to-red-950 flex items-center justify-center p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-md w-full p-8">
-        <div className="text-center mb-6">
-          <div className="w-16 h-16 bg-red-100 dark:bg-red-900/50 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Shield className="w-8 h-8 text-red-600 dark:text-red-400" />
+    <div className="flex min-h-screen items-center justify-center bg-background p-4">
+      <Card className="w-full max-w-md shadow-xl">
+        <CardHeader className="items-center text-center">
+          <div className="mb-2 flex size-16 items-center justify-center rounded-full bg-muted">
+            <Shield className="size-8 text-destructive" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">
+          <CardTitle className="text-2xl">
             {focusInfo ? 'Focus Mode Active' : 'Site Blocked'}
-          </h1>
-          <p className="text-gray-500 dark:text-gray-400">
-            <span className="font-medium text-gray-700 dark:text-gray-300">{site.pattern}</span>
-            {focusInfo ? ' is blocked by your current focus session' : ' is blocked'}
-          </p>
-        </div>
+          </CardTitle>
+          <CardDescription>
+            <Badge variant="secondary">{site.pattern}</Badge>
+            <span className="mt-2 block">
+              {focusInfo ? 'Blocked by your current focus session' : 'Blocked'}
+            </span>
+          </CardDescription>
+        </CardHeader>
 
-        {focusInfo && (
-          <div className="space-y-4">
-            <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-4">
-              <div className="flex items-center gap-2 text-sm text-red-800 dark:text-red-300 mb-3">
-                <Clock className="w-4 h-4" />
-                <span>Focus session active: {focusInfo.label}</span>
-              </div>
-              <div className="text-center">
-                <div className="text-3xl font-bold text-red-600 dark:text-red-400 mb-1">
-                  {formatTimeRemaining(focusRemainingMs)}
+        <CardContent className="flex flex-col gap-4">
+          {focusInfo && (
+            <div className="flex flex-col gap-4">
+              <div className="rounded-lg border bg-muted/50 p-4">
+                <div className="mb-3 flex items-center gap-2 text-sm text-muted-foreground">
+                  <Clock className="size-4" />
+                  <span>Focus session active: {focusInfo.label}</span>
                 </div>
-                <p className="text-sm text-red-600/70 dark:text-red-400/70">remaining</p>
-              </div>
-            </div>
-            <p className="text-sm text-gray-500 dark:text-gray-400 text-center">
-              Focus mode takes priority over this site's normal block settings until the session ends.
-            </p>
-          </div>
-        )}
-
-        {/* Password Unlock */}
-        {!focusInfo && site.unlockType === 'password' && (
-          <form onSubmit={handlePasswordUnlock} className="space-y-4">
-            <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 mb-4">
-              <Lock className="w-4 h-4" />
-              <span>Enter password to unlock temporarily</span>
-            </div>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => {
-                setPassword(e.target.value);
-                setError('');
-              }}
-              placeholder="Enter password"
-              className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              autoFocus
-            />
-            {error && <p className="text-sm text-red-600">{error}</p>}
-            <button
-              type="submit"
-              disabled={unlocking || !password}
-              className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white py-3 rounded-lg transition-colors"
-            >
-              {unlocking ? 'Unlocking...' : 'Unlock Site'}
-            </button>
-          </form>
-        )}
-
-        {/* Timer Block - shows remaining time */}
-        {!focusInfo && site.unlockType === 'timer' && timerRemainingMs > 0 && (
-          <div className="space-y-4">
-            <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-4">
-              <div className="flex items-center gap-2 text-sm text-red-800 dark:text-red-300 mb-3">
-                <Clock className="w-4 h-4" />
-                <span>Temporary block active</span>
-              </div>
-              <div className="text-center">
-                <div className="text-3xl font-bold text-red-600 dark:text-red-400 mb-1">
-                  {formatTimeRemaining(timerRemainingMs)}
+                <div className="text-center">
+                  <div className="mb-1 text-3xl font-bold">
+                    {formatTimeRemaining(focusRemainingMs)}
+                  </div>
+                  <p className="text-sm text-muted-foreground">remaining</p>
                 </div>
-                <p className="text-sm text-red-600/70 dark:text-red-400/70">remaining</p>
               </div>
+              <p className="text-center text-sm text-muted-foreground">
+                Focus mode takes priority over this site's normal block settings until the session ends.
+              </p>
             </div>
-            <p className="text-sm text-gray-500 dark:text-gray-400 text-center">
-              This site will automatically unblock when the timer ends.
-            </p>
-          </div>
-        )}
+          )}
 
-        {/* Always Blocked */}
-        {!focusInfo && site.unlockType === 'none' && (
-          <div className="text-center py-4">
-            <p className="text-gray-600 dark:text-gray-400">
-              This site is permanently blocked. Go to the dashboard to change settings.
-            </p>
-          </div>
-        )}
+          {!focusInfo && site.unlockType === 'password' && (
+            <form onSubmit={handlePasswordUnlock} className="flex flex-col gap-4">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Lock data-icon="inline-start" />
+                <span>Enter password to unlock temporarily</span>
+              </div>
+              <Input
+                type="password"
+                value={password}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  setError('');
+                }}
+                placeholder="Enter password"
+                aria-invalid={!!error}
+                autoFocus
+              />
+              {error && (
+                <Alert variant="destructive">
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
+              <Button type="submit" disabled={unlocking || !password} className="w-full" size="lg">
+                {unlocking ? 'Unlocking...' : 'Unlock Site'}
+              </Button>
+            </form>
+          )}
 
-        {/* Schedule Info */}
-        {!focusInfo && site.unlockType === 'schedule' && site.schedule && (
-          <div className="text-center py-4">
-            <p className="text-gray-600 dark:text-gray-400 mb-2">
-              This site is blocked during scheduled hours.
-            </p>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              Blocked: {site.schedule.startTime} - {site.schedule.endTime}
-            </p>
-          </div>
-        )}
+          {!focusInfo && site.unlockType === 'timer' && timerRemainingMs > 0 && (
+            <div className="flex flex-col gap-4">
+              <div className="rounded-lg border bg-muted/50 p-4">
+                <div className="mb-3 flex items-center gap-2 text-sm text-muted-foreground">
+                  <Clock className="size-4" />
+                  <span>Temporary block active</span>
+                </div>
+                <div className="text-center">
+                  <div className="mb-1 text-3xl font-bold">
+                    {formatTimeRemaining(timerRemainingMs)}
+                  </div>
+                  <p className="text-sm text-muted-foreground">remaining</p>
+                </div>
+              </div>
+              <p className="text-center text-sm text-muted-foreground">
+                This site will automatically unblock when the timer ends.
+              </p>
+            </div>
+          )}
 
-        {/* Back Button */}
-        <button
-          onClick={goBack}
-          className="w-full mt-4 flex items-center justify-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 py-2 transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Go Back
-        </button>
+          {!focusInfo && site.unlockType === 'none' && (
+            <Alert>
+              <AlertDescription>
+                This site is permanently blocked. Go to the dashboard to change settings.
+              </AlertDescription>
+            </Alert>
+          )}
 
-        {/* Dashboard Link */}
-        <div className="mt-6 pt-6 border-t dark:border-gray-700 text-center">
+          {!focusInfo && site.unlockType === 'schedule' && site.schedule && (
+            <Alert>
+              <AlertDescription>
+                This site is blocked during scheduled hours.
+                <span className="mt-1 block">
+                  Blocked: {site.schedule.startTime} - {site.schedule.endTime}
+                </span>
+              </AlertDescription>
+            </Alert>
+          )}
+        </CardContent>
+
+        <CardFooter className="flex flex-col gap-4">
+          <Button onClick={goBack} variant="ghost" className="w-full">
+            <ArrowLeft data-icon="inline-start" />
+            Go Back
+          </Button>
           <a
             href={chrome.runtime.getURL('dashboard.html#/blocked')}
-            className="text-sm text-blue-600 hover:text-blue-700"
+            className="text-sm text-muted-foreground hover:text-foreground"
           >
             Manage blocked sites in dashboard
           </a>
-        </div>
-      </div>
+        </CardFooter>
+      </Card>
     </div>
   );
 }

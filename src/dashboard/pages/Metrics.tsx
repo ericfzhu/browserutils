@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Calendar, Clock, TrendingDown, TrendingUp, ChevronLeft, ChevronRight, ChevronDown, Layers, Youtube } from 'lucide-react';
+import { Calendar, Clock, TrendingDown, TrendingUp, ChevronLeft, ChevronRight, ChevronDown, Layers, Video } from 'lucide-react';
 import { DailyStatsSummary, SiteSession, Settings, ActiveYouTubeSession, YouTubeChannelSession } from '../../shared/types';
 import { CATEGORIES, getCategoryForDomain, getCategoryInfo } from '../../shared/categories';
 import { computeYouTubeStatsWithUrlsLegacy } from '../../shared/storage';
@@ -993,7 +993,7 @@ export default function Metrics() {
       {settings?.youtubeTrackingEnabled && (
         <div id="youtube-channels" className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
           <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-            <Youtube className="w-5 h-5 text-red-600" />
+            <Video className="w-5 h-5 text-red-600" />
             YouTube channels
           </h2>
           {loadingSessions ? (

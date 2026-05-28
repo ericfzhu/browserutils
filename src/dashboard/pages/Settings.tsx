@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Save, Trash2, AlertTriangle, Sun, Moon, Monitor, Lock, Github, ShieldCheck } from 'lucide-react';
+import { Save, Trash2, AlertTriangle, Sun, Moon, Monitor, Lock, GitBranch, ShieldCheck } from 'lucide-react';
 import QRCode from 'react-qr-code';
 import { Settings as SettingsType } from '../../shared/types';
 import { applyTheme } from '../../shared/theme';
@@ -634,7 +634,7 @@ export default function SettingsPage() {
           rel="noopener noreferrer"
           className="inline-flex items-center gap-2 text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
         >
-          <Github className="w-5 h-5" />
+          <GitBranch className="w-5 h-5" />
           View on GitHub
         </a>
       </div>
