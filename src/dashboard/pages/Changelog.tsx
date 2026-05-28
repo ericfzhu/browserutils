@@ -3,7 +3,7 @@ import { Tag, Plus, Wrench, Bug, ArrowLeft, Minus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 // Changelog data - update this when releasing new versions
-const CURRENT_VERSION = '0.10.16';
+const CURRENT_VERSION = '0.10.17';
 
 interface ChangelogEntry {
   version: string;
@@ -15,6 +15,18 @@ interface ChangelogEntry {
 }
 
 const changelog: ChangelogEntry[] = [
+  {
+    version: '0.10.17',
+    date: '2026-05-28',
+    added: [
+      'Added shadcn/ui primitives and Tailwind semantic color tokens across the extension UI',
+      'Added a Color Theme setting with Monochrome and Classic Blue palette options',
+    ],
+    changed: [
+      'Updated popup, new tab, blocked page, settings, daily limits, category controls, dashboard shell, and lockdown authentication UI to use the new shared component system',
+      'Unified app chrome around semantic theme tokens while preserving category, chart, warning, and status colors in Monochrome mode',
+    ],
+  },
   {
     version: '0.10.16',
     date: '2026-05-24',

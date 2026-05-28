@@ -5,6 +5,16 @@ All notable changes to BrowserUtils will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.17] - 2026-05-28
+
+### Added
+- Added shadcn/ui primitives and Tailwind semantic color tokens across the extension UI
+- Added a Color Theme setting with Monochrome and Classic Blue palette options
+
+### Changed
+- Updated popup, new tab, blocked page, settings, daily limits, category controls, dashboard shell, and lockdown authentication UI to use the new shared component system
+- Unified app chrome around semantic theme tokens while preserving category, chart, warning, and status colors in Monochrome mode
+
 ## [0.10.16] - 2026-05-24
 
 ### Fixed
