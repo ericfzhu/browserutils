@@ -123,6 +123,7 @@ export interface Settings {
   globalFocusUntil?: number; // Timestamp when global focus session expires
   globalFocusDuration?: number; // Default global focus duration in minutes
   theme: 'light' | 'dark' | 'system';
+  colorTheme?: 'monochrome' | 'blue';
   retentionDays: number; // how long to keep history
   idleThreshold: number; // seconds before considered idle (0 = disabled)
   displayName: string; // user's name for greeting
@@ -172,6 +173,7 @@ export const DEFAULT_SETTINGS: Settings = {
   youtubeTrackingEnabled: false, // off by default
   lockdownAuthMethod: 'password',
   theme: 'system',
+  colorTheme: 'monochrome',
   retentionDays: 30,
   idleThreshold: 60, // 60 seconds default
   displayName: '',

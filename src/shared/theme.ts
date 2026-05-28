@@ -1,6 +1,7 @@
 import { Settings } from './types';
 
 type ThemeSetting = Settings['theme'];
+type ColorThemeSetting = NonNullable<Settings['colorTheme']>;
 type EffectiveTheme = 'light' | 'dark';
 
 // Get the effective theme based on setting and system preference
@@ -11,14 +12,19 @@ export function getEffectiveTheme(setting: ThemeSetting): EffectiveTheme {
   return setting;
 }
 
+function applyColorTheme(setting: ColorThemeSetting = 'monochrome'): void {
+  document.documentElement.dataset.colorTheme = setting;
+}
+
 // Apply theme by adding/removing 'dark' class on <html>
-export function applyTheme(setting: ThemeSetting): void {
+export function applyTheme(setting: ThemeSetting, colorTheme: ColorThemeSetting = 'monochrome'): void {
   const effectiveTheme = getEffectiveTheme(setting);
   if (effectiveTheme === 'dark') {
     document.documentElement.classList.add('dark');
   } else {
     document.documentElement.classList.remove('dark');
   }
+  applyColorTheme(colorTheme);
 }
 
 // Initialize theme on page load
@@ -27,7 +33,7 @@ export async function initTheme(): Promise<void> {
     const result = await chrome.storage.local.get('settings');
     const settings = result.settings as Settings | undefined;
     const theme = settings?.theme || 'system';
-    applyTheme(theme);
+    applyTheme(theme, settings?.colorTheme || 'monochrome');
 
     // If using system theme, listen for changes
     if (theme === 'system') {
@@ -35,7 +41,7 @@ export async function initTheme(): Promise<void> {
     }
   } catch {
     // Default to system theme if storage access fails
-    applyTheme('system');
+    applyTheme('system', 'monochrome');
     watchSystemTheme();
   }
 }

@@ -1,5 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
-import { X, Lock, ShieldCheck } from 'lucide-react';
+import { Lock, ShieldCheck } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 
 interface LockdownAuthModalProps {
   isOpen: boolean;
@@ -21,8 +32,6 @@ export default function LockdownAuthModal({ isOpen, onClose, onSubmit, authMetho
       setTimeout(() => inputRef.current?.focus(), 100);
     }
   }, [isOpen, authMethod]);
-
-  if (!isOpen) return null;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -48,35 +57,28 @@ export default function LockdownAuthModal({ isOpen, onClose, onSubmit, authMetho
   const isTotp = authMethod === 'totp';
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-white dark:bg-gray-800 rounded-xl w-full max-w-sm mx-4 overflow-hidden shadow-xl">
-        <div className="flex items-center justify-between px-6 py-4 border-b dark:border-gray-700">
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
           <div className="flex items-center gap-2">
             {isTotp ? (
-              <ShieldCheck className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+              <ShieldCheck className="text-primary" />
             ) : (
-              <Lock className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+              <Lock className="text-primary" />
             )}
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+            <DialogTitle>
               {isTotp ? 'Enter Authenticator Code' : 'Enter Master Password'}
-            </h2>
+            </DialogTitle>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="p-6">
-          <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+          <DialogDescription>
             {isTotp
               ? 'Lockdown mode is enabled. Enter the 6-digit code from your authenticator app to continue.'
               : 'Lockdown mode is enabled. Enter your master password to continue.'}
-          </p>
+          </DialogDescription>
+        </DialogHeader>
 
-          <input
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <Input
             ref={inputRef}
             type={isTotp ? 'text' : 'password'}
             inputMode={isTotp ? 'numeric' : 'text'}
@@ -89,32 +91,33 @@ export default function LockdownAuthModal({ isOpen, onClose, onSubmit, authMetho
               setError('');
             }}
             placeholder={isTotp ? '123456' : 'Master password'}
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 dark:text-gray-100"
+            aria-invalid={!!error}
             autoFocus
           />
 
           {error && (
-            <p className="text-sm text-red-600 dark:text-red-400 mt-2">{error}</p>
+            <Alert variant="destructive">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
           )}
 
-          <div className="flex gap-3 mt-6">
-            <button
+          <DialogFooter className="mt-2">
+            <Button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              variant="outline"
             >
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
               type="submit"
               disabled={!credential || loading}
-              className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg transition-colors"
             >
               {loading ? 'Verifying...' : 'Unlock'}
-            </button>
-          </div>
+            </Button>
+          </DialogFooter>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

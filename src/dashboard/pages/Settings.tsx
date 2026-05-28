@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Save, Trash2, AlertTriangle, Sun, Moon, Monitor, Lock, GitBranch, ShieldCheck } from 'lucide-react';
 import QRCode from 'react-qr-code';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Settings as SettingsType } from '../../shared/types';
 import { applyTheme } from '../../shared/theme';
 import { buildOtpAuthUri, generateTotpSecret, verifyTotpCode } from '../../shared/totp';
@@ -180,12 +182,12 @@ export default function SettingsPage() {
 
   return (
     <div className="max-w-2xl">
-      <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-6">Settings</h1>
+      <h1 className="text-2xl font-bold text-foreground mb-6">Settings</h1>
 
       {/* Appearance */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 mb-6">
+      <div className="rounded-xl border bg-card p-6 mb-6">
         <h2 className="text-lg font-semibold mb-4">Appearance</h2>
-        <div className="space-y-4">
+        <div className="flex flex-col gap-4">
           <div>
             <label className="block font-medium mb-2">Theme</label>
             <div className="flex gap-2">
@@ -194,12 +196,12 @@ export default function SettingsPage() {
                 { value: 'dark', label: 'Dark', icon: Moon },
                 { value: 'system', label: 'System', icon: Monitor },
               ].map(({ value, label, icon: Icon }) => (
-                <button
+                <Button
                   key={value}
                   onClick={() => {
                     const newSettings = { ...settings!, theme: value as SettingsType['theme'] };
                     setSettings(newSettings);
-                    applyTheme(value as SettingsType['theme']);
+                    applyTheme(value as SettingsType['theme'], settings.colorTheme || 'monochrome');
                     chrome.runtime.sendMessage({
                       type: 'UPDATE_SETTINGS',
                       payload: { theme: value },
@@ -213,23 +215,58 @@ export default function SettingsPage() {
                 >
                   <Icon className="w-4 h-4" />
                   {label}
-                </button>
+                </Button>
               ))}
+            </div>
+          </div>
+
+          <div>
+            <label className="block font-medium mb-2">Color Theme</label>
+            <p className="mb-2 text-sm text-muted-foreground">
+              Choose the extension accent palette.
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                { value: 'monochrome', label: 'Monochrome', swatch: 'bg-zinc-900 dark:bg-zinc-100' },
+                { value: 'blue', label: 'Classic Blue', swatch: 'bg-blue-600' },
+              ].map(({ value, label, swatch }) => {
+                const colorTheme = value as NonNullable<SettingsType['colorTheme']>;
+                const selected = (settings.colorTheme || 'monochrome') === colorTheme;
+                return (
+                  <Button
+                    key={value}
+                    type="button"
+                    variant={selected ? 'default' : 'outline'}
+                    onClick={() => {
+                      setSettings({ ...settings, colorTheme });
+                      applyTheme(settings.theme, colorTheme);
+                      chrome.runtime.sendMessage({
+                        type: 'UPDATE_SETTINGS',
+                        payload: { colorTheme },
+                      });
+                    }}
+                    className="justify-start"
+                  >
+                    <span className={`size-3 rounded-full ${swatch}`} />
+                    {label}
+                  </Button>
+                );
+              })}
             </div>
           </div>
         </div>
       </div>
 
       {/* General Settings */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 mb-6">
+      <div className="rounded-xl border bg-card p-6 mb-6">
         <h2 className="text-lg font-semibold mb-4">General</h2>
-        <div className="space-y-4">
+        <div className="flex flex-col gap-4">
           <label className="flex items-center justify-between">
             <div>
               <span className="font-medium">Enable Tracking</span>
-              <p className="text-sm text-gray-500">Record time spent on websites</p>
+              <p className="text-sm text-muted-foreground">Record time spent on websites</p>
             </div>
-            <input
+            <Input
               type="checkbox"
               checked={settings.trackingEnabled}
               onChange={(e) => setSettings({ ...settings, trackingEnabled: e.target.checked })}
@@ -240,9 +277,9 @@ export default function SettingsPage() {
           <label className="flex items-center justify-between">
             <div>
               <span className="font-medium">Enable Blocking</span>
-              <p className="text-sm text-gray-500">Block access to configured sites</p>
+              <p className="text-sm text-muted-foreground">Block access to configured sites</p>
             </div>
-            <input
+            <Input
               type="checkbox"
               checked={settings.blockingEnabled}
               onChange={(e) => setSettings({ ...settings, blockingEnabled: e.target.checked })}
@@ -253,9 +290,9 @@ export default function SettingsPage() {
           <label className="flex items-center justify-between">
             <div>
               <span className="font-medium">YouTube Channel Tracking</span>
-              <p className="text-sm text-gray-500">Track which YouTube channels you watch</p>
+              <p className="text-sm text-muted-foreground">Track which YouTube channels you watch</p>
             </div>
-            <input
+            <Input
               type="checkbox"
               checked={settings.youtubeTrackingEnabled}
               onChange={(e) => setSettings({ ...settings, youtubeTrackingEnabled: e.target.checked })}
@@ -265,7 +302,7 @@ export default function SettingsPage() {
 
           <div>
             <label className="block font-medium mb-1">Data Retention</label>
-            <p className="text-sm text-gray-500 mb-2">How long to keep tracking history</p>
+            <p className="text-sm text-muted-foreground mb-2">How long to keep tracking history</p>
             <select
               value={settings.retentionDays}
               onChange={(e) => setSettings({ ...settings, retentionDays: parseInt(e.target.value) })}
@@ -281,11 +318,11 @@ export default function SettingsPage() {
 
           <div>
             <label className="block font-medium mb-1">Idle Timeout</label>
-            <p className="text-sm text-gray-500 mb-2">
+            <p className="text-sm text-muted-foreground mb-2">
               Stop tracking after this many seconds of inactivity. Set to 0 to disable.
             </p>
             <div className="flex items-center gap-3">
-              <input
+              <Input
                 type="number"
                 value={settings.idleThreshold}
                 onChange={(e) => setSettings({ ...settings, idleThreshold: parseInt(e.target.value) || 0 })}
@@ -294,10 +331,10 @@ export default function SettingsPage() {
                 step={15}
                 className="w-32 px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
-              <span className="text-sm text-gray-500">seconds</span>
+              <span className="text-sm text-muted-foreground">seconds</span>
               <div className="flex gap-2 ml-auto">
                 {[30, 60, 120, 300].map((val) => (
-                  <button
+                  <Button
                     key={val}
                     type="button"
                     onClick={() => setSettings({ ...settings, idleThreshold: val })}
@@ -308,36 +345,36 @@ export default function SettingsPage() {
                     }`}
                   >
                     {val < 60 ? `${val}s` : `${val / 60}m`}
-                  </button>
+                  </Button>
                 ))}
               </div>
             </div>
-            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+            <p className="text-xs text-gray-400 dark:text-muted-foreground mt-1">
               Minimum: 15 seconds (Chrome API limit). Tracking also pauses when windows are minimized.
             </p>
           </div>
         </div>
 
-        <button
+        <Button
           onClick={saveSettings}
           disabled={saving}
           className="mt-6 flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white px-4 py-2 rounded-lg transition-colors"
         >
           <Save className="w-4 h-4" />
           {saving ? 'Saving...' : 'Save Settings'}
-        </button>
+        </Button>
       </div>
 
       {/* New Tab Settings */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 mb-6">
+      <div className="rounded-xl border bg-card p-6 mb-6">
         <h2 className="text-lg font-semibold mb-4">New Tab</h2>
-        <div className="space-y-4">
+        <div className="flex flex-col gap-4">
           <div>
             <label className="block font-medium mb-1">Display Name</label>
-            <p className="text-sm text-gray-500 mb-2">
+            <p className="text-sm text-muted-foreground mb-2">
               Your name for the greeting on new tabs
             </p>
-            <input
+            <Input
               type="text"
               value={settings.displayName}
               onChange={(e) => setSettings({ ...settings, displayName: e.target.value })}
@@ -345,33 +382,33 @@ export default function SettingsPage() {
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-muted-foreground">
             Quick links can be added and removed directly on the new tab page.
           </p>
         </div>
 
-        <button
+        <Button
           onClick={saveSettings}
           disabled={saving}
           className="mt-6 flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white px-4 py-2 rounded-lg transition-colors"
         >
           <Save className="w-4 h-4" />
           {saving ? 'Saving...' : 'Save Settings'}
-        </button>
+        </Button>
       </div>
 
       {/* Master Password */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 mb-6">
+      <div className="rounded-xl border bg-card p-6 mb-6">
         <h2 className="text-lg font-semibold mb-4">Master Password</h2>
-        <p className="text-sm text-gray-500 mb-4">
+        <p className="text-sm text-muted-foreground mb-4">
           Set a master password for unlocking password-protected blocked sites.
           {settings.passwordHash && (
             <span className="ml-1 text-green-600">(Currently set)</span>
           )}
         </p>
 
-        <div className="space-y-3">
-          <input
+        <div className="flex flex-col gap-3">
+          <Input
             type="password"
             value={newPassword}
             onChange={(e) => {
@@ -381,7 +418,7 @@ export default function SettingsPage() {
             placeholder="New password"
             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           />
-          <input
+          <Input
             type="password"
             value={confirmPassword}
             onChange={(e) => {
@@ -394,23 +431,23 @@ export default function SettingsPage() {
           {passwordError && (
             <p className="text-sm text-red-600">{passwordError}</p>
           )}
-          <button
+          <Button
             onClick={setMasterPassword}
             className="bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 px-4 py-2 rounded-lg transition-colors"
           >
             {settings.passwordHash ? 'Update Password' : 'Set Password'}
-          </button>
+          </Button>
         </div>
 
         {/* Lockdown Mode */}
         <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
           <div className="mb-4">
             <span className="font-medium">Lockdown Authentication Method</span>
-            <p className="text-sm text-gray-500 mt-1">
+            <p className="text-sm text-muted-foreground mt-1">
               Choose the one method Lockdown Mode should require for protected actions.
             </p>
             <div className="mt-3 grid grid-cols-2 gap-2">
-              <button
+              <Button
                 type="button"
                 disabled={!settings.passwordHash}
                 onClick={async () => {
@@ -429,8 +466,8 @@ export default function SettingsPage() {
               >
                 <Lock className="w-4 h-4" />
                 Master password
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
                 disabled={!settings.lockdownTotpSecret}
                 onClick={async () => {
@@ -449,7 +486,7 @@ export default function SettingsPage() {
               >
                 <ShieldCheck className="w-4 h-4" />
                 Authenticator app
-              </button>
+              </Button>
             </div>
           </div>
 
@@ -458,7 +495,7 @@ export default function SettingsPage() {
               <Lock className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5" />
               <div>
                 <span className="font-medium">Lockdown Mode</span>
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-muted-foreground">
                   Require the selected Lockdown authentication method to disable blocking, remove sites, or disable limits.
                   {!hasLockdownMethod && (
                     <span className="block text-amber-600 dark:text-amber-400 mt-1">
@@ -468,7 +505,7 @@ export default function SettingsPage() {
                 </p>
               </div>
             </div>
-            <input
+            <Input
               type="checkbox"
               checked={settings.lockdownEnabled ?? false}
               onChange={async (e) => {
@@ -487,9 +524,9 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 mb-6">
+      <div className="rounded-xl border bg-card p-6 mb-6">
         <h2 className="text-lg font-semibold mb-4">Authenticator App</h2>
-        <p className="text-sm text-gray-500 mb-4">
+        <p className="text-sm text-muted-foreground mb-4">
           Set up a TOTP authenticator app as an alternative Lockdown authentication method.
           {settings.lockdownTotpSecret && (
             <span className="ml-1 text-green-600">(Currently set)</span>
@@ -498,23 +535,23 @@ export default function SettingsPage() {
 
         {!totpSecretDraft ? (
           <div className="flex items-center gap-3">
-            <button
+            <Button
               onClick={beginTotpSetup}
               className="bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 px-4 py-2 rounded-lg transition-colors"
             >
               {settings.lockdownTotpSecret ? 'Replace Authenticator Setup' : 'Set Up Authenticator'}
-            </button>
+            </Button>
             {settings.lockdownTotpSecret && (
-              <button
+              <Button
                 onClick={clearTotpSetup}
                 className="px-4 py-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
               >
                 Remove Authenticator
-              </button>
+              </Button>
             )}
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="flex flex-col gap-4">
             <div className="rounded-lg bg-gray-50 dark:bg-gray-700/50 p-4">
               <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
                 Scan this QR code with your authenticator app, then enter the 6-digit code to confirm setup.
@@ -530,20 +567,20 @@ export default function SettingsPage() {
                   />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground mb-2">
                     Backup setup key
                   </p>
-                  <div className="font-mono text-sm break-all text-gray-900 dark:text-gray-100">
+                  <div className="font-mono text-sm break-all text-foreground">
                     {totpSecretDraft}
                   </div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-3">
+                  <p className="text-xs text-muted-foreground mt-3">
                     Use the setup key only if your authenticator app cannot scan QR codes.
                   </p>
                 </div>
               </div>
             </div>
 
-            <input
+            <Input
               type="text"
               inputMode="numeric"
               maxLength={6}
@@ -560,13 +597,13 @@ export default function SettingsPage() {
             )}
 
             <div className="flex gap-3">
-              <button
+              <Button
                 onClick={confirmTotpSetup}
                 className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
               >
                 Confirm Authenticator
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={() => {
                   setTotpSecretDraft('');
                   setTotpCode('');
@@ -575,27 +612,27 @@ export default function SettingsPage() {
                 className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
               >
                 Cancel
-              </button>
+              </Button>
             </div>
           </div>
         )}
       </div>
 
       {/* Data Management */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 mb-6">
+      <div className="rounded-xl border bg-card p-6 mb-6">
         <h2 className="text-lg font-semibold mb-4">Data Management</h2>
 
-        <div className="space-y-4">
+        <div className="flex flex-col gap-4">
           <div className="flex items-center gap-3">
-            <button
+            <Button
               onClick={exportData}
               className="bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 px-4 py-2 rounded-lg transition-colors"
             >
               Export Data
-            </button>
+            </Button>
             <label className="bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 px-4 py-2 rounded-lg transition-colors cursor-pointer">
               Import Data
-              <input
+              <Input
                 type="file"
                 accept=".json"
                 onChange={(e) => e.target.files?.[0] && importData(e.target.files[0])}
@@ -612,13 +649,13 @@ export default function SettingsPage() {
                 <p className="text-sm text-red-700 dark:text-red-400 mb-3">
                   This will permanently delete all your data including tracking history, blocked sites, and settings.
                 </p>
-                <button
+                <Button
                   onClick={clearAllData}
                   className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-colors"
                 >
                   <Trash2 className="w-4 h-4" />
                   Clear All Data
-                </button>
+                </Button>
               </div>
             </div>
           </div>
@@ -626,7 +663,7 @@ export default function SettingsPage() {
       </div>
 
       {/* About */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
+      <div className="rounded-xl border bg-card p-6">
         <h2 className="text-lg font-semibold mb-4">About</h2>
         <a
           href="https://github.com/ericfzhu/browserutils"

@@ -1,5 +1,17 @@
 import { useEffect, useState } from 'react';
 import { Plus, X, Settings } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Separator } from '@/components/ui/separator';
 import { DailyStats, Settings as SettingsType, QuickLink } from '../shared/types';
 
 function formatTime(seconds: number): string {
@@ -170,29 +182,30 @@ export default function App() {
     : [];
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-background text-foreground">
       <div className="max-w-4xl mx-auto px-4 py-16">
         {/* Header with settings */}
         <div className="absolute top-4 right-4">
-          <button
+          <Button
             onClick={openDashboard}
-            className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors"
+            variant="ghost"
+            size="icon"
             title="Open Dashboard"
           >
-            <Settings className="w-5 h-5" />
-          </button>
+            <Settings />
+          </Button>
         </div>
 
         {/* Greeting & Time */}
         <div className="text-center mb-12">
-          <h1 className="text-4xl font-light text-gray-700 dark:text-gray-300 mb-2">
+          <h1 className="mb-2 text-4xl font-light text-muted-foreground">
             {greeting}
             {settings?.displayName && (
-              <span className="text-blue-600 dark:text-blue-400">, {settings.displayName}</span>
+              <span className="text-primary">, {settings.displayName}</span>
             )}
           </h1>
-          <div className="text-6xl font-extralight tracking-tight text-gray-900 dark:text-gray-100 mb-2">{time}</div>
-          <p className="text-gray-400 dark:text-gray-500">{formatDate()}</p>
+          <div className="mb-2 text-6xl font-extralight tracking-tight">{time}</div>
+          <p className="text-muted-foreground">{formatDate()}</p>
         </div>
 
         {/* Quick Links */}
@@ -202,95 +215,101 @@ export default function App() {
               <a
                 key={link.id}
                 href={link.url}
-                className="group relative flex flex-col items-center gap-2 p-4 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-2xl transition-colors min-w-[100px] border border-gray-200 dark:border-gray-700 shadow-sm"
+                className="group relative flex min-w-[100px] flex-col items-center gap-2 rounded-2xl border bg-card p-4 text-card-foreground shadow-sm transition-colors hover:bg-muted"
               >
-                <button
+                <Button
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
                     removeQuickLink(link.id);
                   }}
-                  className="absolute -top-2 -right-2 p-1 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="absolute -right-2 -top-2 opacity-0 transition-opacity group-hover:opacity-100"
+                  variant="destructive"
+                  size="icon-xs"
                 >
-                  <X className="w-3 h-3" />
-                </button>
-                <div className="w-12 h-12 bg-gray-100 dark:bg-gray-700 rounded-xl flex items-center justify-center overflow-hidden">
+                  <X />
+                </Button>
+                <div className="flex size-12 items-center justify-center overflow-hidden rounded-xl bg-muted">
                   <img
                     src={getFaviconUrl(link.url)}
                     alt={link.name}
-                    className="w-8 h-8"
+                    className="size-8"
                     onError={(e) => {
                       // Fallback to first letter if favicon fails
                       e.currentTarget.style.display = 'none';
-                      e.currentTarget.parentElement!.innerHTML = `<span class="text-2xl text-gray-400 dark:text-gray-500">${link.name.charAt(0).toUpperCase()}</span>`;
+                      e.currentTarget.parentElement!.innerHTML = `<span class="text-2xl text-muted-foreground">${link.name.charAt(0).toUpperCase()}</span>`;
                     }}
                   />
                 </div>
-                <span className="text-sm text-gray-600 dark:text-gray-300">{link.name}</span>
+                <span className="text-sm text-muted-foreground">{link.name}</span>
               </a>
             ))}
 
             {/* Add Link Button */}
-            <button
+            <Button
               onClick={() => setShowAddLink(true)}
-              className="flex flex-col items-center gap-2 p-4 bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-2xl transition-colors min-w-[100px] border-2 border-dashed border-gray-300 dark:border-gray-600"
+              variant="outline"
+              className="flex h-auto min-w-[100px] flex-col items-center gap-2 rounded-2xl border-dashed p-4"
             >
-              <div className="w-12 h-12 rounded-xl flex items-center justify-center">
-                <Plus className="w-6 h-6 text-gray-400 dark:text-gray-500" />
+              <div className="flex size-12 items-center justify-center rounded-xl">
+                <Plus className="size-6 text-muted-foreground" />
               </div>
-              <span className="text-sm text-gray-400 dark:text-gray-500">Add</span>
-            </button>
+              <span className="text-sm text-muted-foreground">Add</span>
+            </Button>
           </div>
         </div>
 
         {/* Today's Stats */}
         <div className="max-w-sm mx-auto">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm">
-            <h2 className="text-sm font-medium text-gray-400 dark:text-gray-500 mb-4">Today</h2>
-            <div className="space-y-3">
+          <Card className="rounded-2xl shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-sm font-medium text-muted-foreground">Today</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-3">
               <div className="flex items-center justify-between">
-                <span className="text-gray-500 dark:text-gray-400">Browsing time</span>
-                <span className="font-medium text-gray-900 dark:text-gray-100">{formatTime(stats?.totalTime || 0)}</span>
+                <span className="text-muted-foreground">Browsing time</span>
+                <span className="font-medium">{formatTime(stats?.totalTime || 0)}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-gray-500 dark:text-gray-400">Sites visited</span>
-                <span className="font-medium text-gray-900 dark:text-gray-100">{Object.keys(stats?.sites || {}).length}</span>
+                <span className="text-muted-foreground">Sites visited</span>
+                <span className="font-medium">{Object.keys(stats?.sites || {}).length}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-gray-500 dark:text-gray-400">Distractions blocked</span>
-                <span className="font-medium text-gray-900 dark:text-gray-100">{stats?.blockedAttempts || 0}</span>
+                <span className="text-muted-foreground">Distractions blocked</span>
+                <span className="font-medium">{stats?.blockedAttempts || 0}</span>
               </div>
 
               {topSites.length > 0 && (
                 <>
-                  <div className="border-t border-gray-100 dark:border-gray-700 my-3" />
-                  <p className="text-xs text-gray-400 dark:text-gray-500 mb-2">Top sites</p>
+                  <Separator className="my-3" />
+                  <p className="mb-2 text-xs text-muted-foreground">Top sites</p>
                   {topSites.map(([domain, siteTime]) => (
                     <div key={domain} className="flex items-center justify-between text-sm">
-                      <span className="text-gray-500 dark:text-gray-400 truncate">{domain}</span>
-                      <span className="text-gray-400 dark:text-gray-500">{formatTime(siteTime)}</span>
+                      <span className="truncate text-muted-foreground">{domain}</span>
+                      <span className="text-muted-foreground">{formatTime(siteTime)}</span>
                     </div>
                   ))}
                 </>
               )}
-            </div>
-          </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
 
       {/* Add Link Modal */}
-      {showAddLink && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-sm mx-4 shadow-xl">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">Add Quick Link</h2>
-            <div className="space-y-4">
+      <Dialog open={showAddLink} onOpenChange={setShowAddLink}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Quick Link</DialogTitle>
+            <DialogDescription>Favicon and name will be auto-detected.</DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-4">
               <div>
-                <input
+                <Input
                   type="text"
                   value={newLinkUrl}
                   onChange={(e) => setNewLinkUrl(e.target.value)}
                   placeholder="Enter URL (e.g., github.com)"
-                  className="w-full bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   autoFocus
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && newLinkUrl) {
@@ -298,32 +317,27 @@ export default function App() {
                     }
                   }}
                 />
-                <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">
-                  Favicon and name will be auto-detected
-                </p>
               </div>
-              <div className="flex justify-end gap-3">
-                <button
+              <DialogFooter>
+                <Button
                   onClick={() => {
                     setShowAddLink(false);
                     setNewLinkUrl('');
                   }}
-                  className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
+                  variant="outline"
                 >
                   Cancel
-                </button>
-                <button
+                </Button>
+                <Button
                   onClick={addQuickLink}
                   disabled={!newLinkUrl}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-lg transition-colors"
                 >
                   Add
-                </button>
-              </div>
-            </div>
+                </Button>
+              </DialogFooter>
           </div>
-        </div>
-      )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

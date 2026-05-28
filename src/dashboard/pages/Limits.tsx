@@ -1,5 +1,20 @@
 import { useEffect, useState } from 'react';
-import { Plus, Trash2, Edit2, X, Check } from 'lucide-react';
+import { Plus, Trash2, Edit2, Check } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Progress } from '@/components/ui/progress';
+import { Switch } from '@/components/ui/switch';
 import { DailyLimit, DailyStats } from '../../shared/types';
 import { hashPassword } from '../../shared/storage';
 import { useLockdown } from '../hooks/useLockdown';
@@ -199,7 +214,7 @@ export default function Limits() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div className="size-12 animate-spin rounded-full border-b-2 border-primary"></div>
       </div>
     );
   }
@@ -208,36 +223,32 @@ export default function Limits() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Daily Limits</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400">Set maximum daily time for specific sites</p>
+          <h1 className="text-2xl font-bold">Daily Limits</h1>
+          <p className="text-sm text-muted-foreground">Set maximum daily time for specific sites</p>
         </div>
-        <button
+        <Button
           onClick={openAddModal}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
         >
-          <Plus className="w-5 h-5" />
+          <Plus data-icon="inline-start" />
           Add Limit
-        </button>
+        </Button>
       </div>
 
       {limits.length === 0 ? (
-        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-12 text-center">
-          <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Plus className="w-8 h-8 text-gray-400 dark:text-gray-500" />
+        <Card className="p-12 text-center">
+          <div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-full bg-muted">
+            <Plus className="size-8 text-muted-foreground" />
           </div>
-          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">No limits configured</h3>
-          <p className="text-gray-500 dark:text-gray-400 mb-4">
+          <h3 className="mb-2 text-lg font-medium">No limits configured</h3>
+          <p className="mb-4 text-muted-foreground">
             Set daily time limits to control how much time you spend on specific sites
           </p>
-          <button
-            onClick={openAddModal}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
+          <Button onClick={openAddModal}>
             Add Your First Limit
-          </button>
-        </div>
+          </Button>
+        </Card>
       ) : (
-        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 divide-y divide-gray-200 dark:divide-gray-700">
+        <Card className="divide-y overflow-hidden">
           {limits.map((limit) => {
             const timeSpent = getTimeSpent(limit.pattern);
             const percent = (timeSpent / limit.limitSeconds) * 100;
@@ -249,24 +260,18 @@ export default function Limits() {
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="font-medium text-gray-900 dark:text-gray-100">{limit.pattern}</span>
+                      <span className="font-medium">{limit.pattern}</span>
                       {!limit.enabled && (
-                        <span className="text-xs px-2 py-0.5 bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded-full">
-                          Disabled
-                        </span>
+                        <Badge variant="secondary">Disabled</Badge>
                       )}
                       {exceeded && limit.enabled && (
-                        <span className="text-xs px-2 py-0.5 bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 rounded-full">
-                          Exceeded
-                        </span>
+                        <Badge variant="destructive">Exceeded</Badge>
                       )}
                       {approaching && limit.enabled && !exceeded && (
-                        <span className="text-xs px-2 py-0.5 bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300 rounded-full">
-                          Approaching
-                        </span>
+                        <Badge variant="outline">Approaching</Badge>
                       )}
                     </div>
-                    <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
+                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
                       <span>Limit: {formatTime(limit.limitSeconds)}/day</span>
                       <span>
                         Bypass:{' '}
@@ -279,105 +284,75 @@ export default function Limits() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => toggleEnabled(limit)}
-                      className={`relative w-10 h-6 rounded-full transition-colors ${
-                        limit.enabled ? 'bg-blue-600' : 'bg-gray-300'
-                      }`}
-                    >
-                      <div
-                        className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${
-                          limit.enabled ? 'left-5' : 'left-1'
-                        }`}
-                      />
-                    </button>
-                    <button
+                    <Switch checked={limit.enabled} onCheckedChange={() => toggleEnabled(limit)} />
+                    <Button
                       onClick={() => openEditModal(limit)}
-                      className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+                      variant="ghost"
+                      size="icon"
                     >
-                      <Edit2 className="w-4 h-4" />
-                    </button>
-                    <button
+                      <Edit2 />
+                    </Button>
+                    <Button
                       onClick={() => handleDelete(limit.id)}
-                      className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg"
+                      variant="ghost"
+                      size="icon"
                     >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                      <Trash2 />
+                    </Button>
                   </div>
                 </div>
 
                 {/* Progress bar */}
                 <div className="flex items-center gap-3">
-                  <div className="flex-1 h-3 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
-                    <div
-                      className={`h-full rounded-full transition-all ${
-                        exceeded
-                          ? 'bg-red-500'
-                          : approaching
-                          ? 'bg-amber-500'
-                          : 'bg-green-500'
-                      }`}
-                      style={{ width: `${Math.min(100, percent)}%` }}
-                    />
-                  </div>
-                  <span className="text-sm text-gray-600 dark:text-gray-400 w-24 text-right">
+                  <Progress value={Math.min(100, percent)} className="flex-1" />
+                  <span className="w-24 text-right text-sm text-muted-foreground">
                     {formatTime(timeSpent)} / {formatTime(limit.limitSeconds)}
                   </span>
                 </div>
               </div>
             );
           })}
-        </div>
+        </Card>
       )}
 
       {/* Add/Edit Modal */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-xl w-full max-w-md p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-lg font-semibold">
-                {editingLimit ? 'Edit Limit' : 'Add Daily Limit'}
-              </h2>
-              <button
-                onClick={() => setShowModal(false)}
-                className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded-lg"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+      <Dialog open={showModal} onOpenChange={setShowModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{editingLimit ? 'Edit Limit' : 'Add Daily Limit'}</DialogTitle>
+          </DialogHeader>
 
-            <div className="space-y-4">
+            <div className="flex flex-col gap-4">
               {/* Domain */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Domain</label>
-                <input
+              <div className="flex flex-col gap-1">
+                <Label>Domain</Label>
+                <Input
                   type="text"
                   value={formData.pattern}
                   onChange={(e) => setFormData({ ...formData, pattern: e.target.value })}
                   onBlur={(e) => setFormData({ ...formData, pattern: normalizeLimitDomain(e.target.value) })}
                   placeholder="e.g., youtube.com"
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                <p className="text-xs text-muted-foreground">
                   Full URLs are reduced to a domain, for example `https://www.youtube.com/watch?v=123` becomes `youtube.com`.
                 </p>
               </div>
 
               {/* Time Limit */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Daily Limit</label>
+              <div className="flex flex-col gap-1">
+                <Label>Daily Limit</Label>
                 <div className="flex items-center gap-2">
-                  <input
+                  <Input
                     type="number"
                     min="0"
                     value={formData.limitHours}
                     onChange={(e) =>
                       setFormData({ ...formData, limitHours: parseInt(e.target.value) || 0 })
                     }
-                    className="w-20 px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-20"
                   />
-                  <span className="text-gray-500 dark:text-gray-400">hours</span>
-                  <input
+                  <span className="text-muted-foreground">hours</span>
+                  <Input
                     type="number"
                     min="0"
                     max="59"
@@ -385,21 +360,19 @@ export default function Limits() {
                     onChange={(e) =>
                       setFormData({ ...formData, limitMinutes: parseInt(e.target.value) || 0 })
                     }
-                    className="w-20 px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-20"
                   />
-                  <span className="text-gray-500 dark:text-gray-400">minutes</span>
+                  <span className="text-muted-foreground">minutes</span>
                 </div>
               </div>
 
               {/* Bypass Type */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Bypass Method
-                </label>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+              <div className="flex flex-col gap-2">
+                <Label>Bypass Method</Label>
+                <p className="text-xs text-muted-foreground">
                   How can you continue after reaching the limit?
                 </p>
-                <div className="space-y-2">
+                <div className="flex flex-col gap-2">
                   <label className="flex items-center gap-3 p-3 border border-gray-200 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700">
                     <input
                       type="radio"
@@ -410,7 +383,7 @@ export default function Limits() {
                     />
                     <div>
                       <span className="text-sm font-medium">Wait to continue</span>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">Must wait before bypassing</p>
+                      <p className="text-xs text-muted-foreground">Must wait before bypassing</p>
                     </div>
                   </label>
                   <label className="flex items-center gap-3 p-3 border border-gray-200 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700">
@@ -423,7 +396,7 @@ export default function Limits() {
                     />
                     <div>
                       <span className="text-sm font-medium">Password required</span>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">Enter password to continue</p>
+                      <p className="text-xs text-muted-foreground">Enter password to continue</p>
                     </div>
                   </label>
                   <label className="flex items-center gap-3 p-3 border border-gray-200 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700">
@@ -436,7 +409,7 @@ export default function Limits() {
                     />
                     <div>
                       <span className="text-sm font-medium">No bypass</span>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">Blocked until midnight</p>
+                      <p className="text-xs text-muted-foreground">Blocked until midnight</p>
                     </div>
                   </label>
                 </div>
@@ -444,11 +417,11 @@ export default function Limits() {
 
               {/* Cooldown Duration */}
               {formData.bypassType === 'cooldown' && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <div className="flex flex-col gap-1">
+                  <Label>
                     Wait Time (seconds)
-                  </label>
-                  <input
+                  </Label>
+                  <Input
                     type="number"
                     min="10"
                     max="300"
@@ -456,48 +429,49 @@ export default function Limits() {
                     onChange={(e) =>
                       setFormData({ ...formData, cooldownSeconds: parseInt(e.target.value) || 30 })
                     }
-                    className="w-24 px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-24"
                   />
                 </div>
               )}
 
               {/* Password */}
               {formData.bypassType === 'password' && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <div className="flex flex-col gap-1">
+                  <Label>
                     {editingLimit ? 'New Password (leave empty to keep current)' : 'Password'}
-                  </label>
-                  <input
+                  </Label>
+                  <Input
                     type="password"
                     value={formData.password}
                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                     placeholder="Enter password"
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
               )}
 
-              {error && <p className="text-sm text-red-600">{error}</p>}
+              {error && (
+                <Alert variant="destructive">
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
 
-              <div className="flex justify-end gap-3 pt-4">
-                <button
+              <DialogFooter>
+                <Button
                   onClick={() => setShowModal(false)}
-                  className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                  variant="outline"
                 >
                   Cancel
-                </button>
-                <button
+                </Button>
+                <Button
                   onClick={handleSubmit}
-                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                 >
-                  <Check className="w-4 h-4" />
+                  <Check data-icon="inline-start" />
                   {editingLimit ? 'Save Changes' : 'Add Limit'}
-                </button>
-              </div>
+                </Button>
+              </DialogFooter>
             </div>
-          </div>
-        </div>
-      )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

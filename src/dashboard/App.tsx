@@ -10,6 +10,8 @@ import SettingsPage from './pages/Settings';
 import Changelog, { CURRENT_VERSION } from './pages/Changelog';
 import { LockdownProvider, useLockdown } from './hooks/useLockdown';
 import LockdownAuthModal from '../shared/components/LockdownAuthModal';
+import { Separator } from '@/components/ui/separator';
+import { cn } from '@/lib/utils';
 
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Overview' },
@@ -61,19 +63,19 @@ export default function App() {
   return (
     <LockdownProvider>
       <LockdownModal />
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex">
+      <div className="flex min-h-screen bg-background text-foreground">
       {/* Sidebar */}
-      <nav className="w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 p-4 flex flex-col h-screen sticky top-0">
+      <nav className="sticky top-0 flex h-screen w-64 flex-col border-r bg-card p-4 text-card-foreground">
         <div
           className="flex items-center gap-2 mb-8 cursor-default"
           onMouseEnter={() => setIsHovered(true)}
           onMouseLeave={() => setIsHovered(false)}
         >
-          <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center">
-            <Shield className="w-6 h-6 text-white" />
+          <div className="flex size-10 items-center justify-center rounded-lg bg-primary">
+            <Shield className="size-6 text-primary-foreground" />
           </div>
           <div>
-            <h1 className="font-bold text-gray-900 dark:text-gray-100 relative overflow-hidden h-6">
+            <h1 className="relative h-6 overflow-hidden font-bold">
               <span
                 className={`inline-block transition-all duration-300 ${
                   isHovered ? 'opacity-0 -translate-y-full' : 'opacity-100 translate-y-0'
@@ -89,38 +91,40 @@ export default function App() {
                 Boyoung😘Utils
               </span>
             </h1>
-            <p className="text-xs text-gray-500 dark:text-gray-400">Focus & Productivity</p>
+            <p className="text-xs text-muted-foreground">Focus & Productivity</p>
           </div>
         </div>
 
-        <div className="space-y-1">
+        <div className="flex flex-col gap-1">
           {navItems.map(({ to, icon: Icon, label }) => (
             <NavLink
               key={to}
               to={to}
               className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
+                cn(
+                  'flex items-center gap-3 rounded-lg px-3 py-2 transition-colors',
                   isActive
-                    ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
-                    : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                }`
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                )
               }
             >
-              <Icon className="w-5 h-5" />
+              <Icon className="size-5" />
               {label}
             </NavLink>
           ))}
         </div>
 
-        <div className="mt-auto pt-4 border-t border-gray-200 dark:border-gray-700 space-y-2">
+        <div className="mt-auto flex flex-col gap-2 pt-4">
+          <Separator />
           <Link
             to="/changelog"
-            className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:text-blue-700 dark:hover:text-blue-300 rounded-lg transition-colors"
+            className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
-            <Sparkles className="w-4 h-4" />
+            <Sparkles className="size-4" />
             What's New
           </Link>
-          <p className="text-xs text-gray-400 dark:text-gray-500 text-center">v{CURRENT_VERSION}</p>
+          <p className="text-center text-xs text-muted-foreground">v{CURRENT_VERSION}</p>
         </div>
       </nav>
 

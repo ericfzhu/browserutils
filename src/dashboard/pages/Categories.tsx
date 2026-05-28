@@ -1,6 +1,25 @@
 import { useEffect, useState } from 'react';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
-import { Plus, Pencil, Trash2, GripVertical, X, ChevronRight, CheckSquare, Square } from 'lucide-react';
+import { Plus, Pencil, Trash2, GripVertical, ChevronRight, CheckSquare, Square } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { DailyStatsSummary, CustomCategory } from '../../shared/types';
 import { CATEGORIES, getCategoryForDomain, getCategoryInfoWithOverrides, isBuiltInCategory, DEFAULT_DOMAIN_CATEGORIES, CATEGORY_COLOR_OPTIONS } from '../../shared/categories';
 
@@ -67,42 +86,33 @@ function CategoryModal({ isOpen, onClose, onSave, pendingDomain, editingCategory
   const submitLabel = isEditing ? 'Save changes' : 'Create category';
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-white dark:bg-gray-800 rounded-xl w-full max-w-md mx-4 shadow-xl">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-            {modalTitle}
-          </h2>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-          >
-            <X className="w-5 h-5 text-gray-500" />
-          </button>
-        </div>
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{modalTitle}</DialogTitle>
+        </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           {pendingDomain && (
-            <div className="bg-blue-50 dark:bg-blue-900/30 px-4 py-3 rounded-lg text-sm text-blue-700 dark:text-blue-300">
-              Creating category for: <strong>{pendingDomain}</strong>
-            </div>
+            <Alert>
+              <AlertDescription>
+                Creating category for: <strong>{pendingDomain}</strong>
+              </AlertDescription>
+            </Alert>
           )}
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Category name
-            </label>
-            <input
+          <div className="flex flex-col gap-1">
+            <Label>Category name</Label>
+            <Input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder={isEditingBuiltIn && builtInInfo ? builtInInfo.name : "e.g., Work Tools, Gaming"}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               required
               autoFocus
             />
             {isEditingBuiltIn && builtInInfo && (
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              <p className="text-xs text-muted-foreground">
                 Original name: {builtInInfo.name}
               </p>
             )}
@@ -110,10 +120,8 @@ function CategoryModal({ isOpen, onClose, onSave, pendingDomain, editingCategory
 
           {/* Only show color picker for custom categories */}
           {!isEditingBuiltIn && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Color
-              </label>
+            <div className="flex flex-col gap-2">
+              <Label>Color</Label>
               <div className="grid grid-cols-9 gap-2">
                 {CATEGORY_COLOR_OPTIONS.map(c => (
                   <button
@@ -129,24 +137,23 @@ function CategoryModal({ isOpen, onClose, onSave, pendingDomain, editingCategory
             </div>
           )}
 
-          <div className="flex justify-end gap-3 pt-4">
-            <button
+          <DialogFooter>
+            <Button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              variant="outline"
             >
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
               type="submit"
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
             >
               {submitLabel}
-            </button>
-          </div>
+            </Button>
+          </DialogFooter>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -506,72 +513,72 @@ export default function Categories() {
           {(() => {
             const allCollapsed = categoryOrder.length > 0 && [...categoryOrder, 'other'].every(id => collapsedCategories.has(id));
             return (
-              <button
+              <Button
                 onClick={toggleExpandCollapseAll}
-                className="flex items-center gap-1.5 px-3 py-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors text-sm"
+                variant="ghost"
+                size="sm"
               >
-                <ChevronRight className={`w-4 h-4 transition-transform duration-200 ${allCollapsed ? '' : 'rotate-90'}`} />
+                <ChevronRight data-icon="inline-start" className={`transition-transform duration-200 ${allCollapsed ? '' : 'rotate-90'}`} />
                 <span className="w-[85px]">{allCollapsed ? 'Expand all' : 'Collapse all'}</span>
-              </button>
+              </Button>
             );
           })()}
           {selectMode ? (
             <>
-              <button
+              <Button
                 onClick={exitSelectMode}
-                className="flex items-center gap-2 px-3 py-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                variant="ghost"
+                size="sm"
               >
                 Cancel
-              </button>
+              </Button>
               {selectedSites.size > 0 && (
-                <div className="relative">
-                  <select
-                    onChange={(e) => {
-                      if (e.target.value) {
-                        moveSelectedToCategory(e.target.value);
-                      }
-                    }}
-                    value=""
-                    className="appearance-none pl-3 pr-8 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors cursor-pointer text-sm font-medium"
-                  >
-                    <option value="" disabled>Move {selectedSites.size} site{selectedSites.size !== 1 ? 's' : ''} to...</option>
-                    {displayOrder.map(catId => {
-                      const info = getCategoryInfoWithOverrides(catId, customCategories, builtInOverrides);
-                      return (
-                        <option key={catId} value={catId} className="text-gray-900">
-                          {info.name}
-                        </option>
-                      );
-                    })}
-                  </select>
-                  <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
-                    <ChevronRight className="w-4 h-4 rotate-90" />
-                  </div>
-                </div>
+                <Select
+                  value=""
+                  onValueChange={(value) => {
+                    if (value) moveSelectedToCategory(value);
+                  }}
+                >
+                  <SelectTrigger className="w-[220px] bg-primary text-primary-foreground">
+                    <SelectValue placeholder={`Move ${selectedSites.size} site${selectedSites.size !== 1 ? 's' : ''} to...`} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      {displayOrder.map(catId => {
+                        const info = getCategoryInfoWithOverrides(catId, customCategories, builtInOverrides);
+                        return (
+                          <SelectItem key={catId} value={catId}>
+                            {info.name}
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
               )}
             </>
           ) : (
-            <button
+            <Button
               onClick={() => setSelectMode(true)}
-              className="flex items-center gap-2 px-3 py-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              variant="ghost"
+              size="sm"
               title="Select sites to move"
             >
-              <CheckSquare className="w-4 h-4" />
+              <CheckSquare data-icon="inline-start" />
               Select
-            </button>
+            </Button>
           )}
-          <button
+          <Button
             onClick={() => {
               setPendingDomain(null);
               setEditingCategory(null);
               setEditingBuiltInId(null);
               setShowModal(true);
             }}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
           >
-            <Plus className="w-4 h-4" />
+            <Plus data-icon="inline-start" />
             Add category
-          </button>
+          </Button>
         </div>
       </div>
 
