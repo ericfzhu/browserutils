@@ -345,9 +345,9 @@ export default function App() {
   if (blockType === 'limit' && limitInfo) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background p-4">
-        <Card className="w-full max-w-md shadow-xl">
+        <Card className="w-full max-w-md">
           <CardHeader className="items-center text-center">
-            <div className="mb-2 flex size-16 items-center justify-center rounded-full bg-muted">
+            <div className="mb-2 flex size-16 items-center justify-center rounded-2xl bg-muted shadow-[var(--shadow-border)]">
               <Timer className="size-8 text-primary" />
             </div>
             <CardTitle className="text-2xl">Daily Limit Reached</CardTitle>
@@ -357,20 +357,20 @@ export default function App() {
           </CardHeader>
 
           <CardContent className="flex flex-col gap-6">
-            <div className="rounded-lg border bg-muted/50 p-4">
+            <div className="rounded-xl bg-muted/50 p-4 shadow-[var(--shadow-border)]">
               <div className="mb-2 flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">Time spent today</span>
-                <span className="font-medium">{formatTime(limitInfo.timeSpent)}</span>
+                <span className="font-medium tabular-nums">{formatTime(limitInfo.timeSpent)}</span>
               </div>
               <div className="mb-3 flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">Daily limit</span>
-                <span className="font-medium">{formatTime(limitInfo.limit.limitSeconds)}</span>
+                <span className="font-medium tabular-nums">{formatTime(limitInfo.limit.limitSeconds)}</span>
               </div>
               <Progress value={100} />
             </div>
 
             <p className="text-center text-sm text-muted-foreground">
-              Limit resets in {getTimeUntilMidnight()}
+              Limit resets in <span className="tabular-nums">{getTimeUntilMidnight()}</span>
             </p>
 
             {limitInfo.limit.bypassType === 'cooldown' && (
@@ -381,7 +381,7 @@ export default function App() {
                   </Button>
                 ) : countdown > 0 ? (
                   <div className="py-4 text-center">
-                    <div className="mb-2 text-4xl font-bold">{countdown}</div>
+                    <div className="mb-2 text-4xl font-bold tabular-nums">{countdown}</div>
                     <p className="text-sm text-muted-foreground">Taking a moment to reconsider...</p>
                   </div>
                 ) : (
@@ -451,9 +451,9 @@ export default function App() {
   if (!site) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background p-4">
-        <Card className="w-full max-w-md shadow-xl">
+        <Card className="w-full max-w-md">
           <CardHeader className="items-center text-center">
-            <div className="mb-2 flex size-16 items-center justify-center rounded-full bg-muted">
+            <div className="mb-2 flex size-16 items-center justify-center rounded-2xl bg-muted shadow-[var(--shadow-border)]">
               <Shield className="size-8 text-destructive" />
             </div>
             <CardTitle className="text-2xl">Site Blocked</CardTitle>
@@ -466,9 +466,9 @@ export default function App() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-md shadow-xl">
+      <Card className="w-full max-w-md">
         <CardHeader className="items-center text-center">
-          <div className="mb-2 flex size-16 items-center justify-center rounded-full bg-muted">
+          <div className="mb-2 flex size-16 items-center justify-center rounded-2xl bg-muted shadow-[var(--shadow-border)]">
             <Shield className="size-8 text-destructive" />
           </div>
           <CardTitle className="text-2xl">
@@ -485,13 +485,13 @@ export default function App() {
         <CardContent className="flex flex-col gap-4">
           {focusInfo && (
             <div className="flex flex-col gap-4">
-              <div className="rounded-lg border bg-muted/50 p-4">
+              <div className="rounded-xl bg-muted/50 p-4 shadow-[var(--shadow-border)]">
                 <div className="mb-3 flex items-center gap-2 text-sm text-muted-foreground">
                   <Clock className="size-4" />
                   <span>Focus session active: {focusInfo.label}</span>
                 </div>
                 <div className="text-center">
-                  <div className="mb-1 text-3xl font-bold">
+                  <div className="mb-1 text-3xl font-bold tabular-nums">
                     {formatTimeRemaining(focusRemainingMs)}
                   </div>
                   <p className="text-sm text-muted-foreground">remaining</p>
@@ -533,13 +533,13 @@ export default function App() {
 
           {!focusInfo && site.unlockType === 'timer' && timerRemainingMs > 0 && (
             <div className="flex flex-col gap-4">
-              <div className="rounded-lg border bg-muted/50 p-4">
+              <div className="rounded-xl bg-muted/50 p-4 shadow-[var(--shadow-border)]">
                 <div className="mb-3 flex items-center gap-2 text-sm text-muted-foreground">
                   <Clock className="size-4" />
                   <span>Temporary block active</span>
                 </div>
                 <div className="text-center">
-                  <div className="mb-1 text-3xl font-bold">
+                  <div className="mb-1 text-3xl font-bold tabular-nums">
                     {formatTimeRemaining(timerRemainingMs)}
                   </div>
                   <p className="text-sm text-muted-foreground">remaining</p>

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Clock, Shield, ShieldOff, BarChart3, Settings, Lock, Focus } from 'lucide-react';
+import { Clock, Shield, ShieldOff, BarChart3, Settings, Lock, Focus, X } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -180,9 +180,9 @@ export default function App() {
   const visibleFocusTargets = activeFocusTargets.filter((target) => target.focusUntil > now);
 
   return (
-    <div className="w-80 bg-background text-foreground">
+      <div className="w-80 bg-background text-foreground">
       {/* Header */}
-      <div className="bg-primary p-4 text-primary-foreground">
+      <div className="bg-primary p-4 text-primary-foreground shadow-[var(--shadow-border)]">
         <div className="flex items-center justify-between">
           <h1
             className="text-lg font-semibold cursor-default relative overflow-hidden"
@@ -190,14 +190,14 @@ export default function App() {
             onMouseLeave={() => setIsHovered(false)}
           >
             <span
-              className={`inline-block transition-all duration-300 ${
+              className={`inline-block transition-[transform,opacity] duration-300 ease-out ${
                 isHovered ? 'opacity-0 -translate-y-full' : 'opacity-100 translate-y-0'
               }`}
             >
               BrowserUtils
             </span>
             <span
-              className={`absolute left-0 transition-all duration-300 ${
+              className={`absolute left-0 transition-[transform,opacity] duration-300 ease-out ${
                 isHovered ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-full'
               }`}
             >
@@ -210,11 +210,22 @@ export default function App() {
             size="icon"
             title={settings?.blockingEnabled ? 'Blocking enabled' : 'Blocking disabled'}
           >
-            {settings?.blockingEnabled ? (
-              <Shield />
-            ) : (
-              <ShieldOff />
-            )}
+            <span className="relative grid size-4 place-items-center">
+              <Shield
+                className={`absolute inset-0 transition-[opacity,filter,transform] duration-300 ease-[cubic-bezier(0.2,0,0,1)] ${
+                  settings?.blockingEnabled
+                    ? 'scale-100 opacity-100 blur-none'
+                    : 'scale-[0.25] opacity-0 blur-[4px]'
+                }`}
+              />
+              <ShieldOff
+                className={`absolute inset-0 transition-[opacity,filter,transform] duration-300 ease-[cubic-bezier(0.2,0,0,1)] ${
+                  settings?.blockingEnabled
+                    ? 'scale-[0.25] opacity-0 blur-[4px]'
+                    : 'scale-100 opacity-100 blur-none'
+                }`}
+              />
+            </span>
           </Button>
         </div>
 
@@ -231,7 +242,7 @@ export default function App() {
                 value={password}
                 onChange={(e) => { setPassword(e.target.value); setAuthError(''); }}
                 placeholder="Master password"
-                className="h-8 flex-1 border-white/20 bg-white/10 text-primary-foreground placeholder:text-white/50"
+                className="h-9 flex-1 border-white/20 bg-white/10 text-primary-foreground placeholder:text-white/50"
                 aria-invalid={!!authError}
                 autoFocus
               />
@@ -248,8 +259,9 @@ export default function App() {
                 onClick={() => { setShowPasswordInput(false); setPassword(''); setAuthError(''); }}
                 variant="ghost"
                 size="sm"
+                title="Cancel"
               >
-                X
+                <X />
               </Button>
             </div>
             {authError && (
@@ -262,14 +274,14 @@ export default function App() {
       </div>
 
       {visibleFocusTargets.length > 0 && (
-        <div className="border-b bg-muted/50 p-4">
+        <div className="bg-muted/50 p-4 shadow-[var(--shadow-border)]">
           <div className="flex items-center gap-2 mb-3">
             <Focus className="size-4 text-primary" />
             <h2 className="text-sm font-medium">Focus Mode</h2>
           </div>
           <div className="flex flex-col gap-2">
             {visibleFocusTargets.map((target) => (
-              <Card key={target.id} className="rounded-lg">
+              <Card key={target.id} size="sm">
                 <CardContent className="flex items-center justify-between gap-3 p-3">
                 <div className="min-w-0">
                   <Badge variant="secondary" className="mb-1 text-[10px] uppercase tracking-wide">
@@ -279,7 +291,7 @@ export default function App() {
                     {target.label}
                   </div>
                 </div>
-                <div className="whitespace-nowrap text-sm font-semibold text-primary">
+                <div className="whitespace-nowrap text-sm font-semibold text-primary tabular-nums">
                   {formatTime(Math.max(0, Math.ceil((target.focusUntil - now) / 1000)))}
                 </div>
                 </CardContent>
@@ -290,14 +302,14 @@ export default function App() {
       )}
 
       {/* Today's Stats */}
-      <div className="border-b p-4">
+      <div className="p-4 shadow-[var(--shadow-border)]">
         <h2 className="mb-3 text-sm font-medium text-muted-foreground">Today</h2>
         <div className="grid grid-cols-3 gap-3">
           <div className="text-center">
             <div className="flex items-center justify-center mb-1">
               <Clock className="size-4 text-primary" />
             </div>
-            <div className="text-lg font-semibold">
+            <div className="text-lg font-semibold tabular-nums">
               {formatTime(stats?.totalTime || 0)}
             </div>
             <div className="text-xs text-muted-foreground">Time</div>
@@ -306,14 +318,14 @@ export default function App() {
             <div className="flex items-center justify-center mb-1">
               <BarChart3 className="size-4 text-primary" />
             </div>
-            <div className="text-lg font-semibold">{stats?.visits || 0}</div>
+            <div className="text-lg font-semibold tabular-nums">{stats?.visits || 0}</div>
             <div className="text-xs text-muted-foreground">Visits</div>
           </div>
           <div className="text-center">
             <div className="flex items-center justify-center mb-1">
               <Shield className="size-4 text-destructive" />
             </div>
-            <div className="text-lg font-semibold">{stats?.blockedAttempts || 0}</div>
+            <div className="text-lg font-semibold tabular-nums">{stats?.blockedAttempts || 0}</div>
             <div className="text-xs text-muted-foreground">Blocked</div>
           </div>
         </div>
@@ -321,13 +333,13 @@ export default function App() {
 
       {/* Top Sites */}
       {topSites.length > 0 && (
-        <div className="border-b p-4">
+        <div className="p-4 shadow-[var(--shadow-border)]">
           <h2 className="mb-2 text-sm font-medium text-muted-foreground">Top Sites</h2>
           <div className="flex flex-col gap-2">
             {topSites.map(([domain, time]) => (
               <div key={domain} className="flex items-center justify-between">
                 <span className="text-sm truncate flex-1">{domain}</span>
-                <span className="ml-2 text-sm text-muted-foreground">{formatTime(time)}</span>
+                <span className="ml-2 text-sm text-muted-foreground tabular-nums">{formatTime(time)}</span>
               </div>
             ))}
           </div>

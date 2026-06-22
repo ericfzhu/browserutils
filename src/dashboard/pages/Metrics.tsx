@@ -431,7 +431,7 @@ function Timeline({ sessions, sites, startDate, endDate, animationDirection }: T
         ))}
       </div>
 
-      <div className={`space-y-2 max-h-[450px] transition-all duration-300 overflow-hidden ${expanded ? 'overflow-y-auto' : ''}`}>
+      <div className={`space-y-2 max-h-[450px] transition-[max-height] duration-300 overflow-hidden ${expanded ? 'overflow-y-auto' : ''}`}>
         {sortedSites.map(([domain, totalTime]) => {
           const domainIntervals = sessionsByDomain.get(domain) || [];
           const color = getDomainColor(domain);
@@ -737,7 +737,7 @@ export default function Metrics() {
           <div className="relative flex bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
             {/* Animated sliding background */}
             <div
-              className="absolute top-1 bottom-1 bg-white dark:bg-gray-700 rounded-md shadow transition-all duration-300 ease-out"
+              className="absolute top-1 bottom-1 bg-white dark:bg-gray-700 rounded-md shadow transition-[transform] duration-300 ease-out"
               style={{
                 width: 'calc(25% - 2px)',
                 left: '4px',
@@ -911,7 +911,7 @@ export default function Metrics() {
                         </div>
                         <div className="h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
                           <div
-                            className={`h-full ${info.color} transition-all`}
+                            className={`h-full ${info.color} transition-[width] duration-300 ease-out`}
                             style={{ width: `${percent}%` }}
                           />
                         </div>
@@ -1033,7 +1033,7 @@ export default function Metrics() {
                   <span>{sortedChannels.length} channel{sortedChannels.length !== 1 ? 's' : ''}</span>
                   <span>Total: {formatTime(totalYouTubeTime)}</span>
                 </div>
-                <div className={`space-y-4 max-h-[420px] transition-all duration-300 overflow-hidden ${youtubeExpanded ? 'overflow-y-auto' : ''}`}>
+                <div className={`space-y-4 max-h-[420px] transition-[max-height] duration-300 overflow-hidden ${youtubeExpanded ? 'overflow-y-auto' : ''}`}>
                 {sortedChannels.map(([channel, stats], idx) => {
                   const percent = totalYouTubeTime > 0 ? (stats.time / totalYouTubeTime) * 100 : 0;
                   const barWidth = maxChannelTime > 0 ? (stats.time / maxChannelTime) * 100 : 0;
@@ -1064,7 +1064,7 @@ export default function Metrics() {
                       </div>
                       <div className="h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
                         <div
-                          className="h-full bg-red-500 rounded-full transition-all"
+                          className="h-full bg-red-500 rounded-full transition-[width] duration-300 ease-out"
                           style={{ width: `${barWidth}%` }}
                         />
                       </div>

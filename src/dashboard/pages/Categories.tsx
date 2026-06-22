@@ -701,7 +701,7 @@ export default function Categories() {
 
                     {/* Collapsible Sites List */}
                     <div
-                      className="grid transition-all duration-200 ease-in-out"
+                      className="grid transition-[grid-template-rows] duration-200 ease-in-out"
                       style={{ gridTemplateRows: isCollapsed ? '0fr' : '1fr' }}
                     >
                       <div className="overflow-hidden">

@@ -183,7 +183,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <div className="max-w-4xl mx-auto px-4 py-16">
+      <div className="mx-auto max-w-4xl px-4 py-16">
         {/* Header with settings */}
         <div className="absolute top-4 right-4">
           <Button
@@ -204,7 +204,7 @@ export default function App() {
               <span className="text-primary">, {settings.displayName}</span>
             )}
           </h1>
-          <div className="mb-2 text-6xl font-extralight tracking-tight">{time}</div>
+          <div className="mb-2 text-6xl font-extralight tracking-tight tabular-nums">{time}</div>
           <p className="text-muted-foreground">{formatDate()}</p>
         </div>
 
@@ -215,7 +215,7 @@ export default function App() {
               <a
                 key={link.id}
                 href={link.url}
-                className="group relative flex min-w-[100px] flex-col items-center gap-2 rounded-2xl border bg-card p-4 text-card-foreground shadow-sm transition-colors hover:bg-muted"
+                className="group relative flex min-w-[100px] flex-col items-center gap-2 rounded-2xl bg-card p-4 text-card-foreground shadow-[var(--shadow-card)] transition-[background-color,box-shadow,transform] duration-150 ease-out hover:bg-muted hover:shadow-[var(--shadow-card-hover)] active:scale-[0.96]"
               >
                 <Button
                   onClick={(e) => {
@@ -223,13 +223,14 @@ export default function App() {
                     e.stopPropagation();
                     removeQuickLink(link.id);
                   }}
-                  className="absolute -right-2 -top-2 opacity-0 transition-opacity group-hover:opacity-100"
+                  className="absolute -right-2 -top-2 scale-[0.25] opacity-0 blur-[4px] transition-[opacity,filter,transform] duration-300 ease-[cubic-bezier(0.2,0,0,1)] group-hover:scale-100 group-hover:opacity-100 group-hover:blur-none"
                   variant="destructive"
                   size="icon-xs"
+                  title={`Remove ${link.name}`}
                 >
                   <X />
                 </Button>
-                <div className="flex size-12 items-center justify-center overflow-hidden rounded-xl bg-muted">
+                <div className="flex size-12 items-center justify-center overflow-hidden rounded-xl bg-muted shadow-[var(--shadow-border)]">
                   <img
                     src={getFaviconUrl(link.url)}
                     alt={link.name}
@@ -241,7 +242,7 @@ export default function App() {
                     }}
                   />
                 </div>
-                <span className="text-sm text-muted-foreground">{link.name}</span>
+                <span className="max-w-24 truncate text-sm text-muted-foreground">{link.name}</span>
               </a>
             ))}
 
@@ -249,7 +250,7 @@ export default function App() {
             <Button
               onClick={() => setShowAddLink(true)}
               variant="outline"
-              className="flex h-auto min-w-[100px] flex-col items-center gap-2 rounded-2xl border-dashed p-4"
+              className="flex h-auto min-w-[100px] flex-col items-center gap-2 rounded-2xl p-4 shadow-[var(--shadow-card)] hover:shadow-[var(--shadow-card-hover)]"
             >
               <div className="flex size-12 items-center justify-center rounded-xl">
                 <Plus className="size-6 text-muted-foreground" />
@@ -261,22 +262,22 @@ export default function App() {
 
         {/* Today's Stats */}
         <div className="max-w-sm mx-auto">
-          <Card className="rounded-2xl shadow-sm">
+          <Card>
             <CardHeader>
               <CardTitle className="text-sm font-medium text-muted-foreground">Today</CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-3">
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Browsing time</span>
-                <span className="font-medium">{formatTime(stats?.totalTime || 0)}</span>
+                <span className="font-medium tabular-nums">{formatTime(stats?.totalTime || 0)}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Sites visited</span>
-                <span className="font-medium">{Object.keys(stats?.sites || {}).length}</span>
+                <span className="font-medium tabular-nums">{Object.keys(stats?.sites || {}).length}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">Distractions blocked</span>
-                <span className="font-medium">{stats?.blockedAttempts || 0}</span>
+                <span className="font-medium tabular-nums">{stats?.blockedAttempts || 0}</span>
               </div>
 
               {topSites.length > 0 && (
@@ -286,7 +287,7 @@ export default function App() {
                   {topSites.map(([domain, siteTime]) => (
                     <div key={domain} className="flex items-center justify-between text-sm">
                       <span className="truncate text-muted-foreground">{domain}</span>
-                      <span className="text-muted-foreground">{formatTime(siteTime)}</span>
+                      <span className="text-muted-foreground tabular-nums">{formatTime(siteTime)}</span>
                     </div>
                   ))}
                 </>

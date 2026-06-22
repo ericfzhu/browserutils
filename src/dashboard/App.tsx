@@ -65,26 +65,26 @@ export default function App() {
       <LockdownModal />
       <div className="flex min-h-screen bg-background text-foreground">
       {/* Sidebar */}
-      <nav className="sticky top-0 flex h-screen w-64 flex-col border-r bg-card p-4 text-card-foreground">
+      <nav className="sticky top-0 flex h-screen w-64 flex-col bg-[var(--sidebar)] p-4 text-[var(--sidebar-foreground)] shadow-[inset_-1px_0_0_rgba(0,0,0,0.08),8px_0_24px_-24px_rgba(0,0,0,0.55)] backdrop-blur dark:shadow-[inset_-1px_0_0_rgba(255,255,255,0.12),8px_0_28px_-24px_rgba(0,0,0,0.9)]">
         <div
-          className="flex items-center gap-2 mb-8 cursor-default"
+          className="mb-8 flex cursor-default items-center gap-3 rounded-2xl p-2"
           onMouseEnter={() => setIsHovered(true)}
           onMouseLeave={() => setIsHovered(false)}
         >
-          <div className="flex size-10 items-center justify-center rounded-lg bg-primary">
+          <div className="flex size-10 items-center justify-center rounded-xl bg-primary shadow-[var(--shadow-border)]">
             <Shield className="size-6 text-primary-foreground" />
           </div>
-          <div>
+          <div className="min-w-0">
             <h1 className="relative h-6 overflow-hidden font-bold">
               <span
-                className={`inline-block transition-all duration-300 ${
+                className={`inline-block transition-[transform,opacity] duration-300 ease-out ${
                   isHovered ? 'opacity-0 -translate-y-full' : 'opacity-100 translate-y-0'
                 }`}
               >
                 BrowserUtils
               </span>
               <span
-                className={`absolute left-0 top-0 transition-all duration-300 ${
+                className={`absolute left-0 top-0 transition-[transform,opacity] duration-300 ease-out ${
                   isHovered ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-full'
                 }`}
               >
@@ -102,9 +102,9 @@ export default function App() {
               to={to}
               className={({ isActive }) =>
                 cn(
-                  'flex items-center gap-3 rounded-lg px-3 py-2 transition-colors',
+                  'flex min-h-10 items-center gap-3 rounded-xl px-3 text-sm font-medium transition-[background-color,color,box-shadow,transform] duration-150 ease-out active:scale-[0.96]',
                   isActive
-                    ? 'bg-primary text-primary-foreground'
+                    ? 'bg-primary text-primary-foreground shadow-[var(--shadow-border)]'
                     : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                 )
               }
@@ -119,17 +119,18 @@ export default function App() {
           <Separator />
           <Link
             to="/changelog"
-            className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            className="flex min-h-10 items-center gap-2 rounded-xl px-3 text-sm text-muted-foreground transition-[background-color,color,transform] duration-150 ease-out hover:bg-muted hover:text-foreground active:scale-[0.96]"
           >
             <Sparkles className="size-4" />
             What's New
           </Link>
-          <p className="text-center text-xs text-muted-foreground">v{CURRENT_VERSION}</p>
+          <p className="text-center text-xs text-muted-foreground tabular-nums">v{CURRENT_VERSION}</p>
         </div>
       </nav>
 
       {/* Main content */}
-      <main className="flex-1 p-8 overflow-auto">
+      <main className="flex-1 overflow-auto p-8">
+        <div className="mx-auto max-w-6xl">
         <Routes>
           <Route path="/" element={<Overview />} />
           <Route path="/blocked" element={<BlockedSites />} />
@@ -139,6 +140,7 @@ export default function App() {
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/changelog" element={<Changelog />} />
         </Routes>
+        </div>
       </main>
     </div>
     </LockdownProvider>

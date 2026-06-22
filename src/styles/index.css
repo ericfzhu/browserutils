@@ -4,7 +4,7 @@
 @tailwind utilities;
 
 body {
-  @apply bg-background text-foreground transition-colors;
+  @apply bg-background text-foreground transition-[background-color,color] duration-200 ease-out;
 }
 
 /* Timeline animations */
@@ -82,6 +82,20 @@ body {
     --chart-4: oklch(0.371 0 0);
     --chart-5: oklch(0.269 0 0);
     --radius: 0.625rem;
+    --shadow-border:
+      0px 0px 0px 1px rgba(0, 0, 0, 0.06),
+      0px 1px 2px -1px rgba(0, 0, 0, 0.06),
+      0px 2px 4px 0px rgba(0, 0, 0, 0.04);
+    --shadow-border-hover:
+      0px 0px 0px 1px rgba(0, 0, 0, 0.08),
+      0px 1px 2px -1px rgba(0, 0, 0, 0.08),
+      0px 2px 4px 0px rgba(0, 0, 0, 0.06);
+    --shadow-card:
+      0px 0px 0px 1px rgba(0, 0, 0, 0.06),
+      0px 8px 24px -20px rgba(0, 0, 0, 0.28);
+    --shadow-card-hover:
+      0px 0px 0px 1px rgba(0, 0, 0, 0.08),
+      0px 12px 30px -22px rgba(0, 0, 0, 0.36);
     --sidebar: oklch(0.985 0 0);
     --sidebar-foreground: oklch(0.145 0 0);
     --sidebar-primary: oklch(0.205 0 0);
@@ -158,6 +172,14 @@ body {
     --sidebar-accent-foreground: oklch(0.985 0 0);
     --sidebar-border: oklch(1 0 0 / 10%);
     --sidebar-ring: oklch(0.556 0 0);
+    --shadow-border: 0 0 0 1px rgba(255, 255, 255, 0.08);
+    --shadow-border-hover: 0 0 0 1px rgba(255, 255, 255, 0.13);
+    --shadow-card:
+      0 0 0 1px rgba(255, 255, 255, 0.08),
+      0 12px 28px -22px rgba(0, 0, 0, 0.72);
+    --shadow-card-hover:
+      0 0 0 1px rgba(255, 255, 255, 0.13),
+      0 14px 34px -24px rgba(0, 0, 0, 0.78);
   }
   .dark[data-color-theme="blue"] {
     --background: oklch(0.18 0.035 265);
@@ -201,5 +223,23 @@ body {
   }
   html {
     @apply font-sans;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+  p,
+  li {
+    text-wrap: pretty;
+  }
+  img {
+    outline: 1px solid rgba(0, 0, 0, 0.1);
+    outline-offset: -1px;
+  }
+  .dark img {
+    outline-color: rgba(255, 255, 255, 0.1);
   }
 }

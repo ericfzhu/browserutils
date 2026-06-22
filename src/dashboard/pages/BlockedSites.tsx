@@ -910,7 +910,7 @@ export default function BlockedSites() {
           )}
         </div>
         <div
-          className="grid transition-all duration-200 ease-in-out"
+          className="grid transition-[grid-template-rows] duration-200 ease-in-out"
           style={{ gridTemplateRows: (!folder || !isCollapsed) ? '1fr' : '0fr' }}
         >
           <div className="overflow-hidden">
