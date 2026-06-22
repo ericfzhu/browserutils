@@ -307,8 +307,7 @@ export default function Overview() {
       .sort((a, b) => b.time - a.time);
   }
 
-  // Get limits that are approaching but not yet exceeded.
-  function getLimitsApproaching(): { limit: DailyLimit; timeSpent: number; percent: number }[] {
+  function getLimitUsage(): { limit: DailyLimit; timeSpent: number; percent: number }[] {
     if (!todayStats?.sites) return [];
 
     return dailyLimits
@@ -319,8 +318,18 @@ export default function Overview() {
         const percent = (timeSpent / limit.limitSeconds) * 100;
         return { limit, timeSpent, percent };
       })
-      .filter(item => item.percent >= 70 && item.percent < 100)
       .sort((a, b) => b.percent - a.percent);
+  }
+
+  // Get limits that are approaching but not yet exceeded.
+  function getLimitsApproaching(): { limit: DailyLimit; timeSpent: number; percent: number }[] {
+    return getLimitUsage()
+      .filter(item => item.percent >= 70 && item.percent < 100)
+  }
+
+  function getLimitsExceeded(): { limit: DailyLimit; timeSpent: number; percent: number }[] {
+    return getLimitUsage()
+      .filter(item => item.percent >= 100);
   }
 
   if (loading) {
@@ -476,6 +485,40 @@ export default function Overview() {
           })()}
         </div>
       </div>
+
+      {/* Limits Exceeded Warning */}
+      {(() => {
+        const exceeded = getLimitsExceeded();
+        if (exceeded.length === 0) return null;
+        return (
+          <div className="mb-6 rounded-2xl bg-red-50 p-4 shadow-[0_0_0_1px_rgba(239,68,68,0.24),0_10px_28px_-24px_rgba(239,68,68,0.65)] dark:bg-red-950/30 dark:shadow-[0_0_0_1px_rgba(248,113,113,0.24)]">
+            <h3 className="mb-2 text-sm font-semibold text-red-800 dark:text-red-300">Limits exceeded</h3>
+            <div className="space-y-2">
+              {exceeded.map(({ limit, timeSpent, percent }) => (
+                <div key={limit.id} className="flex items-center gap-3">
+                  <div className="flex-1">
+                    <div className="mb-1 flex items-center justify-between">
+                      <span className="text-sm font-medium text-red-900 dark:text-red-200">{limit.pattern}</span>
+                      <span className="text-xs text-red-700 dark:text-red-300 tabular-nums">
+                        {formatTime(timeSpent)} / {formatTime(limit.limitSeconds)}
+                      </span>
+                    </div>
+                    <div className="h-2 overflow-hidden rounded-full bg-red-100 dark:bg-red-900/50">
+                      <div
+                        className="h-full rounded-full bg-red-500 transition-[width] duration-300 ease-out"
+                        style={{ width: `${Math.min(100, percent)}%` }}
+                      />
+                    </div>
+                  </div>
+                  <span className="text-xs font-medium text-red-600 dark:text-red-300 tabular-nums">
+                    {percent.toFixed(0)}%
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Limits Approaching Warning */}
       {(() => {

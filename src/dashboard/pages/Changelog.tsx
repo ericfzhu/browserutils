@@ -3,7 +3,7 @@ import { Tag, Plus, Wrench, Bug, ArrowLeft, Minus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 // Changelog data - update this when releasing new versions
-const CURRENT_VERSION = '0.10.17';
+const CURRENT_VERSION = '0.10.18';
 
 interface ChangelogEntry {
   version: string;
@@ -15,6 +15,17 @@ interface ChangelogEntry {
 }
 
 const changelog: ChangelogEntry[] = [
+  {
+    version: '0.10.18',
+    date: '2026-06-22',
+    changed: [
+      'Refined the dashboard, popup, new tab, and blocked page visuals with softer surfaces, clearer interaction feedback, improved typography, and more stable live numbers',
+      'Daily limits on the Overview page now separate exceeded limits from limits that are only approaching their threshold',
+    ],
+    fixed: [
+      'Restored a clear visual boundary for the dashboard sidebar while keeping the updated softer surface treatment',
+    ],
+  },
   {
     version: '0.10.17',
     date: '2026-05-28',
