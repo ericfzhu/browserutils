@@ -143,6 +143,7 @@ export interface ActiveSession {
   lastActiveTime: number; // Last confirmed activity (heartbeat), used to cap recording on stale sessions
   tabId: number;
   windowId: number;
+  visitRecorded?: boolean; // True after this logical visit has contributed to the visit count
 }
 
 export interface ActiveYouTubeSession {

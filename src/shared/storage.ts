@@ -268,6 +268,14 @@ export function computeStatsFromCompactSessions(sessions: CompactSessions): { to
   return { totalTime: totalSeconds, sites };
 }
 
+function compactSessionTuples(times: [number, number][]): [number, number][] {
+  const intervals = times
+    .filter(([start, end]) => end > start)
+    .map(([start, end]) => ({ start, end }));
+  const { merged } = mergeIntervals(intervals, true);
+  return merged.map(({ start, end }) => [start, end]);
+}
+
 // Legacy: Compute stats from old session format (for migration)
 export function computeStatsFromSessions(sessions: SiteSession[]): { totalTime: number; sites: Record<string, number> } {
   // Calculate total time using union of all intervals
@@ -291,7 +299,7 @@ export function computeStatsFromSessions(sessions: SiteSession[]): { totalTime: 
   return { totalTime: totalSeconds, sites };
 }
 
-export async function recordSession(session: SiteSession): Promise<void> {
+export async function recordSession(session: SiteSession, options: { countVisit?: boolean } = {}): Promise<void> {
   const segments = splitIntervalByLocalDay(session.startTime, session.endTime);
   if (segments.length === 0) return;
 
@@ -300,6 +308,7 @@ export async function recordSession(session: SiteSession): Promise<void> {
   const allStats = result[STORAGE_KEYS.DAILY_STATS] || {};
 
   const domain = session.domain;
+  const countVisit = options.countVisit ?? true;
   let visitCounted = false;
 
   for (const segment of segments) {
@@ -322,9 +331,9 @@ export async function recordSession(session: SiteSession): Promise<void> {
       stats.sessions[domain] = [];
     }
     stats.sessions[domain].push([segment.startSec, segment.endSec]);
+    stats.sessions[domain] = compactSessionTuples(stats.sessions[domain]);
 
-    // Keep visit semantics consistent with previous behavior: one visit per recorded session.
-    if (!visitCounted) {
+    if (countVisit && !visitCounted) {
       stats.visits++;
       visitCounted = true;
     }
@@ -488,12 +497,24 @@ export async function clearActiveYouTubeSessions(): Promise<void> {
 
 // Active sessions management (multiple windows)
 export async function getActiveSessions(): Promise<Record<number, ActiveSession>> {
-  const result = await chrome.storage.local.get(STORAGE_KEYS.ACTIVE_SESSIONS);
-  return result[STORAGE_KEYS.ACTIVE_SESSIONS] || {};
+  const sessionResult = await chrome.storage.session.get(STORAGE_KEYS.ACTIVE_SESSIONS);
+  const sessionValue = sessionResult[STORAGE_KEYS.ACTIVE_SESSIONS];
+  if (sessionValue && Object.keys(sessionValue).length > 0) {
+    return sessionValue;
+  }
+
+  // One-time migration from older builds that kept transient sessions in durable storage.
+  const localResult = await chrome.storage.local.get(STORAGE_KEYS.ACTIVE_SESSIONS);
+  const localValue = localResult[STORAGE_KEYS.ACTIVE_SESSIONS] || {};
+  if (Object.keys(localValue).length > 0) {
+    await chrome.storage.session.set({ [STORAGE_KEYS.ACTIVE_SESSIONS]: localValue });
+    await chrome.storage.local.remove(STORAGE_KEYS.ACTIVE_SESSIONS);
+  }
+  return localValue;
 }
 
 export async function setActiveSessions(sessions: Record<number, ActiveSession>): Promise<void> {
-  await chrome.storage.local.set({ [STORAGE_KEYS.ACTIVE_SESSIONS]: sessions });
+  await chrome.storage.session.set({ [STORAGE_KEYS.ACTIVE_SESSIONS]: sessions });
 }
 
 export async function addActiveSession(tabId: number, session: ActiveSession): Promise<void> {
@@ -513,6 +534,7 @@ export async function removeActiveSession(tabId: number): Promise<ActiveSession 
 }
 
 export async function clearActiveSessions(): Promise<void> {
+  await chrome.storage.session.remove(STORAGE_KEYS.ACTIVE_SESSIONS);
   await chrome.storage.local.remove(STORAGE_KEYS.ACTIVE_SESSIONS);
 }
 

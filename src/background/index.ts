@@ -64,6 +64,28 @@ function isSessionFresh(session: ActiveSession, now: number = Date.now()): boole
   return now - session.lastActiveTime <= HEARTBEAT_STALE_MS;
 }
 
+async function recordActiveSessionProgress(
+  session: ActiveSession,
+  endTime: number
+): Promise<{ recorded: boolean; visitCounted: boolean }> {
+  const duration = Math.round((endTime - session.startTime) / 1000);
+  if (duration <= 0) {
+    return { recorded: false, visitCounted: false };
+  }
+
+  const shouldCountVisit = !session.visitRecorded;
+  await recordSession({
+    domain: session.domain,
+    startTime: session.startTime,
+    endTime,
+    windowId: session.windowId,
+  }, {
+    countVisit: shouldCountVisit,
+  });
+
+  return { recorded: true, visitCounted: shouldCountVisit };
+}
+
 async function getCachedSettings(): Promise<Settings> {
   if (cachedSettings) return cachedSettings;
   cachedSettings = await getSettings();
@@ -147,12 +169,7 @@ async function recoverSession(): Promise<void> {
       // Tab no longer exists - end the session (cap at 10 minutes for stale data)
       const duration = Date.now() - session.startTime;
       if (duration > 0 && duration < 600000) {
-        await recordSession({
-          domain: session.domain,
-          startTime: session.startTime,
-          endTime: Date.now(),
-          windowId: session.windowId,
-        });
+        await recordActiveSessionProgress(session, Date.now());
       }
       await removeActiveSession(tabId);
     }
@@ -579,7 +596,7 @@ async function handleMessage(message: MessageType, sender?: chrome.runtime.Messa
   }
 }
 
-// Handle heartbeat from content script - saves progress every 15 seconds
+// Handle heartbeat from content script - keeps active sessions fresh between saves.
 async function handleHeartbeat(sender?: chrome.runtime.MessageSender): Promise<void> {
   if (!sender?.tab?.id || !sender.tab.url) return;
 
@@ -601,7 +618,7 @@ async function handleHeartbeat(sender?: chrome.runtime.MessageSender): Promise<v
   const activeSessions = await getActiveSessions();
   const session = activeSessions[tabId];
 
-  // If this tab has an active session, save progress
+  // If this tab has an active session, keep it alive without writing durable stats.
   if (session) {
     if (session.domain !== domain || !isSessionFresh(session, now)) {
       await endSession(tabId);
@@ -616,6 +633,7 @@ async function handleHeartbeat(sender?: chrome.runtime.MessageSender): Promise<v
               lastActiveTime: now,
               tabId,
               windowId,
+              visitRecorded: false,
             });
           }
         } catch {
@@ -625,23 +643,10 @@ async function handleHeartbeat(sender?: chrome.runtime.MessageSender): Promise<v
       return;
     }
 
-    const duration = Math.round((now - session.startTime) / 1000);
-    if (duration > 0) {
-      await recordSession({
-        domain: session.domain,
-        startTime: session.startTime,
-        endTime: now,
-        windowId: session.windowId,
-      });
-      // Reset session start time and update last active time
-      await addActiveSession(tabId, {
-        domain: session.domain,
-        startTime: now,
-        lastActiveTime: now,
-        tabId,
-        windowId: session.windowId,
-      });
-    }
+    await addActiveSession(tabId, {
+      ...session,
+      lastActiveTime: now,
+    });
   } else if (sender.tab.active && !isUserIdle) {
     // No active session for this tab - start one if tab is active and visible
     try {
@@ -653,6 +658,7 @@ async function handleHeartbeat(sender?: chrome.runtime.MessageSender): Promise<v
           lastActiveTime: now,
           tabId,
           windowId,
+          visitRecorded: false,
         });
       }
     } catch {
@@ -692,6 +698,7 @@ async function handleVisibilityChange(
               lastActiveTime: now,
               tabId,
               windowId,
+              visitRecorded: false,
             });
           }
         }
@@ -1132,15 +1139,7 @@ async function endSession(tabId: number): Promise<void> {
     // when sessions become stale (e.g., window minimized but alarm didn't fire)
     const maxEndTime = session.lastActiveTime ? session.lastActiveTime + 30000 : now;
     const endTime = Math.min(now, maxEndTime);
-    const duration = Math.round((endTime - session.startTime) / 1000);
-    if (duration > 0) {
-      await recordSession({
-        domain: session.domain,
-        startTime: session.startTime,
-        endTime,
-        windowId: session.windowId,
-      });
-    }
+    await recordActiveSessionProgress(session, endTime);
   }
 }
 
@@ -1213,6 +1212,7 @@ async function startSession(tabId: number, url: string, windowId?: number): Prom
     lastActiveTime: now,
     tabId,
     windowId: actualWindowId,
+    visitRecorded: false,
   });
 }
 
@@ -1374,19 +1374,12 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
           const window = await chrome.windows.get(tab.windowId);
           if (window.state !== 'minimized') {
             const endTime = Math.min(now, session.lastActiveTime);
-            // Save session progress
-            const duration = Math.round((endTime - session.startTime) / 1000);
-            if (duration > 0) {
-              await recordSession({
-                domain: session.domain,
-                startTime: session.startTime,
-                endTime,
-                windowId: session.windowId,
-              });
-              // Reset start time to the last confirmed activity point.
+            const progress = await recordActiveSessionProgress(session, endTime);
+            if (progress.recorded) {
               await addActiveSession(tabId, {
                 ...session,
                 startTime: endTime,
+                visitRecorded: session.visitRecorded || progress.visitCounted,
               });
             }
             continue;

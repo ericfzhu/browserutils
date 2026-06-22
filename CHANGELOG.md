@@ -5,6 +5,13 @@ All notable changes to BrowserUtils will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.19] - 2026-06-22
+
+### Changed
+- General browser usage tracking now keeps active tab sessions in temporary session storage instead of durable local storage
+- Heartbeats now refresh live tracking state without writing finalized stats on every tick, reducing storage churn while preserving minute-level saves
+- Recorded usage intervals are compacted as they are saved, and visits now count once per logical browsing session instead of once per saved heartbeat segment
+
 ## [0.10.18] - 2026-06-22
 
 ### Changed

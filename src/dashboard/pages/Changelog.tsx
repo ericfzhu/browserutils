@@ -3,7 +3,7 @@ import { Tag, Plus, Wrench, Bug, ArrowLeft, Minus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 // Changelog data - update this when releasing new versions
-const CURRENT_VERSION = '0.10.18';
+const CURRENT_VERSION = '0.10.19';
 
 interface ChangelogEntry {
   version: string;
@@ -15,6 +15,15 @@ interface ChangelogEntry {
 }
 
 const changelog: ChangelogEntry[] = [
+  {
+    version: '0.10.19',
+    date: '2026-06-22',
+    changed: [
+      'General browser usage tracking now keeps active tab sessions in temporary session storage instead of durable local storage',
+      'Heartbeats now refresh live tracking state without writing finalized stats on every tick, reducing storage churn while preserving minute-level saves',
+      'Recorded usage intervals are compacted as they are saved, and visits now count once per logical browsing session instead of once per saved heartbeat segment',
+    ],
+  },
   {
     version: '0.10.18',
     date: '2026-06-22',

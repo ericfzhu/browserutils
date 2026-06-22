@@ -1,5 +1,6 @@
-import { describe, it, expect } from 'vitest';
-import { mergeIntervals, matchesPattern, computeStatsFromCompactSessions } from './storage';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { getLocalDateString } from './time';
+import { mergeIntervals, matchesPattern, computeStatsFromCompactSessions, getDailyStats, recordSession } from './storage';
 
 describe('mergeIntervals', () => {
   it('returns empty result for empty input', () => {
@@ -199,5 +200,86 @@ describe('computeStatsFromCompactSessions', () => {
     expect(result.sites['example.com']).toBe(100);
     expect(result.sites['other.com']).toBe(100);
     expect(result.totalTime).toBe(150); // Merged: 0-150
+  });
+});
+
+describe('recordSession', () => {
+  let localStore: Record<string, unknown>;
+  let sessionStore: Record<string, unknown>;
+
+  function createStorageArea(store: Record<string, unknown>) {
+    return {
+      get: vi.fn(async (keys?: null | string | string[] | Record<string, unknown>) => {
+        if (keys === null || keys === undefined) {
+          return { ...store };
+        }
+        if (typeof keys === 'string') {
+          return { [keys]: store[keys] };
+        }
+        if (Array.isArray(keys)) {
+          return keys.reduce<Record<string, unknown>>((result, key) => {
+            result[key] = store[key];
+            return result;
+          }, {});
+        }
+        return Object.keys(keys).reduce<Record<string, unknown>>((result, key) => {
+          result[key] = store[key] ?? keys[key];
+          return result;
+        }, {});
+      }),
+      set: vi.fn(async (items: Record<string, unknown>) => {
+        Object.assign(store, items);
+      }),
+      remove: vi.fn(async (keys: string | string[]) => {
+        for (const key of Array.isArray(keys) ? keys : [keys]) {
+          delete store[key];
+        }
+      }),
+    };
+  }
+
+  beforeEach(() => {
+    localStore = {};
+    sessionStore = {};
+    vi.stubGlobal('chrome', {
+      storage: {
+        local: createStorageArea(localStore),
+        session: createStorageArea(sessionStore),
+      },
+    });
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('compacts adjacent chunks and counts one visit per logical session', async () => {
+    const startTime = new Date('2026-06-22T10:00:00').getTime();
+
+    await recordSession({
+      domain: 'example.com',
+      startTime,
+      endTime: startTime + 60_000,
+      windowId: 1,
+    }, {
+      countVisit: true,
+    });
+    await recordSession({
+      domain: 'example.com',
+      startTime: startTime + 60_000,
+      endTime: startTime + 120_000,
+      windowId: 1,
+    }, {
+      countVisit: false,
+    });
+
+    const stats = await getDailyStats(getLocalDateString(new Date(startTime)));
+
+    expect(stats.visits).toBe(1);
+    expect(stats.totalTime).toBe(120);
+    expect(stats.sites['example.com']).toBe(120);
+    expect(stats.sessions['example.com']).toEqual([
+      [Math.floor(startTime / 1000), Math.floor((startTime + 120_000) / 1000)],
+    ]);
   });
 });
