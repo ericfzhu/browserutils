@@ -76,6 +76,9 @@ interface FocusInfo {
   focusUntil: number;
 }
 
+const blockedPageClass = 'flex min-h-screen items-center justify-center bg-muted/35 p-4 dark:bg-background';
+const blockedCardClass = 'w-full max-w-md bg-card shadow-[0_0_0_1px_rgba(0,0,0,0.10),0_24px_80px_-48px_rgba(0,0,0,0.75)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.14),0_24px_80px_-48px_rgba(0,0,0,0.95)]';
+
 export default function App() {
   const [loading, setLoading] = useState(true);
   const [blockType, setBlockType] = useState<BlockType>('site');
@@ -344,8 +347,8 @@ export default function App() {
   // Show limit exceeded UI
   if (blockType === 'limit' && limitInfo) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background p-4">
-        <Card className="w-full max-w-md">
+      <div className={blockedPageClass}>
+        <Card className={blockedCardClass}>
           <CardHeader className="items-center text-center">
             <div className="mb-2 flex size-16 items-center justify-center rounded-2xl bg-muted shadow-[var(--shadow-border)]">
               <Timer className="size-8 text-primary" />
@@ -450,8 +453,8 @@ export default function App() {
   // Show blocked site UI (original behavior)
   if (!site) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background p-4">
-        <Card className="w-full max-w-md">
+      <div className={blockedPageClass}>
+        <Card className={blockedCardClass}>
           <CardHeader className="items-center text-center">
             <div className="mb-2 flex size-16 items-center justify-center rounded-2xl bg-muted shadow-[var(--shadow-border)]">
               <Shield className="size-8 text-destructive" />
@@ -465,8 +468,8 @@ export default function App() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-md">
+    <div className={blockedPageClass}>
+      <Card className={blockedCardClass}>
         <CardHeader className="items-center text-center">
           <div className="mb-2 flex size-16 items-center justify-center rounded-2xl bg-muted shadow-[var(--shadow-border)]">
             <Shield className="size-8 text-destructive" />

@@ -8,11 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.10.18] - 2026-06-22
 
 ### Changed
-- Refined the dashboard, popup, new tab, and blocked page visuals with softer surfaces, clearer interaction feedback, improved typography, and more stable live numbers
+- Refined the dashboard, popup, new tab, and blocked page visuals with softer surfaces, clearer visual separation, improved typography, and more stable live numbers
 - Daily limits on the Overview page now separate exceeded limits from limits that are only approaching their threshold
-
-### Fixed
-- Restored a clear visual boundary for the dashboard sidebar while keeping the updated softer surface treatment
 
 ## [0.10.17] - 2026-05-28
 
