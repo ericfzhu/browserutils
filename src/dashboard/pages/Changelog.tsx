@@ -3,7 +3,7 @@ import { Tag, Plus, Wrench, Bug, ArrowLeft, Minus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 // Changelog data - update this when releasing new versions
-const CURRENT_VERSION = '0.10.19';
+const CURRENT_VERSION = '0.40.0';
 
 interface ChangelogEntry {
   version: string;
@@ -16,7 +16,19 @@ interface ChangelogEntry {
 
 const changelog: ChangelogEntry[] = [
   {
-    version: '0.10.19',
+    version: '0.40.0',
+    date: '2026-06-27',
+    added: [
+      'Paste Anyway can now allow pasting into text fields on sites that block paste events',
+      'Settings now include a Paste Anyway toggle that applies immediately after changing it',
+    ],
+    changed: [
+      'Settings controls now autosave on change instead of requiring repeated Save Settings buttons',
+      'Changelog history has been renumbered so every release increments the middle version number consistently',
+    ],
+  },
+  {
+    version: '0.39.0',
     date: '2026-06-22',
     changed: [
       'General browser usage tracking now keeps active tab sessions in temporary session storage instead of durable local storage',
@@ -25,7 +37,7 @@ const changelog: ChangelogEntry[] = [
     ],
   },
   {
-    version: '0.10.18',
+    version: '0.38.0',
     date: '2026-06-22',
     changed: [
       'Refined the dashboard, popup, new tab, and blocked page visuals with softer surfaces, clearer visual separation, improved typography, and more stable live numbers',
@@ -33,7 +45,7 @@ const changelog: ChangelogEntry[] = [
     ],
   },
   {
-    version: '0.10.17',
+    version: '0.37.0',
     date: '2026-05-28',
     added: [
       'Added shadcn/ui primitives and Tailwind semantic color tokens across the extension UI',
@@ -45,42 +57,42 @@ const changelog: ChangelogEntry[] = [
     ],
   },
   {
-    version: '0.10.16',
+    version: '0.36.0',
     date: '2026-05-24',
     fixed: [
       'Blocked pages now resolve focus mode before rendering, preventing the generic blocked message from flashing first',
     ],
   },
   {
-    version: '0.10.15',
+    version: '0.35.0',
     date: '2026-03-30',
     fixed: [
       'Daily limits now normalize pasted URLs down to the tracked domain format, keeping limit matching and reported usage aligned',
     ],
   },
   {
-    version: '0.10.14',
+    version: '0.34.0',
     date: '2026-03-30',
     changed: [
       'Active focus sessions can now be extended with the same 30m, 1h, 1.5h presets, 30-minute step controls, and custom duration input used when starting focus',
     ],
   },
   {
-    version: '0.10.13',
+    version: '0.33.0',
     date: '2026-03-30',
     changed: [
       'Focus sessions now offer 30m, 1h, and 1.5h presets, 30-minute step adjustments, and a custom minutes input for any positive duration',
     ],
   },
   {
-    version: '0.10.12',
+    version: '0.32.0',
     date: '2026-03-23',
     added: [
       'The extension popup now shows which folder, website, or all-sites focus mode is active along with the remaining time',
     ],
   },
   {
-    version: '0.10.11',
+    version: '0.31.0',
     date: '2026-03-09',
     added: [
       'Lockdown Mode can now use an authenticator app as an alternative to the master password',
@@ -94,7 +106,7 @@ const changelog: ChangelogEntry[] = [
     ],
   },
   {
-    version: '0.10.10',
+    version: '0.30.0',
     date: '2026-03-09',
     added: [
       'Global Focus mode from the Blocked Sites page can now block every blocked site at once, including uncategorized sites',
@@ -107,7 +119,7 @@ const changelog: ChangelogEntry[] = [
     ],
   },
   {
-    version: '0.10.9',
+    version: '0.29.0',
     date: '2026-02-20',
     changed: [
       'Reduced background storage reads by caching settings in the service worker for hot tracking and blocking paths',
@@ -119,7 +131,7 @@ const changelog: ChangelogEntry[] = [
     ],
   },
   {
-    version: '0.10.8',
+    version: '0.28.0',
     date: '2026-02-19',
     changed: [
       'Tracking now requires fresh content-script heartbeats, so tabs stop counting when they are no longer verifiably visible',
@@ -131,7 +143,7 @@ const changelog: ChangelogEntry[] = [
     ],
   },
   {
-    version: '0.10.7',
+    version: '0.27.0',
     date: '2026-01-16',
     fixed: [
       'Minimized windows now stop tracking immediately on focus change instead of waiting for periodic check',
@@ -140,7 +152,7 @@ const changelog: ChangelogEntry[] = [
     ],
   },
   {
-    version: '0.10.6',
+    version: '0.26.0',
     date: '2026-01-10',
     added: [
       'Focus Sessions - block all sites in a folder with one shared timer',
@@ -165,7 +177,7 @@ const changelog: ChangelogEntry[] = [
     ],
   },
   {
-    version: '0.10.5',
+    version: '0.25.0',
     date: '2026-01-10',
     changed: [
       'Compact session storage format reduces data size by ~65%',
@@ -175,7 +187,7 @@ const changelog: ChangelogEntry[] = [
     ],
   },
   {
-    version: '0.10.4',
+    version: '0.24.0',
     date: '2026-01-10',
     added: [
       'New Categories page - view all sites organized by category with time spent',
@@ -193,7 +205,7 @@ const changelog: ChangelogEntry[] = [
     ],
   },
   {
-    version: '0.10.3',
+    version: '0.23.0',
     date: '2026-01-10',
     added: [
       'Day/Week/Month/Custom date selector on Metrics page with animated sliding indicator',
@@ -209,7 +221,7 @@ const changelog: ChangelogEntry[] = [
     ],
   },
   {
-    version: '0.10.2',
+    version: '0.22.0',
     date: '2026-01-10',
     added: [
       'GitHub link in Settings page under new About section',
@@ -219,7 +231,7 @@ const changelog: ChangelogEntry[] = [
     ],
   },
   {
-    version: '0.10.1',
+    version: '0.21.0',
     date: '2026-01-09',
     added: [
       'Clickable YouTube channel names - click a channel in Overview or Metrics to visit their page',
@@ -231,7 +243,7 @@ const changelog: ChangelogEntry[] = [
     ],
   },
   {
-    version: '0.10.0',
+    version: '0.20.0',
     date: '2026-01-09',
     added: [
       'Lockdown Mode - require master password to disable blocking, remove sites, or disable limits',
@@ -242,7 +254,7 @@ const changelog: ChangelogEntry[] = [
     ],
   },
   {
-    version: '0.9.0',
+    version: '0.19.0',
     date: '2026-01-08',
     added: [
       'Path-based site blocking - block specific URL paths like reddit.com/r/funny/*',
@@ -254,7 +266,7 @@ const changelog: ChangelogEntry[] = [
     ],
   },
   {
-    version: '0.8.2',
+    version: '0.18.0',
     date: '2026-01-08',
     added: [
       'Folders can now be reordered by dragging in Blocked Sites',
@@ -270,7 +282,7 @@ const changelog: ChangelogEntry[] = [
     ],
   },
   {
-    version: '0.8.1',
+    version: '0.17.0',
     date: '2026-01-07',
     changed: [
       'YouTube tracking now uses Media Session API for more reliable channel detection',
@@ -284,7 +296,7 @@ const changelog: ChangelogEntry[] = [
     ],
   },
   {
-    version: '0.8.0',
+    version: '0.16.0',
     date: '2026-01-07',
     added: [
       'YouTube Channel Tracking - track which channels you watch on YouTube videos and Shorts',
@@ -294,7 +306,7 @@ const changelog: ChangelogEntry[] = [
     ],
   },
   {
-    version: '0.7.0',
+    version: '0.15.0',
     date: '2026-01-07',
     added: [
       'Dark mode support with three options: Light, Dark, and System (follows OS preference)',
@@ -306,14 +318,14 @@ const changelog: ChangelogEntry[] = [
     ],
   },
   {
-    version: '0.6.1',
+    version: '0.14.0',
     date: '2026-01-07',
     changed: [
       'Activity timeline now merges overlapping sessions for cleaner visualization',
     ],
   },
   {
-    version: '0.6.0',
+    version: '0.13.0',
     date: '2026-01-07',
     added: [
       'Site Categories - domains automatically categorized (Social, Entertainment, News, etc.)',
@@ -327,7 +339,7 @@ const changelog: ChangelogEntry[] = [
     ],
   },
   {
-    version: '0.5.1',
+    version: '0.12.0',
     date: '2026-01-07',
     fixed: [
       'Sidebar now stays fixed while scrolling, keeping version and "What\'s New" visible on all pages',
@@ -335,7 +347,7 @@ const changelog: ChangelogEntry[] = [
     ],
   },
   {
-    version: '0.5.0',
+    version: '0.11.0',
     date: '2026-01-07',
     added: [
       'Multi-window session tracking - tracks activity across all visible browser windows',
@@ -352,21 +364,21 @@ const changelog: ChangelogEntry[] = [
     ],
   },
   {
-    version: '0.4.2',
+    version: '0.10.0',
     date: '2026-01-07',
     added: [
       'Smooth expand/collapse animation for folder sections',
     ],
   },
   {
-    version: '0.4.1',
+    version: '0.9.0',
     date: '2026-01-07',
     changed: [
       'New tab greeting is now deterministic based on day of year',
     ],
   },
   {
-    version: '0.4.0',
+    version: '0.8.0',
     date: '2026-01-07',
     added: [
       'Folder organization for blocked sites',
@@ -380,7 +392,7 @@ const changelog: ChangelogEntry[] = [
     ],
   },
   {
-    version: '0.3.2',
+    version: '0.7.0',
     date: '2026-01-07',
     fixed: [
       'Scheduled blocking now correctly checks if current time is within the blocking window',
@@ -392,14 +404,14 @@ const changelog: ChangelogEntry[] = [
     ],
   },
   {
-    version: '0.3.1',
+    version: '0.6.0',
     date: '2026-01-07',
     fixed: [
       'Blocked site metrics now properly increment',
     ],
   },
   {
-    version: '0.3.0',
+    version: '0.5.0',
     date: '2026-01-07',
     added: [
       'Content script heartbeat system for accurate time tracking',
@@ -413,7 +425,7 @@ const changelog: ChangelogEntry[] = [
     ],
   },
   {
-    version: '0.2.1',
+    version: '0.4.0',
     date: '2026-01-07',
     changed: [
       'Quick links now auto-fetch favicons',
@@ -422,7 +434,7 @@ const changelog: ChangelogEntry[] = [
     ],
   },
   {
-    version: '0.2.0',
+    version: '0.3.0',
     date: '2026-01-07',
     added: [
       'Custom new tab page with time-based greetings',
@@ -433,7 +445,7 @@ const changelog: ChangelogEntry[] = [
     ],
   },
   {
-    version: '0.1.1',
+    version: '0.2.0',
     date: '2026-01-06',
     added: [
       'Percentage display in daily breakdown hover tooltip',
