@@ -30,6 +30,11 @@
     "matches": ["http://*/*", "https://*/*"],
     "js": ["content.js"],
     "run_at": "document_start"
+  }, {
+    "matches": ["http://*/*", "https://*/*"],
+    "js": ["force-paste.js"],
+    "run_at": "document_start",
+    "all_frames": true
   }],
   "action": {
     "default_popup": "popup.html",

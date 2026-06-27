@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Save, Trash2, AlertTriangle, Sun, Moon, Monitor, Lock, GitBranch, ShieldCheck } from 'lucide-react';
+import { Trash2, AlertTriangle, Sun, Moon, Monitor, Lock, GitBranch, ShieldCheck } from 'lucide-react';
 import QRCode from 'react-qr-code';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,7 +12,6 @@ export default function SettingsPage() {
   const { refreshStatus } = useLockdown();
   const [settings, setSettings] = useState<SettingsType | null>(null);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordError, setPasswordError] = useState('');
@@ -35,18 +34,17 @@ export default function SettingsPage() {
     }
   }
 
-  async function saveSettings() {
-    if (!settings) return;
-    setSaving(true);
+  async function updateSettings(patch: Partial<SettingsType>) {
+    setSettings((current) => current ? { ...current, ...patch } : current);
+
     try {
       await chrome.runtime.sendMessage({
         type: 'UPDATE_SETTINGS',
-        payload: settings,
+        payload: patch,
       });
     } catch (err) {
       console.error('Failed to save settings:', err);
-    } finally {
-      setSaving(false);
+      await loadSettings();
     }
   }
 
@@ -67,10 +65,7 @@ export default function SettingsPage() {
       const hashArray = Array.from(new Uint8Array(hashBuffer));
       const passwordHash = hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
 
-      await chrome.runtime.sendMessage({
-        type: 'UPDATE_SETTINGS',
-        payload: { passwordHash },
-      });
+      await updateSettings({ passwordHash });
       await refreshStatus();
 
       setNewPassword('');
@@ -99,24 +94,17 @@ export default function SettingsPage() {
       return;
     }
 
-    await chrome.runtime.sendMessage({
-      type: 'UPDATE_SETTINGS',
-      payload: { lockdownTotpSecret: totpSecretDraft },
-    });
+    await updateSettings({ lockdownTotpSecret: totpSecretDraft });
     await refreshStatus();
-    setSettings({ ...settings!, lockdownTotpSecret: totpSecretDraft });
     setTotpSecretDraft('');
     setTotpCode('');
     setTotpError('');
   }
 
   async function clearTotpSetup() {
-    await chrome.runtime.sendMessage({
-      type: 'UPDATE_SETTINGS',
-      payload: {
-        lockdownTotpSecret: undefined,
-        lockdownAuthMethod: settings?.lockdownAuthMethod === 'totp' ? 'password' : settings?.lockdownAuthMethod,
-      },
+    await updateSettings({
+      lockdownTotpSecret: undefined,
+      lockdownAuthMethod: settings?.lockdownAuthMethod === 'totp' ? 'password' : settings?.lockdownAuthMethod,
     });
     await refreshStatus();
     await loadSettings();
@@ -199,13 +187,9 @@ export default function SettingsPage() {
                 <Button
                   key={value}
                   onClick={() => {
-                    const newSettings = { ...settings!, theme: value as SettingsType['theme'] };
-                    setSettings(newSettings);
-                    applyTheme(value as SettingsType['theme'], settings.colorTheme || 'monochrome');
-                    chrome.runtime.sendMessage({
-                      type: 'UPDATE_SETTINGS',
-                      payload: { theme: value },
-                    });
+                    const theme = value as SettingsType['theme'];
+                    applyTheme(theme, settings.colorTheme || 'monochrome');
+                    void updateSettings({ theme });
                   }}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-colors ${
                     settings?.theme === value
@@ -238,12 +222,8 @@ export default function SettingsPage() {
                     type="button"
                     variant={selected ? 'default' : 'outline'}
                     onClick={() => {
-                      setSettings({ ...settings, colorTheme });
                       applyTheme(settings.theme, colorTheme);
-                      chrome.runtime.sendMessage({
-                        type: 'UPDATE_SETTINGS',
-                        payload: { colorTheme },
-                      });
+                      void updateSettings({ colorTheme });
                     }}
                     className="justify-start"
                   >
@@ -269,7 +249,7 @@ export default function SettingsPage() {
             <Input
               type="checkbox"
               checked={settings.trackingEnabled}
-              onChange={(e) => setSettings({ ...settings, trackingEnabled: e.target.checked })}
+              onChange={(e) => void updateSettings({ trackingEnabled: e.target.checked })}
               className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
             />
           </label>
@@ -282,7 +262,7 @@ export default function SettingsPage() {
             <Input
               type="checkbox"
               checked={settings.blockingEnabled}
-              onChange={(e) => setSettings({ ...settings, blockingEnabled: e.target.checked })}
+              onChange={(e) => void updateSettings({ blockingEnabled: e.target.checked })}
               className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
             />
           </label>
@@ -295,7 +275,7 @@ export default function SettingsPage() {
             <Input
               type="checkbox"
               checked={settings.youtubeTrackingEnabled}
-              onChange={(e) => setSettings({ ...settings, youtubeTrackingEnabled: e.target.checked })}
+              onChange={(e) => void updateSettings({ youtubeTrackingEnabled: e.target.checked })}
               className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
             />
           </label>
@@ -305,7 +285,7 @@ export default function SettingsPage() {
             <p className="text-sm text-muted-foreground mb-2">How long to keep tracking history</p>
             <select
               value={settings.retentionDays}
-              onChange={(e) => setSettings({ ...settings, retentionDays: parseInt(e.target.value) })}
+              onChange={(e) => void updateSettings({ retentionDays: parseInt(e.target.value) })}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             >
               <option value={7}>7 days</option>
@@ -325,7 +305,7 @@ export default function SettingsPage() {
               <Input
                 type="number"
                 value={settings.idleThreshold}
-                onChange={(e) => setSettings({ ...settings, idleThreshold: parseInt(e.target.value) || 0 })}
+                onChange={(e) => void updateSettings({ idleThreshold: parseInt(e.target.value) || 0 })}
                 min={0}
                 max={3600}
                 step={15}
@@ -337,7 +317,7 @@ export default function SettingsPage() {
                   <Button
                     key={val}
                     type="button"
-                    onClick={() => setSettings({ ...settings, idleThreshold: val })}
+                    onClick={() => void updateSettings({ idleThreshold: val })}
                     className={`px-2 py-1 text-xs rounded ${
                       settings.idleThreshold === val
                         ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300'
@@ -355,14 +335,24 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        <Button
-          onClick={saveSettings}
-          disabled={saving}
-          className="mt-6 flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white px-4 py-2 rounded-lg transition-colors"
-        >
-          <Save className="w-4 h-4" />
-          {saving ? 'Saving...' : 'Save Settings'}
-        </Button>
+      </div>
+
+      {/* Browser Utilities */}
+      <div className="rounded-xl border bg-card p-6 mb-6">
+        <label className="flex items-center justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-semibold">Paste Anyway</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Allow pasting into text fields on sites that block paste events.
+            </p>
+          </div>
+          <Input
+            type="checkbox"
+            checked={settings.forcePasteEnabled}
+            onChange={(e) => void updateSettings({ forcePasteEnabled: e.target.checked })}
+            className="w-5 h-5 shrink-0 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+          />
+        </label>
       </div>
 
       {/* New Tab Settings */}
@@ -377,7 +367,7 @@ export default function SettingsPage() {
             <Input
               type="text"
               value={settings.displayName}
-              onChange={(e) => setSettings({ ...settings, displayName: e.target.value })}
+              onChange={(e) => void updateSettings({ displayName: e.target.value })}
               placeholder="Enter your name"
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
@@ -386,15 +376,6 @@ export default function SettingsPage() {
             Quick links can be added and removed directly on the new tab page.
           </p>
         </div>
-
-        <Button
-          onClick={saveSettings}
-          disabled={saving}
-          className="mt-6 flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white px-4 py-2 rounded-lg transition-colors"
-        >
-          <Save className="w-4 h-4" />
-          {saving ? 'Saving...' : 'Save Settings'}
-        </Button>
       </div>
 
       {/* Master Password */}
@@ -451,11 +432,7 @@ export default function SettingsPage() {
                 type="button"
                 disabled={!settings.passwordHash}
                 onClick={async () => {
-                  setSettings({ ...settings, lockdownAuthMethod: 'password' });
-                  await chrome.runtime.sendMessage({
-                    type: 'UPDATE_SETTINGS',
-                    payload: { lockdownAuthMethod: 'password' },
-                  });
+                  await updateSettings({ lockdownAuthMethod: 'password' });
                   await refreshStatus();
                 }}
                 className={`flex items-center gap-2 p-3 border rounded-lg transition-colors ${
@@ -471,11 +448,7 @@ export default function SettingsPage() {
                 type="button"
                 disabled={!settings.lockdownTotpSecret}
                 onClick={async () => {
-                  setSettings({ ...settings, lockdownAuthMethod: 'totp' });
-                  await chrome.runtime.sendMessage({
-                    type: 'UPDATE_SETTINGS',
-                    payload: { lockdownAuthMethod: 'totp' },
-                  });
+                  await updateSettings({ lockdownAuthMethod: 'totp' });
                   await refreshStatus();
                 }}
                 className={`flex items-center gap-2 p-3 border rounded-lg transition-colors ${
@@ -510,11 +483,7 @@ export default function SettingsPage() {
               checked={settings.lockdownEnabled ?? false}
               onChange={async (e) => {
                 const newValue = e.target.checked;
-                setSettings({ ...settings, lockdownEnabled: newValue });
-                await chrome.runtime.sendMessage({
-                  type: 'UPDATE_SETTINGS',
-                  payload: { lockdownEnabled: newValue },
-                });
+                await updateSettings({ lockdownEnabled: newValue });
                 await refreshStatus();
               }}
               disabled={!hasLockdownMethod}

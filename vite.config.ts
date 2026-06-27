@@ -32,6 +32,7 @@ export default defineConfig({
         newtab: resolve(__dirname, 'newtab.html'),
         background: resolve(__dirname, 'src/background/index.ts'),
         content: resolve(__dirname, 'src/content/index.ts'),
+        forcePaste: resolve(__dirname, 'src/content/forcePaste.ts'),
       },
       output: {
         entryFileNames: (chunkInfo) => {
@@ -40,6 +41,9 @@ export default defineConfig({
           }
           if (chunkInfo.name === 'content') {
             return 'content.js';
+          }
+          if (chunkInfo.name === 'forcePaste') {
+            return 'force-paste.js';
           }
           return 'assets/[name]-[hash].js';
         },

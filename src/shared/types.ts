@@ -116,6 +116,7 @@ export interface Settings {
   trackingEnabled: boolean;
   blockingEnabled: boolean;
   youtubeTrackingEnabled: boolean; // track YouTube channel watch time
+  forcePasteEnabled: boolean; // allow paste in fields that block paste handlers
   passwordHash?: string; // master password for unlocking
   lockdownEnabled?: boolean; // require master password to disable blocking
   lockdownAuthMethod?: 'password' | 'totp';
@@ -172,6 +173,7 @@ export const DEFAULT_SETTINGS: Settings = {
   trackingEnabled: true,
   blockingEnabled: true,
   youtubeTrackingEnabled: false, // off by default
+  forcePasteEnabled: false,
   lockdownAuthMethod: 'password',
   theme: 'system',
   colorTheme: 'monochrome',
