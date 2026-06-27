@@ -66,10 +66,9 @@ function parseStringArray(content) {
 // Generate markdown
 let markdown = `# Changelog
 
-All notable changes to BrowserUtils will be documented in this file.
+This file tracks notable BrowserUtils changes.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+It follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and uses 0.x.0 release versions. Each published release increments x.
 
 `;
 

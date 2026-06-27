@@ -19,37 +19,37 @@ const changelog: ChangelogEntry[] = [
     version: '0.40.0',
     date: '2026-06-27',
     added: [
-      'Paste Anyway can now allow pasting into text fields on sites that block paste events',
-      'Settings now include a Paste Anyway toggle that applies immediately after changing it',
+      'Paste Anyway lets you paste into text fields on sites that block paste events',
+      'Settings include a Paste Anyway toggle that applies as soon as it changes',
     ],
     changed: [
-      'Settings controls now autosave on change instead of requiring repeated Save Settings buttons',
-      'Changelog history has been renumbered so every release increments the middle version number consistently',
+      'Settings controls autosave instead of relying on repeated Save Settings buttons',
+      'Changelog history uses one release-numbering scheme: each release increments the middle number',
     ],
   },
   {
     version: '0.39.0',
     date: '2026-06-22',
     changed: [
-      'General browser usage tracking now keeps active tab sessions in temporary session storage instead of durable local storage',
-      'Heartbeats now refresh live tracking state without writing finalized stats on every tick, reducing storage churn while preserving minute-level saves',
-      'Recorded usage intervals are compacted as they are saved, and visits now count once per logical browsing session instead of once per saved heartbeat segment',
+      'General browser usage tracking keeps active tab sessions in temporary session storage instead of local storage',
+      'Heartbeats refresh live tracking state without writing finalized stats on every tick, which cuts down storage writes while keeping minute-level saves',
+      'Recorded usage intervals are compacted as they are saved, and visits count once per browsing session instead of once per heartbeat segment',
     ],
   },
   {
     version: '0.38.0',
     date: '2026-06-22',
     changed: [
-      'Refined the dashboard, popup, new tab, and blocked page visuals with softer surfaces, clearer visual separation, improved typography, and more stable live numbers',
-      'Daily limits on the Overview page now separate exceeded limits from limits that are only approaching their threshold',
+      'Cleaned up the dashboard, popup, new tab, and blocked page visuals with softer surfaces, clearer spacing, and steadier live numbers',
+      'Daily limits on the Overview page separate exceeded limits from limits that are close to their threshold',
     ],
   },
   {
     version: '0.37.0',
     date: '2026-05-28',
     added: [
-      'Added shadcn/ui primitives and Tailwind semantic color tokens across the extension UI',
-      'Added a Color Theme setting with Monochrome and Classic Blue palette options',
+      'shadcn/ui primitives and Tailwind semantic color tokens across the extension UI',
+      'Color Theme setting with Monochrome and Classic Blue palette options',
     ],
     changed: [
       'Updated popup, new tab, blocked page, settings, daily limits, category controls, dashboard shell, and lockdown authentication UI to use the new shared component system',
@@ -60,59 +60,59 @@ const changelog: ChangelogEntry[] = [
     version: '0.36.0',
     date: '2026-05-24',
     fixed: [
-      'Blocked pages now resolve focus mode before rendering, preventing the generic blocked message from flashing first',
+      'Blocked pages resolve focus mode before rendering, so the generic blocked message no longer flashes first',
     ],
   },
   {
     version: '0.35.0',
     date: '2026-03-30',
     fixed: [
-      'Daily limits now normalize pasted URLs down to the tracked domain format, keeping limit matching and reported usage aligned',
+      'Daily limits normalize pasted URLs to the tracked domain format, keeping limit matching and reported usage aligned',
     ],
   },
   {
     version: '0.34.0',
     date: '2026-03-30',
     changed: [
-      'Active focus sessions can now be extended with the same 30m, 1h, 1.5h presets, 30-minute step controls, and custom duration input used when starting focus',
+      'Active focus sessions use the same extension controls as new sessions: 30m, 1h, 1.5h presets, 30-minute steps, and custom minutes',
     ],
   },
   {
     version: '0.33.0',
     date: '2026-03-30',
     changed: [
-      'Focus sessions now offer 30m, 1h, and 1.5h presets, 30-minute step adjustments, and a custom minutes input for any positive duration',
+      'Focus sessions use 30m, 1h, and 1.5h presets, 30-minute step controls, and a custom minutes input',
     ],
   },
   {
     version: '0.32.0',
     date: '2026-03-23',
     added: [
-      'The extension popup now shows which folder, website, or all-sites focus mode is active along with the remaining time',
+      'The extension popup shows the active focus target and remaining time',
     ],
   },
   {
     version: '0.31.0',
     date: '2026-03-09',
     added: [
-      'Lockdown Mode can now use an authenticator app as an alternative to the master password',
-      'Authenticator setup now shows a QR code for standard TOTP app enrollment',
+      'Lockdown Mode can use an authenticator app instead of the master password',
+      'Authenticator setup shows a QR code for standard TOTP enrollment',
     ],
     changed: [
-      'Settings now let you configure both master password and authenticator app, then choose which one Lockdown Mode requires for protected actions',
+      'Settings let you configure both master password and authenticator app, then choose which method Lockdown Mode requires',
     ],
     fixed: [
-      'Lockdown-protected actions now respect the currently selected authentication method immediately instead of sometimes prompting for the old method until reload',
+      'Lockdown-protected actions use the selected authentication method immediately instead of waiting for a reload',
     ],
   },
   {
     version: '0.30.0',
     date: '2026-03-09',
     added: [
-      'Global Focus mode from the Blocked Sites page can now block every blocked site at once, including uncategorized sites',
+      'Global Focus mode on the Blocked Sites page blocks every blocked site at once, including uncategorized sites',
     ],
     changed: [
-      'Blocked pages now prioritize focus mode messaging over the site\'s normal block reason when a focus session is active',
+      'Blocked pages show focus mode messaging before the site\'s normal block reason when a focus session is active',
     ],
     fixed: [
       'Prevented stale tracking sessions from resuming across sleep, lid-close, restart, or next-day login gaps and logging phantom overnight time',
@@ -123,57 +123,57 @@ const changelog: ChangelogEntry[] = [
     date: '2026-02-20',
     changed: [
       'Reduced background storage reads by caching settings in the service worker for hot tracking and blocking paths',
-      'Improved timeline rendering performance by precomputing per-domain window counts instead of filtering sessions during each row render',
+      'Timeline rows precompute per-domain window counts instead of filtering sessions during each render',
     ],
     fixed: [
-      'Session recording now splits cross-midnight intervals into per-day segments, improving daily totals accuracy',
-      'Scheduled blocking now correctly handles overnight windows (for example, 23:00 to 06:00)',
+      'Session recording splits cross-midnight intervals into per-day segments',
+      'Scheduled blocking handles overnight windows, such as 23:00 to 06:00',
     ],
   },
   {
     version: '0.28.0',
     date: '2026-02-19',
     changed: [
-      'Tracking now requires fresh content-script heartbeats, so tabs stop counting when they are no longer verifiably visible',
-      'Periodic session save now records only up to last confirmed activity instead of assuming continuous visibility',
+      'Tracking requires fresh content-script heartbeats, so hidden or stale tabs stop counting',
+      'Periodic session saves record only up to the last confirmed activity instead of assuming the tab stayed visible',
     ],
     fixed: [
-      'Improved multi-window tracking accuracy by ending stale sessions quickly when windows are minimized, hidden, or no longer emitting visibility heartbeats',
-      'Two visible windows on the same site now continue tracking independently while dashboard totals still use interval union to avoid overlap double-counting',
+      'Multi-window tracking ends stale sessions quickly when windows are minimized, hidden, or no longer sending visibility heartbeats',
+      'Two visible windows on the same site track independently while dashboard totals still avoid double-counting overlap',
     ],
   },
   {
     version: '0.27.0',
     date: '2026-01-16',
     fixed: [
-      'Minimized windows now stop tracking immediately on focus change instead of waiting for periodic check',
-      'Sessions now cap recorded time at last confirmed activity + 30 seconds, preventing hours of phantom time if alarms fail',
-      'Fixed race condition that could cause sessions to be recorded twice when multiple end events occurred simultaneously',
+      'Minimized windows stop tracking immediately on focus change instead of waiting for the next periodic check',
+      'Sessions cap recorded time at last confirmed activity plus 30 seconds, avoiding hours of phantom time if alarms fail',
+      'Session end events no longer record the same session twice when they fire at the same time',
     ],
   },
   {
     version: '0.26.0',
     date: '2026-01-10',
     added: [
-      'Focus Sessions - block all sites in a folder with one shared timer',
+      'Focus sessions for blocking every site in a folder with one shared timer',
       'Focus button on folder headers opens modal to set duration',
       'Quick duration presets (15m, 30m, 1h, 2h) in focus modal',
-      'Focus sessions override individual site settings - blocks everything in the folder',
+      'Focus sessions override individual site settings and block everything in the folder',
     ],
     removed: [
-      'New tab page override - Chrome now uses default new tab',
+      'New tab page override. Chrome uses its default new tab page again',
     ],
     changed: [
-      'Timer blocking now works as temporary block - sites are accessible until you start the timer',
+      'Timer blocking is temporary. Sites stay accessible until you start the timer',
       'Timer sites show "Disabled" button that starts blocking when clicked, "Stop" to end early',
       'Active timer blocks display remaining time with live countdown in dashboard and blocked page',
-      'Time remaining now displays to the left of the block type label',
-      'Enable All/Disable All on folders now starts/clears timer blocks for timer-type sites',
-      'All status buttons (Blocking, Disabled, Stop) now have consistent width',
+      'Time remaining appears to the left of the block type label',
+      'Enable All and Disable All on folders start or clear timer blocks for timer-type sites',
+      'Status buttons use the same width for Blocking, Disabled, and Stop states',
     ],
     fixed: [
-      'Timer duration input can now be fully cleared before typing a new value',
-      'Timer blocks now start instantly when clicking Disabled or Enable All',
+      'Timer duration input can be cleared before typing a new value',
+      'Timer blocks start immediately when clicking Disabled or Enable All',
     ],
   },
   {
@@ -182,7 +182,7 @@ const changelog: ChangelogEntry[] = [
     changed: [
       'Compact session storage format reduces data size by ~65%',
       'Faster loading of Categories and Metrics pages by loading summary data first',
-      'Timeline and YouTube data now loads on-demand for selected date range only',
+      'Timeline and YouTube data load only for the selected date range',
       'One-time migration converts existing data to compact format on update',
     ],
   },
@@ -190,14 +190,14 @@ const changelog: ChangelogEntry[] = [
     version: '0.24.0',
     date: '2026-01-10',
     added: [
-      'New Categories page - view all sites organized by category with time spent',
-      'Collapsible categories - click to expand/collapse each category',
+      'Categories page showing sites grouped by category with time spent',
+      'Collapsible categories',
       'Expand all/Collapse all button for quick category management',
       'Select mode for bulk moving multiple sites between categories',
       'Drag and drop to reorder categories (except "Other" which stays at the bottom)',
       'Drag and drop sites between categories to recategorize them',
       'Drop sites onto collapsed categories',
-      'Custom categories - create your own with custom names and colors',
+      'Custom categories with names and colors',
       'Drag a site to "Drop here to create new category" zone to create a category for it',
       'Rename built-in categories (original names preserved, can reset anytime)',
       'Delete custom categories (sites return to their default category)',
@@ -215,7 +215,7 @@ const changelog: ChangelogEntry[] = [
       'Anchor navigation from Overview "View all" links to specific sections on Metrics page',
     ],
     changed: [
-      'Labels now use sentence case throughout Overview and Metrics pages',
+      'Overview and Metrics labels use sentence case',
       'Consistent spacing between sections on Overview and Metrics pages',
       'Activity timeline shows day markers instead of hour markers for multi-day date ranges',
     ],
@@ -227,27 +227,27 @@ const changelog: ChangelogEntry[] = [
       'GitHub link in Settings page under new About section',
     ],
     fixed: [
-      'Fixed blocked page not showing when clicking links to blocked sites from other websites (was showing Chrome ERR_BLOCKED_BY_CLIENT error)',
+      'Blocked pages open when a link to a blocked site comes from another website instead of showing Chrome ERR_BLOCKED_BY_CLIENT',
     ],
   },
   {
     version: '0.21.0',
     date: '2026-01-09',
     added: [
-      'Clickable YouTube channel names - click a channel in Overview or Metrics to visit their page',
-      'Site URLs in Overview are now clickable links',
+      'Clickable YouTube channel names in Overview and Metrics',
+      'Clickable site URLs in Overview',
     ],
     fixed: [
-      'Fixed race condition that could cause YouTube session data loss when tracking overlapped with site tracking',
-      'Fixed YouTube channel URL not being captured from video pages',
+      'YouTube session data survives overlaps between YouTube tracking and site tracking',
+      'YouTube channel URLs are captured from video pages',
     ],
   },
   {
     version: '0.20.0',
     date: '2026-01-09',
     added: [
-      'Lockdown Mode - require master password to disable blocking, remove sites, or disable limits',
-      'Disabling blocking from popup now requires master password (if one is set)',
+      'Lockdown Mode requires the master password to disable blocking, remove sites, or disable limits',
+      'Disabling blocking from the popup requires the master password when one is set',
       '5-minute authentication session after entering password for uninterrupted changes',
       'Session automatically clears when dashboard is closed',
       'New shield icon as extension favicon and toolbar icon',
@@ -257,49 +257,49 @@ const changelog: ChangelogEntry[] = [
     version: '0.19.0',
     date: '2026-01-08',
     added: [
-      'Path-based site blocking - block specific URL paths like reddit.com/r/funny/*',
-      'URL input normalization - automatically strips https:// and formats patterns correctly',
+      'Path-based site blocking for URL paths like reddit.com/r/funny/*',
+      'URL input normalization strips https:// and formats patterns correctly',
     ],
     changed: [
-      'Entering https://example.com/ now normalizes to example.com',
-      'Entering https://example.com/path/ now normalizes to example.com/path/*',
+      'https://example.com/ normalizes to example.com',
+      'https://example.com/path/ normalizes to example.com/path/*',
     ],
   },
   {
     version: '0.18.0',
     date: '2026-01-08',
     added: [
-      'Folders can now be reordered by dragging in Blocked Sites',
-      'Sites can now be reordered within folders by dragging in Blocked Sites',
+      'Folder reordering by drag and drop in Blocked Sites',
+      'Site reordering within folders by drag and drop in Blocked Sites',
     ],
     changed: [
-      'Folder headers in Blocked Sites can now be clicked anywhere to expand/collapse',
+      'Clicking anywhere on a folder header expands or collapses it',
     ],
     fixed: [
-      'Fixed missing gap between YouTube Channels section and other sections in Overview and Metrics tabs',
-      'Fixed drag and drop not working properly when folders are collapsed in Blocked Sites',
-      'Improved visual distinction between folder headers and site rows in Blocked Sites',
+      'Missing gap between YouTube Channels and other sections in Overview and Metrics tabs',
+      'Drag and drop works when folders are collapsed in Blocked Sites',
+      'Folder headers and site rows are easier to tell apart in Blocked Sites',
     ],
   },
   {
     version: '0.17.0',
     date: '2026-01-07',
     changed: [
-      'YouTube tracking now uses Media Session API for more reliable channel detection',
-      'YouTube watch time now tracks actual playback (play/pause) instead of page open time',
+      'YouTube tracking uses the Media Session API for channel detection',
+      'YouTube watch time tracks playback (play/pause) instead of page open time',
       'YouTube continues tracking when tab is in background (if video is still playing)',
-      'Overview progress bars now relative to top item for better visual comparison',
+      'Overview progress bars are relative to the top item',
     ],
     fixed: [
-      'YouTube channel detection now works reliably across all video pages',
-      'Fixed false "channel changed" detection when channelId was intermittently available',
+      'YouTube channel detection works across video pages',
+      'Channel changes are no longer detected falsely when channelId appears intermittently',
     ],
   },
   {
     version: '0.16.0',
     date: '2026-01-07',
     added: [
-      'YouTube Channel Tracking - track which channels you watch on YouTube videos and Shorts',
+      'YouTube Channel Tracking for videos and Shorts',
       'New setting to enable/disable YouTube tracking (off by default)',
       'YouTube Channels section in Overview showing top watched channels',
       'YouTube Channels section in Metrics with full channel breakdown',
@@ -314,24 +314,24 @@ const changelog: ChangelogEntry[] = [
       'Automatic theme switching when OS preference changes (in System mode)',
     ],
     fixed: [
-      'Blocked sites list now properly follows dark mode theme',
+      'Blocked sites list follows the dark mode theme',
     ],
   },
   {
     version: '0.14.0',
     date: '2026-01-07',
     changed: [
-      'Activity timeline now merges overlapping sessions for cleaner visualization',
+      'Activity timeline merges overlapping sessions',
     ],
   },
   {
     version: '0.13.0',
     date: '2026-01-07',
     added: [
-      'Site Categories - domains automatically categorized (Social, Entertainment, News, etc.)',
+      'Site Categories automatically categorize domains (Social, Entertainment, News, etc.)',
       'Category breakdown view in Metrics and Overview pages',
       'Pre-built category mappings for ~300 popular domains',
-      'Daily Time Limits - set maximum daily browsing time per site',
+      'Daily Time Limits for maximum daily browsing time per site',
       'New "Daily Limits" page for managing time limits',
       'Bypass options for daily limits: wait timer, password, or no bypass',
       'Limits approaching warning on Overview page',
@@ -342,15 +342,15 @@ const changelog: ChangelogEntry[] = [
     version: '0.12.0',
     date: '2026-01-07',
     fixed: [
-      'Sidebar now stays fixed while scrolling, keeping version and "What\'s New" visible on all pages',
-      'Back button on changelog page now returns to previous page instead of settings',
+      'Sidebar stays fixed while scrolling, keeping version and "What\'s New" visible on all pages',
+      'Back button on the changelog page returns to the previous page instead of Settings',
     ],
   },
   {
     version: '0.11.0',
     date: '2026-01-07',
     added: [
-      'Multi-window session tracking - tracks activity across all visible browser windows',
+      'Multi-window session tracking across all visible browser windows',
       'Activity Timeline visualization showing when sites were visited throughout the day',
       'Timeline preview on Overview page with link to full view',
       'Full timeline on Metrics page with date navigation and calendar picker',
@@ -360,7 +360,7 @@ const changelog: ChangelogEntry[] = [
     ],
     changed: [
       'Refactored time tracking from single-session to multi-session model',
-      '"Time today" now represents union of all browsing sessions (no double-counting)',
+      '"Time today" represents the union of all browsing sessions, avoiding overlap double-counting',
     ],
   },
   {
@@ -374,7 +374,7 @@ const changelog: ChangelogEntry[] = [
     version: '0.9.0',
     date: '2026-01-07',
     changed: [
-      'New tab greeting is now deterministic based on day of year',
+      'New tab greeting is deterministic based on day of year',
     ],
   },
   {
@@ -395,8 +395,8 @@ const changelog: ChangelogEntry[] = [
     version: '0.7.0',
     date: '2026-01-07',
     fixed: [
-      'Scheduled blocking now correctly checks if current time is within the blocking window',
-      'Sites with service workers that bypass declarativeNetRequest are now blocked',
+      'Scheduled blocking checks whether the current time is inside the blocking window',
+      'Sites with service workers that bypass declarativeNetRequest are blocked',
     ],
     changed: [
       'Content script runs at document_start for faster blocking',
@@ -407,7 +407,7 @@ const changelog: ChangelogEntry[] = [
     version: '0.6.0',
     date: '2026-01-07',
     fixed: [
-      'Blocked site metrics now properly increment',
+      'Blocked site metrics increment correctly',
     ],
   },
   {
@@ -417,10 +417,10 @@ const changelog: ChangelogEntry[] = [
       'Content script heartbeat system for accurate time tracking',
       'Page Visibility API integration for true visibility detection',
       'Session state persistence across service worker restarts',
-      'Media detection - continues tracking when audio is playing',
+      'Media detection keeps tracking active when audio is playing',
     ],
     fixed: [
-      'UTC date bug - all date calculations now use local timezone',
+      'Date calculations use local timezone instead of UTC',
       'Maximum tracking data loss reduced from 60+ seconds to ~15 seconds',
     ],
   },
@@ -428,8 +428,8 @@ const changelog: ChangelogEntry[] = [
     version: '0.4.0',
     date: '2026-01-07',
     changed: [
-      'Quick links now auto-fetch favicons',
-      'Simplified add link modal - just enter URL',
+      'Quick links auto-fetch favicons',
+      'Simplified add link modal: just enter URL',
       'Auto-extract site name from domain',
     ],
   },
