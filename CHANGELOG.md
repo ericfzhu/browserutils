@@ -4,6 +4,12 @@ This file tracks notable BrowserUtils changes.
 
 It follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and uses 0.x.0 release versions. Each published release increments x.
 
+## [0.41.0] - 2026-06-29
+
+### Added
+- Blob video downloads setting for pages that use downloadable Blob-backed video files
+- Download overlay for Blob videos when the extension can access the original Blob data
+
 ## [0.40.0] - 2026-06-27
 
 ### Added

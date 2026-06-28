@@ -339,20 +339,37 @@ export default function SettingsPage() {
 
       {/* Browser Utilities */}
       <div className="rounded-xl border bg-card p-6 mb-6">
-        <label className="flex items-center justify-between gap-4">
-          <div>
-            <h2 className="text-lg font-semibold">Paste Anyway</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Allow pasting into text fields on sites that block paste events.
-            </p>
-          </div>
-          <Input
-            type="checkbox"
-            checked={settings.forcePasteEnabled}
-            onChange={(e) => void updateSettings({ forcePasteEnabled: e.target.checked })}
-            className="w-5 h-5 shrink-0 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-          />
-        </label>
+        <div className="flex flex-col gap-4">
+          <label className="flex items-center justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-semibold">Paste Anyway</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Allow pasting into text fields on sites that block paste events.
+              </p>
+            </div>
+            <Input
+              type="checkbox"
+              checked={settings.forcePasteEnabled}
+              onChange={(e) => void updateSettings({ forcePasteEnabled: e.target.checked })}
+              className="w-5 h-5 shrink-0 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
+          </label>
+
+          <label className="flex items-center justify-between gap-4 border-t pt-4">
+            <div>
+              <h2 className="text-lg font-semibold">Blob video downloads</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Show a download button when a page uses a downloadable Blob video. Streams and DRM video are ignored.
+              </p>
+            </div>
+            <Input
+              type="checkbox"
+              checked={settings.blobVideoDownloaderEnabled}
+              onChange={(e) => void updateSettings({ blobVideoDownloaderEnabled: e.target.checked })}
+              className="w-5 h-5 shrink-0 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
+          </label>
+        </div>
       </div>
 
       {/* New Tab Settings */}

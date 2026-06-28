@@ -3,7 +3,7 @@ import { Tag, Plus, Wrench, Bug, ArrowLeft, Minus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 // Changelog data - update this when releasing new versions
-const CURRENT_VERSION = '0.40.0';
+const CURRENT_VERSION = '0.41.0';
 
 interface ChangelogEntry {
   version: string;
@@ -15,6 +15,14 @@ interface ChangelogEntry {
 }
 
 const changelog: ChangelogEntry[] = [
+  {
+    version: '0.41.0',
+    date: '2026-06-29',
+    added: [
+      'Blob video downloads setting for pages that use downloadable Blob-backed video files',
+      'Download overlay for Blob videos when the extension can access the original Blob data',
+    ],
+  },
   {
     version: '0.40.0',
     date: '2026-06-27',
