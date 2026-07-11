@@ -249,19 +249,27 @@ export default function BlockedSites() {
     }
 
     try {
+      const saveSite = async () => {
+        if (editingSite) {
+          await chrome.runtime.sendMessage({
+            type: 'UPDATE_BLOCKED_SITE',
+            payload: { ...editingSite, ...payload, unlockedUntil: undefined },
+          });
+        } else {
+          await chrome.runtime.sendMessage({
+            type: 'ADD_BLOCKED_SITE',
+            payload,
+          });
+        }
+        await loadData();
+        setShowModal(false);
+      };
+
       if (editingSite) {
-        await chrome.runtime.sendMessage({
-          type: 'UPDATE_BLOCKED_SITE',
-          payload: { ...editingSite, ...payload },
-        });
+        await withLockdownCheck(saveSite);
       } else {
-        await chrome.runtime.sendMessage({
-          type: 'ADD_BLOCKED_SITE',
-          payload,
-        });
+        await saveSite();
       }
-      await loadData();
-      setShowModal(false);
     } catch (err) {
       console.error('Failed to save site:', err);
     }

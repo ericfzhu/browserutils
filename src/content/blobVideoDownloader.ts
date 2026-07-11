@@ -47,6 +47,7 @@ interface DashMediaSource {
 type DownloadRecord = BlobVideoRecord | RedditVideoRecord;
 
 const MESSAGE_SOURCE = 'browserutils:blob-video';
+const CONTROL_MESSAGE_TYPE = 'capture-state';
 const MAX_RECORDS = 50;
 const MAX_RECORD_AGE_MS = 30 * 60 * 1000;
 const overlayButtons = new WeakMap<HTMLVideoElement, HTMLButtonElement>();
@@ -63,22 +64,18 @@ let updateTimer: number | null = null;
 async function loadBlobVideoSetting() {
   try {
     const result = await chrome.storage.local.get('settings');
-    blobVideoDownloaderEnabled = !!result.settings?.blobVideoDownloaderEnabled;
-    scheduleScan();
+    setBlobVideoDownloaderEnabled(!!result.settings?.blobVideoDownloaderEnabled);
   } catch {
-    blobVideoDownloaderEnabled = false;
+    setBlobVideoDownloaderEnabled(false);
   }
 }
-
-loadBlobVideoSetting();
 
 chrome.storage.onChanged.addListener((changes, areaName) => {
   if (areaName !== 'local' || !changes.settings) {
     return;
   }
 
-  blobVideoDownloaderEnabled = !!changes.settings.newValue?.blobVideoDownloaderEnabled;
-  scheduleScan();
+  setBlobVideoDownloaderEnabled(!!changes.settings.newValue?.blobVideoDownloaderEnabled);
 });
 
 function isBlobVideoMessage(value: unknown): value is BlobVideoMessage {
@@ -93,6 +90,8 @@ function isBlobVideoMessage(value: unknown): value is BlobVideoMessage {
 }
 
 function rememberBlob(url: string, blob: Blob) {
+  if (!blobVideoDownloaderEnabled) return;
+
   blobRecords.set(url, {
     kind: 'blob',
     blob,
@@ -129,7 +128,7 @@ function pruneRecords() {
 }
 
 window.addEventListener('message', (event) => {
-  if (event.source !== window || !isBlobVideoMessage(event.data)) {
+  if (!blobVideoDownloaderEnabled || event.source !== window || !isBlobVideoMessage(event.data)) {
     return;
   }
 
@@ -389,6 +388,8 @@ async function fetchRedditRecord(postId: string) {
       return;
     }
 
+    if (!blobVideoDownloaderEnabled) return;
+
     redditRecords.set(postId, {
       kind: 'reddit',
       postId,
@@ -608,7 +609,7 @@ function scanVideos() {
 }
 
 function scheduleScan() {
-  if (scanTimer !== null) {
+  if (!blobVideoDownloaderEnabled || scanTimer !== null) {
     return;
   }
 
@@ -623,7 +624,7 @@ function updateOverlayPositions() {
 }
 
 function schedulePositionUpdate() {
-  if (updateTimer !== null) {
+  if (!blobVideoDownloaderEnabled || updateTimer !== null) {
     return;
   }
 
@@ -633,6 +634,8 @@ function schedulePositionUpdate() {
 const observer = new MutationObserver(scheduleScan);
 
 function startObserver() {
+  if (!blobVideoDownloaderEnabled) return;
+
   if (!document.documentElement) {
     document.addEventListener('DOMContentLoaded', startObserver, { once: true });
     return;
@@ -647,6 +650,50 @@ function startObserver() {
   scheduleScan();
 }
 
-startObserver();
-window.addEventListener('resize', schedulePositionUpdate, { passive: true });
-window.addEventListener('scroll', schedulePositionUpdate, { passive: true, capture: true });
+function notifyMainWorldHook(enabled: boolean) {
+  window.postMessage({
+    source: MESSAGE_SOURCE,
+    type: CONTROL_MESSAGE_TYPE,
+    enabled,
+  }, window.location.origin);
+}
+
+function clearDownloadState() {
+  observer.disconnect();
+  if (scanTimer !== null) window.clearTimeout(scanTimer);
+  if (updateTimer !== null) window.clearTimeout(updateTimer);
+  scanTimer = null;
+  updateTimer = null;
+
+  for (const video of trackedVideos) {
+    overlayButtons.get(video)?.remove();
+  }
+  trackedVideos.clear();
+  blobRecords.clear();
+  redditRecords.clear();
+  pendingFetches.clear();
+  redditFetches.clear();
+}
+
+function setBlobVideoDownloaderEnabled(enabled: boolean) {
+  const changed = blobVideoDownloaderEnabled !== enabled;
+  blobVideoDownloaderEnabled = enabled;
+  notifyMainWorldHook(enabled);
+
+  if (!changed) {
+    if (enabled) startObserver();
+    return;
+  }
+
+  if (enabled) {
+    startObserver();
+    window.addEventListener('resize', schedulePositionUpdate, { passive: true });
+    window.addEventListener('scroll', schedulePositionUpdate, { passive: true, capture: true });
+  } else {
+    window.removeEventListener('resize', schedulePositionUpdate);
+    window.removeEventListener('scroll', schedulePositionUpdate, true);
+    clearDownloadState();
+  }
+}
+
+void loadBlobVideoSetting();

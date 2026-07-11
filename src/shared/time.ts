@@ -19,8 +19,11 @@ export function splitIntervalByLocalDay(startTime: number, endTime: number): Dai
 
   while (cursor < endTime) {
     const current = new Date(cursor);
-    const dayStart = new Date(current.getFullYear(), current.getMonth(), current.getDate()).getTime();
-    const nextDayStart = dayStart + 24 * 60 * 60 * 1000;
+    const nextDayStart = new Date(
+      current.getFullYear(),
+      current.getMonth(),
+      current.getDate() + 1
+    ).getTime();
     const segmentEnd = Math.min(endTime, nextDayStart);
 
     const startSec = Math.floor(cursor / 1000);

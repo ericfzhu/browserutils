@@ -5,17 +5,32 @@ declare global {
 }
 
 const MESSAGE_SOURCE = 'browserutils:blob-video';
+const CONTROL_MESSAGE_TYPE = 'capture-state';
 
 if (!window.__browserUtilsBlobVideoHook) {
   window.__browserUtilsBlobVideoHook = true;
 
   const originalCreateObjectUrl = URL.createObjectURL.bind(URL);
   const originalRevokeObjectUrl = URL.revokeObjectURL.bind(URL);
+  let captureEnabled = false;
+
+  window.addEventListener('message', (event) => {
+    if (
+      event.source === window &&
+      event.data?.source === MESSAGE_SOURCE &&
+      event.data?.type === CONTROL_MESSAGE_TYPE &&
+      typeof event.data.enabled === 'boolean'
+    ) {
+      captureEnabled = event.data.enabled;
+    }
+  });
 
   URL.createObjectURL = (object: Blob | MediaSource) => {
     const url = originalCreateObjectUrl(object);
 
     try {
+      if (!captureEnabled) return url;
+
       const isBlob = object instanceof Blob;
       const type = isBlob ? object.type : '';
       const shouldIncludeBlob = isBlob && (
@@ -42,11 +57,13 @@ if (!window.__browserUtilsBlobVideoHook) {
 
   URL.revokeObjectURL = (url: string) => {
     try {
-      window.postMessage({
-        source: MESSAGE_SOURCE,
-        type: 'object-url-revoked',
-        url,
-      }, window.location.origin);
+      if (captureEnabled) {
+        window.postMessage({
+          source: MESSAGE_SOURCE,
+          type: 'object-url-revoked',
+          url,
+        }, window.location.origin);
+      }
     } catch {
       // Ignore messaging errors and still revoke the page's object URL.
     }

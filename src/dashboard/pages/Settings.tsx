@@ -9,7 +9,7 @@ import { buildOtpAuthUri, generateTotpSecret, verifyTotpCode } from '../../share
 import { useLockdown } from '../hooks/useLockdown';
 
 export default function SettingsPage() {
-  const { refreshStatus } = useLockdown();
+  const { refreshStatus, withLockdownCheck } = useLockdown();
   const [settings, setSettings] = useState<SettingsType | null>(null);
   const [loading, setLoading] = useState(true);
   const [newPassword, setNewPassword] = useState('');
@@ -65,14 +65,16 @@ export default function SettingsPage() {
       const hashArray = Array.from(new Uint8Array(hashBuffer));
       const passwordHash = hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
 
-      await updateSettings({ passwordHash });
-      await refreshStatus();
+      await withLockdownCheck(async () => {
+        await updateSettings({ passwordHash });
+        await refreshStatus();
 
-      setNewPassword('');
-      setConfirmPassword('');
-      setPasswordError('');
-      alert('Master password set successfully!');
-      await loadSettings();
+        setNewPassword('');
+        setConfirmPassword('');
+        setPasswordError('');
+        alert('Master password set successfully!');
+        await loadSettings();
+      });
     } catch (err) {
       console.error('Failed to set password:', err);
       setPasswordError('Failed to set password');
@@ -94,23 +96,27 @@ export default function SettingsPage() {
       return;
     }
 
-    await updateSettings({ lockdownTotpSecret: totpSecretDraft });
-    await refreshStatus();
-    setTotpSecretDraft('');
-    setTotpCode('');
-    setTotpError('');
+    await withLockdownCheck(async () => {
+      await updateSettings({ lockdownTotpSecret: totpSecretDraft });
+      await refreshStatus();
+      setTotpSecretDraft('');
+      setTotpCode('');
+      setTotpError('');
+    });
   }
 
   async function clearTotpSetup() {
-    await updateSettings({
-      lockdownTotpSecret: undefined,
-      lockdownAuthMethod: settings?.lockdownAuthMethod === 'totp' ? 'password' : settings?.lockdownAuthMethod,
+    await withLockdownCheck(async () => {
+      await updateSettings({
+        lockdownTotpSecret: undefined,
+        lockdownAuthMethod: settings?.lockdownAuthMethod === 'totp' ? 'password' : settings?.lockdownAuthMethod,
+      });
+      await refreshStatus();
+      await loadSettings();
+      setTotpSecretDraft('');
+      setTotpCode('');
+      setTotpError('');
     });
-    await refreshStatus();
-    await loadSettings();
-    setTotpSecretDraft('');
-    setTotpCode('');
-    setTotpError('');
   }
 
   async function clearAllData() {
@@ -449,8 +455,10 @@ export default function SettingsPage() {
                 type="button"
                 disabled={!settings.passwordHash}
                 onClick={async () => {
-                  await updateSettings({ lockdownAuthMethod: 'password' });
-                  await refreshStatus();
+                  await withLockdownCheck(async () => {
+                    await updateSettings({ lockdownAuthMethod: 'password' });
+                    await refreshStatus();
+                  });
                 }}
                 className={`flex items-center gap-2 p-3 border rounded-lg transition-colors ${
                   settings.lockdownAuthMethod === 'password'
@@ -465,8 +473,10 @@ export default function SettingsPage() {
                 type="button"
                 disabled={!settings.lockdownTotpSecret}
                 onClick={async () => {
-                  await updateSettings({ lockdownAuthMethod: 'totp' });
-                  await refreshStatus();
+                  await withLockdownCheck(async () => {
+                    await updateSettings({ lockdownAuthMethod: 'totp' });
+                    await refreshStatus();
+                  });
                 }}
                 className={`flex items-center gap-2 p-3 border rounded-lg transition-colors ${
                   settings.lockdownAuthMethod === 'totp'
@@ -500,8 +510,15 @@ export default function SettingsPage() {
               checked={settings.lockdownEnabled ?? false}
               onChange={async (e) => {
                 const newValue = e.target.checked;
-                await updateSettings({ lockdownEnabled: newValue });
-                await refreshStatus();
+                const applyChange = async () => {
+                  await updateSettings({ lockdownEnabled: newValue });
+                  await refreshStatus();
+                };
+                if (newValue) {
+                  await applyChange();
+                } else {
+                  await withLockdownCheck(applyChange);
+                }
               }}
               disabled={!hasLockdownMethod}
               className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 disabled:cursor-not-allowed"

@@ -13,6 +13,7 @@ import {
   updateSettings,
   getDailyStats,
   getAllDailyStats,
+  pruneDailyStats,
   getAllDailyStatsSummary,
   getSessionsForRange,
   incrementBlockedAttempt,
@@ -22,6 +23,7 @@ import {
   removeActiveSession,
   verifyPassword,
   matchesPattern,
+  buildUrlPatternRegex,
   getDomainCategories,
   setDomainCategory,
   getDailyLimits,
@@ -134,6 +136,67 @@ async function startLockdownSession(): Promise<number> {
 
 async function clearLockdownSession(): Promise<void> {
   await chrome.storage.session.remove([SESSION_KEYS.LOCKDOWN_AUTH_UNTIL]);
+}
+
+async function requiresLockdownAuthentication(message: MessageType): Promise<boolean> {
+  const protectedTypes = new Set<MessageType['type']>([
+    'REMOVE_BLOCKED_SITE',
+    'REMOVE_BLOCKED_SITE_FOLDER',
+    'CLEAR_TIMER_BLOCK',
+    'STOP_FOCUS_SESSION',
+    'STOP_GLOBAL_FOCUS_SESSION',
+    'REMOVE_DAILY_LIMIT',
+  ]);
+
+  let protectedMutation = protectedTypes.has(message.type);
+  if (message.type === 'UPDATE_SETTINGS') {
+    const patch = message.payload;
+    protectedMutation = patch.blockingEnabled === false ||
+      patch.lockdownEnabled === false ||
+      Object.prototype.hasOwnProperty.call(patch, 'passwordHash') ||
+      Object.prototype.hasOwnProperty.call(patch, 'lockdownAuthMethod') ||
+      Object.prototype.hasOwnProperty.call(patch, 'lockdownTotpSecret');
+  } else if (message.type === 'UPDATE_BLOCKED_SITE') {
+    const current = (await getBlockedSites()).find(site => site.id === message.payload.id);
+    protectedMutation = !!current && (
+      current.enabled !== message.payload.enabled ||
+      current.pattern !== message.payload.pattern ||
+      current.unlockType !== message.payload.unlockType ||
+      current.passwordHash !== message.payload.passwordHash ||
+      current.timerDuration !== message.payload.timerDuration ||
+      JSON.stringify(current.schedule) !== JSON.stringify(message.payload.schedule)
+    );
+  } else if (message.type === 'UPDATE_BLOCKED_SITES') {
+    const currentSites = await getBlockedSites();
+    const currentById = new Map(currentSites.map(site => [site.id, site]));
+    const nextIds = new Set(message.payload.map(site => site.id));
+    protectedMutation = currentSites.some(site => !nextIds.has(site.id)) || message.payload.some(site => {
+      const current = currentById.get(site.id);
+      return !!current && (
+        current.enabled !== site.enabled ||
+        current.pattern !== site.pattern ||
+        current.unlockType !== site.unlockType ||
+        current.passwordHash !== site.passwordHash ||
+        current.timerDuration !== site.timerDuration ||
+        JSON.stringify(current.schedule) !== JSON.stringify(site.schedule)
+      );
+    });
+  } else if (message.type === 'UPDATE_DAILY_LIMIT') {
+    const current = (await getDailyLimits()).find(limit => limit.id === message.payload.id);
+    protectedMutation = !!current && (
+      current.enabled !== message.payload.enabled ||
+      current.pattern !== message.payload.pattern ||
+      current.limitSeconds !== message.payload.limitSeconds ||
+      current.bypassType !== message.payload.bypassType ||
+      current.passwordHash !== message.payload.passwordHash ||
+      current.cooldownSeconds !== message.payload.cooldownSeconds
+    );
+  }
+
+  if (!protectedMutation) return false;
+
+  const settings = await getCachedSettings();
+  return !!settings.lockdownEnabled && !(await isLockdownSessionValid());
 }
 
 async function getLockdownAuthUntil(): Promise<number | undefined> {
@@ -276,6 +339,14 @@ chrome.runtime.onMessage.addListener((message: MessageType, sender, sendResponse
 });
 
 async function handleMessage(message: MessageType, sender?: chrome.runtime.MessageSender): Promise<unknown> {
+  if (await requiresLockdownAuthentication(message)) {
+    return {
+      success: false,
+      requiresAuth: true,
+      error: 'Lockdown authentication required',
+    };
+  }
+
   switch (message.type) {
     case 'GET_STATS': {
       if (message.payload?.date) {
@@ -604,6 +675,29 @@ async function handleMessage(message: MessageType, sender?: chrome.runtime.Messa
   }
 }
 
+async function enforceDailyLimit(
+  tabId: number,
+  url: string,
+  domain: string,
+  additionalSeconds = 0,
+  persistActiveSession = true
+): Promise<boolean> {
+  const result = await checkDailyLimitForDomain(domain, additionalSeconds);
+  if (!result.exceeded || !result.limit) return false;
+
+  if (persistActiveSession) {
+    await endSession(tabId);
+  } else {
+    await removeActiveSession(tabId);
+  }
+
+  const blockedUrl = chrome.runtime.getURL(
+    `blocked.html?type=limit&limitId=${result.limit.id}&returnUrl=${encodeURIComponent(url)}`
+  );
+  await chrome.tabs.update(tabId, { url: blockedUrl });
+  return true;
+}
+
 // Handle heartbeat from content script - keeps active sessions fresh between saves.
 async function handleHeartbeat(sender?: chrome.runtime.MessageSender): Promise<void> {
   if (!sender?.tab?.id || !sender.tab.url) return;
@@ -655,6 +749,9 @@ async function handleHeartbeat(sender?: chrome.runtime.MessageSender): Promise<v
       ...session,
       lastActiveTime: now,
     });
+
+    const unsavedSeconds = Math.max(0, Math.floor((now - session.startTime) / 1000));
+    await enforceDailyLimit(tabId, url, domain, unsavedSeconds);
   } else if (sender.tab.active && !isUserIdle) {
     // No active session for this tab - start one if tab is active and visible
     try {
@@ -668,6 +765,7 @@ async function handleHeartbeat(sender?: chrome.runtime.MessageSender): Promise<v
           windowId,
           visitRecorded: false,
         });
+        await enforceDailyLimit(tabId, url, domain);
       }
     } catch {
       // Window doesn't exist
@@ -883,18 +981,21 @@ async function unlockSite(id: string, password?: string): Promise<{ success: boo
     return { success: false, error: 'Site not found' };
   }
 
-  if (site.unlockType === 'password' && site.passwordHash) {
-    if (!password) {
-      return { success: false, error: 'Password required' };
-    }
-    const valid = await verifyPassword(password, site.passwordHash);
-    if (!valid) {
-      return { success: false, error: 'Invalid password' };
-    }
+  if (site.unlockType !== 'password' || !site.passwordHash) {
+    return { success: false, error: 'This site does not have a password unlock configured' };
+  }
+  if (!password) {
+    return { success: false, error: 'Password required' };
+  }
+  const valid = await verifyPassword(password, site.passwordHash);
+  if (!valid) {
+    return { success: false, error: 'Invalid password' };
   }
 
-  // For password unlock, just update blocking rules (no state change needed)
+  site.unlockedUntil = Date.now() + 15 * 60 * 1000;
+  await updateBlockedSite(site);
   await updateBlockingRules();
+  await chrome.alarms.create(`siteUnlock:${site.id}`, { when: site.unlockedUntil });
   return { success: true };
 }
 
@@ -1003,6 +1104,10 @@ async function checkIfBlocked(url: string): Promise<{ blocked: boolean; site?: B
       // Skip disabled sites for individual blocking rules
       if (!site.enabled) continue;
 
+      if (site.unlockedUntil && now < site.unlockedUntil) {
+        return { blocked: false };
+      }
+
       // Timer sites: only blocked when timer is active
       if (site.unlockType === 'timer') {
         if (site.timerBlockedUntil && now < site.timerBlockedUntil) {
@@ -1067,6 +1172,10 @@ async function updateBlockingRules(): Promise<void> {
       // Not in focus session - check individual site rules
       if (!site.enabled) continue;
 
+      if (site.unlockedUntil && now < site.unlockedUntil) {
+        continue;
+      }
+
       // Timer sites: only create rule if timer is active
       if (site.unlockType === 'timer') {
         if (!site.timerBlockedUntil || now >= site.timerBlockedUntil) {
@@ -1083,27 +1192,8 @@ async function updateBlockingRules(): Promise<void> {
       }
     }
 
-    // Build URL filter
-    let urlFilter: string;
-    const patternHasPath = site.pattern.includes('/');
-
-    if (patternHasPath) {
-      // Pattern has a path component (e.g., domain.com/path/*)
-      let filterPattern = site.pattern;
-      // Remove trailing /* and replace with * for URL filter
-      if (filterPattern.endsWith('/*')) {
-        filterPattern = filterPattern.slice(0, -2) + '*';
-      }
-      if (filterPattern.startsWith('*.')) {
-        urlFilter = `||${filterPattern.slice(2)}`;
-      } else {
-        urlFilter = `||${filterPattern}`;
-      }
-    } else if (site.pattern.startsWith('*.')) {
-      urlFilter = `||${site.pattern.slice(2)}`;
-    } else {
-      urlFilter = `||${site.pattern}`;
-    }
+    const regexFilter = buildUrlPatternRegex(site.pattern);
+    if (!regexFilter) continue;
 
     rules.push({
       id: ruleId++,
@@ -1115,7 +1205,7 @@ async function updateBlockingRules(): Promise<void> {
         },
       },
       condition: {
-        urlFilter,
+        regexFilter,
         resourceTypes: [chrome.declarativeNetRequest.ResourceType.MAIN_FRAME],
       },
     });
@@ -1222,6 +1312,8 @@ async function startSession(tabId: number, url: string, windowId?: number): Prom
     windowId: actualWindowId,
     visitRecorded: false,
   });
+
+  await enforceDailyLimit(tabId, url, domain);
 }
 
 // Tab change listeners
@@ -1361,6 +1453,11 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
   // Restore idle state in case service worker was restarted
   await restoreIdleState();
 
+  if (alarm.name.startsWith('siteUnlock:')) {
+    await updateBlockingRules();
+    return;
+  }
+
   if (alarm.name === 'saveSession') {
     // Save progress for all active sessions
     const activeSessions = await getActiveSessions();
@@ -1384,6 +1481,9 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
             const endTime = Math.min(now, session.lastActiveTime);
             const progress = await recordActiveSessionProgress(session, endTime);
             if (progress.recorded) {
+              if (tab.url && await enforceDailyLimit(tabId, tab.url, session.domain, 0, false)) {
+                continue;
+              }
               await addActiveSession(tabId, {
                 ...session,
                 startTime: endTime,
@@ -1412,18 +1512,10 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
   if (alarm.name === 'cleanup') {
     // Clean up old stats based on retention setting
     const settings = await getSettings();
-    const allStats = await getAllDailyStats();
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - settings.retentionDays);
     const cutoffStr = `${cutoffDate.getFullYear()}-${String(cutoffDate.getMonth() + 1).padStart(2, '0')}-${String(cutoffDate.getDate()).padStart(2, '0')}`;
 
-    const filteredStats: Record<string, typeof allStats[string]> = {};
-    for (const [date, stats] of Object.entries(allStats)) {
-      if (date >= cutoffStr) {
-        filteredStats[date] = stats;
-      }
-    }
-
-    await chrome.storage.local.set({ dailyStats: filteredStats });
+    await pruneDailyStats(cutoffStr);
   }
 });

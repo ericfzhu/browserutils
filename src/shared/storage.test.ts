@@ -1,6 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getLocalDateString } from './time';
-import { mergeIntervals, matchesPattern, computeStatsFromCompactSessions, getDailyStats, recordSession } from './storage';
+import {
+  buildUrlPatternRegex,
+  checkDailyLimitForDomain,
+  computeStatsFromCompactSessions,
+  getDailyStats,
+  matchesPattern,
+  mergeIntervals,
+  recordSession,
+} from './storage';
 
 describe('mergeIntervals', () => {
   it('returns empty result for empty input', () => {
@@ -158,6 +166,30 @@ describe('matchesPattern', () => {
   });
 });
 
+describe('buildUrlPatternRegex', () => {
+  function matches(url: string, pattern: string): boolean {
+    const filter = buildUrlPatternRegex(pattern);
+    return filter ? new RegExp(filter).test(url) : false;
+  }
+
+  it('keeps exact domains from matching subdomains or lookalike suffixes', () => {
+    expect(matches('https://example.com/path', 'example.com')).toBe(true);
+    expect(matches('https://www.example.com/path', 'example.com')).toBe(true);
+    expect(matches('https://sub.example.com/path', 'example.com')).toBe(false);
+    expect(matches('https://example.company/path', 'example.com')).toBe(false);
+  });
+
+  it('supports wildcard subdomains and path boundaries', () => {
+    expect(matches('https://deep.sub.example.com/path/item', '*.example.com/path/*')).toBe(true);
+    expect(matches('https://example.com/path?view=1', '*.example.com/path/*')).toBe(true);
+    expect(matches('https://example.com/pathology', '*.example.com/path/*')).toBe(false);
+  });
+
+  it('rejects malformed domains', () => {
+    expect(buildUrlPatternRegex('not a domain')).toBeNull();
+  });
+});
+
 describe('computeStatsFromCompactSessions', () => {
   it('returns zero for empty sessions', () => {
     const result = computeStatsFromCompactSessions({});
@@ -281,5 +313,55 @@ describe('recordSession', () => {
     expect(stats.sessions['example.com']).toEqual([
       [Math.floor(startTime / 1000), Math.floor((startTime + 120_000) / 1000)],
     ]);
+  });
+
+  it('preserves concurrent writes from separate event handlers', async () => {
+    const startTime = new Date('2026-06-22T10:00:00').getTime();
+
+    await Promise.all([
+      recordSession({
+        domain: 'first.example',
+        startTime,
+        endTime: startTime + 60_000,
+        windowId: 1,
+      }),
+      recordSession({
+        domain: 'second.example',
+        startTime: startTime + 60_000,
+        endTime: startTime + 120_000,
+        windowId: 2,
+      }),
+    ]);
+
+    const stats = await getDailyStats(getLocalDateString(new Date(startTime)));
+    expect(stats.sites['first.example']).toBe(60);
+    expect(stats.sites['second.example']).toBe(60);
+    expect(stats.visits).toBe(2);
+  });
+
+  it('includes unsaved active time when checking a daily limit', async () => {
+    const today = getLocalDateString();
+    localStore.dailyLimits = [{
+      id: 'limit-1',
+      pattern: 'example.com',
+      limitSeconds: 120,
+      enabled: true,
+      bypassType: 'none',
+    }];
+    localStore.dailyStats = {
+      [today]: {
+        date: today,
+        totalTime: 90,
+        sites: { 'example.com': 90 },
+        visits: 1,
+        blockedAttempts: 0,
+        sessions: { 'example.com': [[0, 90]] },
+        youtubeSessions: {},
+      },
+    };
+
+    const result = await checkDailyLimitForDomain('example.com', 30);
+    expect(result.exceeded).toBe(true);
+    expect(result.timeSpent).toBe(120);
   });
 });

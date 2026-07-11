@@ -43,6 +43,7 @@ export interface BlockedSite {
   unlockType: 'password' | 'timer' | 'schedule' | 'none';
   // Password unlock settings
   passwordHash?: string;
+  unlockedUntil?: number; // timestamp until which password-protected access is allowed
   // Timer block settings (temporary block)
   timerDuration?: number; // minutes to block for
   timerBlockedUntil?: number; // timestamp when block expires (site blocked while Date.now() < timerBlockedUntil)

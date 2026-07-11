@@ -14,6 +14,16 @@ const STORAGE_KEYS = {
   BUILTIN_CATEGORY_OVERRIDES: 'builtInCategoryOverrides',
 } as const;
 
+// Service-worker events can interleave at each await. Serialize dailyStats
+// read-modify-write operations so stale snapshots cannot overwrite newer data.
+let dailyStatsWriteQueue: Promise<void> = Promise.resolve();
+
+function queueDailyStatsWrite<T>(operation: () => Promise<T>): Promise<T> {
+  const result = dailyStatsWriteQueue.then(operation, operation);
+  dailyStatsWriteQueue = result.then(() => undefined, () => undefined);
+  return result;
+}
+
 export async function getBlockedSites(): Promise<BlockedSite[]> {
   const result = await chrome.storage.local.get(STORAGE_KEYS.BLOCKED_SITES);
   return result[STORAGE_KEYS.BLOCKED_SITES] || [];
@@ -132,6 +142,22 @@ export async function getAllDailyStats(): Promise<Record<string, DailyStats>> {
   return result[STORAGE_KEYS.DAILY_STATS] || {};
 }
 
+export async function pruneDailyStats(cutoffDate: string): Promise<void> {
+  await queueDailyStatsWrite(async () => {
+    const result = await chrome.storage.local.get(STORAGE_KEYS.DAILY_STATS);
+    const allStats = result[STORAGE_KEYS.DAILY_STATS] || {};
+    const retainedStats: Record<string, DailyStats> = {};
+
+    for (const [date, stats] of Object.entries(allStats as Record<string, DailyStats>)) {
+      if (date >= cutoffDate) {
+        retainedStats[date] = stats;
+      }
+    }
+
+    await chrome.storage.local.set({ [STORAGE_KEYS.DAILY_STATS]: retainedStats });
+  });
+}
+
 // Get all stats without session arrays (much faster for aggregate views)
 export async function getAllDailyStatsSummary(): Promise<Record<string, { date: string; totalTime: number; sites: Record<string, number>; visits: number; blockedAttempts: number }>> {
   const result = await chrome.storage.local.get(STORAGE_KEYS.DAILY_STATS);
@@ -209,17 +235,33 @@ export async function getSessionsForRange(startDate: string, endDate: string): P
 }
 
 export async function updateDailyStats(date: string, stats: DailyStats): Promise<void> {
-  const result = await chrome.storage.local.get(STORAGE_KEYS.DAILY_STATS);
-  const allStats = result[STORAGE_KEYS.DAILY_STATS] || {};
-  allStats[date] = stats;
-  await chrome.storage.local.set({ [STORAGE_KEYS.DAILY_STATS]: allStats });
+  await queueDailyStatsWrite(async () => {
+    const result = await chrome.storage.local.get(STORAGE_KEYS.DAILY_STATS);
+    const allStats = result[STORAGE_KEYS.DAILY_STATS] || {};
+    allStats[date] = stats;
+    await chrome.storage.local.set({ [STORAGE_KEYS.DAILY_STATS]: allStats });
+  });
 }
 
 export async function incrementBlockedAttempt(_domain: string): Promise<void> {
-  const today = getLocalDateString();
-  const stats = await getDailyStats(today);
-  stats.blockedAttempts++;
-  await updateDailyStats(today, stats);
+  await queueDailyStatsWrite(async () => {
+    const today = getLocalDateString();
+    const result = await chrome.storage.local.get(STORAGE_KEYS.DAILY_STATS);
+    const allStats = result[STORAGE_KEYS.DAILY_STATS] || {};
+    const stats = allStats[today] || {
+      date: today,
+      totalTime: 0,
+      sites: {},
+      visits: 0,
+      blockedAttempts: 0,
+      sessions: {},
+      youtubeSessions: {},
+    };
+
+    stats.blockedAttempts++;
+    allStats[today] = stats;
+    await chrome.storage.local.set({ [STORAGE_KEYS.DAILY_STATS]: allStats });
+  });
 }
 
 // Merge overlapping intervals and return total duration in seconds
@@ -303,53 +345,49 @@ export async function recordSession(session: SiteSession, options: { countVisit?
   const segments = splitIntervalByLocalDay(session.startTime, session.endTime);
   if (segments.length === 0) return;
 
-  // Use atomic read-modify-write to prevent race conditions with recordYouTubeSession
-  const result = await chrome.storage.local.get(STORAGE_KEYS.DAILY_STATS);
-  const allStats = result[STORAGE_KEYS.DAILY_STATS] || {};
+  await queueDailyStatsWrite(async () => {
+    const result = await chrome.storage.local.get(STORAGE_KEYS.DAILY_STATS);
+    const allStats = result[STORAGE_KEYS.DAILY_STATS] || {};
 
-  const domain = session.domain;
-  const countVisit = options.countVisit ?? true;
-  let visitCounted = false;
+    const domain = session.domain;
+    const countVisit = options.countVisit ?? true;
+    let visitCounted = false;
 
-  for (const segment of segments) {
-    // Get existing stats for this date, or create minimal structure
-    const stats = allStats[segment.date] || {
-      date: segment.date,
-      totalTime: 0,
-      sites: {},
-      visits: 0,
-      blockedAttempts: 0,
-      sessions: {},
-      youtubeSessions: {},
-    };
+    for (const segment of segments) {
+      const stats = allStats[segment.date] || {
+        date: segment.date,
+        totalTime: 0,
+        sites: {},
+        visits: 0,
+        blockedAttempts: 0,
+        sessions: {},
+        youtubeSessions: {},
+      };
 
-    // Ensure sessions is in compact format (object, not array)
-    if (!stats.sessions || Array.isArray(stats.sessions)) {
-      stats.sessions = {};
+      if (!stats.sessions || Array.isArray(stats.sessions)) {
+        stats.sessions = {};
+      }
+      if (!stats.sessions[domain]) {
+        stats.sessions[domain] = [];
+      }
+      stats.sessions[domain].push([segment.startSec, segment.endSec]);
+      stats.sessions[domain] = compactSessionTuples(stats.sessions[domain]);
+
+      if (countVisit && !visitCounted) {
+        stats.visits++;
+        visitCounted = true;
+      }
+
+      const computed = computeStatsFromCompactSessions(stats.sessions);
+      stats.totalTime = computed.totalTime;
+      stats.sites = computed.sites;
+      if (!stats.youtubeSessions) stats.youtubeSessions = {};
+
+      allStats[segment.date] = stats;
     }
-    if (!stats.sessions[domain]) {
-      stats.sessions[domain] = [];
-    }
-    stats.sessions[domain].push([segment.startSec, segment.endSec]);
-    stats.sessions[domain] = compactSessionTuples(stats.sessions[domain]);
 
-    if (countVisit && !visitCounted) {
-      stats.visits++;
-      visitCounted = true;
-    }
-
-    // Recompute totals from compact sessions
-    const computed = computeStatsFromCompactSessions(stats.sessions);
-    stats.totalTime = computed.totalTime;
-    stats.sites = computed.sites;
-
-    // Preserve youtubeSessions if they exist
-    if (!stats.youtubeSessions) stats.youtubeSessions = {};
-
-    allStats[segment.date] = stats;
-  }
-
-  await chrome.storage.local.set({ [STORAGE_KEYS.DAILY_STATS]: allStats });
+    await chrome.storage.local.set({ [STORAGE_KEYS.DAILY_STATS]: allStats });
+  });
 }
 
 // Compute YouTube channel stats from sessions (aggregate time per channel)
@@ -428,41 +466,39 @@ export async function recordYouTubeSession(session: YouTubeChannelSession): Prom
   const segments = splitIntervalByLocalDay(session.startTime, session.endTime);
   if (segments.length === 0) return;
 
-  // Use atomic read-modify-write to prevent race conditions with recordSession
-  const result = await chrome.storage.local.get(STORAGE_KEYS.DAILY_STATS);
-  const allStats = result[STORAGE_KEYS.DAILY_STATS] || {};
+  await queueDailyStatsWrite(async () => {
+    const result = await chrome.storage.local.get(STORAGE_KEYS.DAILY_STATS);
+    const allStats = result[STORAGE_KEYS.DAILY_STATS] || {};
 
-  const channelName = session.channelName;
-  for (const segment of segments) {
-    // Get existing stats for this date, or create minimal structure
-    const existingStats = allStats[segment.date] || {
-      date: segment.date,
-      totalTime: 0,
-      sites: {},
-      visits: 0,
-      blockedAttempts: 0,
-      sessions: {},
-      youtubeSessions: {},
-    };
+    const channelName = session.channelName;
+    for (const segment of segments) {
+      const existingStats = allStats[segment.date] || {
+        date: segment.date,
+        totalTime: 0,
+        sites: {},
+        visits: 0,
+        blockedAttempts: 0,
+        sessions: {},
+        youtubeSessions: {},
+      };
 
-    // Ensure youtubeSessions is in compact format (object, not array)
-    if (!existingStats.youtubeSessions || Array.isArray(existingStats.youtubeSessions)) {
-      existingStats.youtubeSessions = {};
+      if (!existingStats.youtubeSessions || Array.isArray(existingStats.youtubeSessions)) {
+        existingStats.youtubeSessions = {};
+      }
+
+      if (!existingStats.youtubeSessions[channelName]) {
+        existingStats.youtubeSessions[channelName] = { times: [] };
+      }
+      existingStats.youtubeSessions[channelName].times.push([segment.startSec, segment.endSec]);
+      if (session.channelUrl) {
+        existingStats.youtubeSessions[channelName].url = session.channelUrl;
+      }
+
+      allStats[segment.date] = existingStats;
     }
 
-    if (!existingStats.youtubeSessions[channelName]) {
-      existingStats.youtubeSessions[channelName] = { times: [] };
-    }
-    existingStats.youtubeSessions[channelName].times.push([segment.startSec, segment.endSec]);
-    // Update URL if available (most recent wins)
-    if (session.channelUrl) {
-      existingStats.youtubeSessions[channelName].url = session.channelUrl;
-    }
-
-    allStats[segment.date] = existingStats;
-  }
-
-  await chrome.storage.local.set({ [STORAGE_KEYS.DAILY_STATS]: allStats });
+    await chrome.storage.local.set({ [STORAGE_KEYS.DAILY_STATS]: allStats });
+  });
 }
 
 // Active YouTube sessions management
@@ -602,6 +638,42 @@ export function matchesPattern(url: string, pattern: string): boolean {
   }
 }
 
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// Build the same exact-domain/path semantics as matchesPattern for DNR rules.
+export function buildUrlPatternRegex(pattern: string): string | null {
+  const slashIndex = pattern.indexOf('/');
+  const domainPattern = (slashIndex === -1 ? pattern : pattern.slice(0, slashIndex)).toLowerCase();
+  const wildcard = domainPattern.startsWith('*.');
+  const rawDomain = wildcard ? domainPattern.slice(2) : domainPattern;
+
+  if (!rawDomain || /[^a-z0-9.-]/.test(rawDomain) || rawDomain.startsWith('.') || rawDomain.endsWith('.')) {
+    return null;
+  }
+
+  const domain = escapeRegex(rawDomain);
+  const host = wildcard ? `([^./]+\\.)*${domain}` : `(www\\.)?${domain}`;
+  const origin = `^https?://${host}(:\\d+)?`;
+
+  if (slashIndex === -1) {
+    return `${origin}/`;
+  }
+
+  let path = pattern.slice(slashIndex);
+  if (path.endsWith('/*')) {
+    path = path.slice(0, -2);
+  }
+  path = path.replace(/\/+$/, '') || '/';
+
+  if (path === '/') {
+    return `${origin}/`;
+  }
+
+  return `${origin}${escapeRegex(path)}(/|[?#]|$)`;
+}
+
 // Domain category storage functions
 export async function getDomainCategories(): Promise<Record<string, string>> {
   const result = await chrome.storage.local.get(STORAGE_KEYS.DOMAIN_CATEGORIES);
@@ -718,7 +790,7 @@ export async function removeDailyLimit(id: string): Promise<void> {
 }
 
 // Check if a domain has exceeded its daily limit
-export async function checkDailyLimitForDomain(domain: string): Promise<{
+export async function checkDailyLimitForDomain(domain: string, additionalSeconds = 0): Promise<{
   exceeded: boolean;
   limit?: DailyLimit;
   timeSpent: number;
@@ -749,7 +821,8 @@ export async function checkDailyLimitForDomain(domain: string): Promise<{
     }
 
     if (matches) {
-      const timeSpent = stats.sites[domain] || stats.sites['www.' + domain] || stats.sites[normalizedDomain] || 0;
+      const recordedTime = stats.sites[domain] || stats.sites['www.' + domain] || stats.sites[normalizedDomain] || 0;
+      const timeSpent = recordedTime + Math.max(0, additionalSeconds);
       const remaining = Math.max(0, limit.limitSeconds - timeSpent);
 
       return {
@@ -768,6 +841,10 @@ export async function checkDailyLimitForDomain(domain: string): Promise<{
 const MIGRATION_KEY = 'sessionFormatMigrated';
 
 export async function migrateSessionsToCompactFormat(): Promise<boolean> {
+  return queueDailyStatsWrite(migrateSessions);
+}
+
+async function migrateSessions(): Promise<boolean> {
   // Check if already migrated
   const migrationStatus = await chrome.storage.local.get(MIGRATION_KEY);
   if (migrationStatus[MIGRATION_KEY]) {

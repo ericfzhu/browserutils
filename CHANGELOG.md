@@ -4,6 +4,19 @@ This file tracks notable BrowserUtils changes.
 
 It follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and uses 0.x.0 release versions. Each published release increments x.
 
+## [0.43.0] - 2026-07-11
+
+### Changed
+- Daily limits are enforced while a page remains open, with active unsaved time included in the check
+- Password-protected sites grant a real 15-minute access window after successful authentication
+- Video download capture, scanning, and retained media state stay dormant while the feature is disabled
+
+### Fixed
+- Lockdown authentication is enforced by the background worker for protected changes, including popup password and authenticator flows
+- Blocking rules use exact domain and path boundaries instead of matching unrelated lookalike domains
+- Browsing sessions split correctly across 23-hour and 25-hour daylight-saving days
+- Concurrent browsing, YouTube, cleanup, and blocked-attempt updates no longer overwrite daily statistics
+
 ## [0.42.0] - 2026-07-02
 
 ### Added

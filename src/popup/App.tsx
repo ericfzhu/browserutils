@@ -108,9 +108,8 @@ export default function App() {
   async function toggleBlocking() {
     if (!settings) return;
 
-    // If trying to disable blocking and a master password is set, require password
-    // (unless we have a valid lockdown session)
-    if (settings.blockingEnabled && lockdownStatus?.hasPassword && !lockdownStatus?.sessionValid) {
+    // Require the configured Lockdown credential before disabling blocking.
+    if (settings.blockingEnabled && lockdownStatus?.lockdownEnabled && !lockdownStatus?.sessionValid) {
       setShowPasswordInput(true);
       setPassword('');
       setAuthError('');
@@ -142,7 +141,7 @@ export default function App() {
     try {
       const result = await chrome.runtime.sendMessage({
         type: 'LOCKDOWN_AUTHENTICATE',
-        payload: { password },
+        payload: { credential: password },
       });
 
       if (result.success) {
@@ -151,7 +150,7 @@ export default function App() {
         setLockdownStatus(newStatus);
         await doToggleBlocking();
       } else {
-        setAuthError(result.error || 'Invalid password');
+        setAuthError(result.error || 'Invalid credential');
       }
     } catch {
       setAuthError('Authentication failed');
@@ -229,19 +228,31 @@ export default function App() {
           </Button>
         </div>
 
-        {/* Inline Password Input */}
+        {/* Inline Lockdown credential input */}
         {showPasswordInput && (
           <form onSubmit={handlePasswordSubmit} className="mt-3 flex flex-col gap-2">
             <div className="flex items-center gap-2 text-xs text-white/80">
               <Lock className="size-3" />
-              <span>Enter master password to continue</span>
+              <span>
+                {lockdownStatus?.authMethod === 'totp'
+                  ? 'Enter authenticator code to continue'
+                  : 'Enter master password to continue'}
+              </span>
             </div>
             <div className="flex gap-2">
               <Input
-                type="password"
+                type={lockdownStatus?.authMethod === 'totp' ? 'text' : 'password'}
+                inputMode={lockdownStatus?.authMethod === 'totp' ? 'numeric' : 'text'}
+                maxLength={lockdownStatus?.authMethod === 'totp' ? 6 : undefined}
                 value={password}
-                onChange={(e) => { setPassword(e.target.value); setAuthError(''); }}
-                placeholder="Master password"
+                onChange={(e) => {
+                  const value = lockdownStatus?.authMethod === 'totp'
+                    ? e.target.value.replace(/\D+/g, '').slice(0, 6)
+                    : e.target.value;
+                  setPassword(value);
+                  setAuthError('');
+                }}
+                placeholder={lockdownStatus?.authMethod === 'totp' ? '123456' : 'Master password'}
                 className="h-9 flex-1 border-white/20 bg-white/10 text-primary-foreground placeholder:text-white/50"
                 aria-invalid={!!authError}
                 autoFocus

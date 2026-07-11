@@ -530,7 +530,7 @@ export default function App() {
                 </Alert>
               )}
               <Button type="submit" disabled={unlocking || !password} className="w-full" size="lg">
-                {unlocking ? 'Unlocking...' : 'Unlock Site'}
+                {unlocking ? 'Unlocking...' : 'Continue for 15 minutes'}
               </Button>
             </form>
           )}

@@ -138,34 +138,42 @@ export default function Limits() {
         passwordHash = editingLimit.passwordHash;
       }
 
-      if (editingLimit) {
-        await chrome.runtime.sendMessage({
-          type: 'UPDATE_DAILY_LIMIT',
-          payload: {
-            ...editingLimit,
-            pattern: normalizedPattern,
-            limitSeconds: totalSeconds,
-            bypassType: formData.bypassType,
-            passwordHash,
-            cooldownSeconds: formData.bypassType === 'cooldown' ? formData.cooldownSeconds : undefined,
-          },
-        });
-      } else {
-        await chrome.runtime.sendMessage({
-          type: 'ADD_DAILY_LIMIT',
-          payload: {
-            pattern: normalizedPattern,
-            limitSeconds: totalSeconds,
-            enabled: true,
-            bypassType: formData.bypassType,
-            passwordHash,
-            cooldownSeconds: formData.bypassType === 'cooldown' ? formData.cooldownSeconds : undefined,
-          },
-        });
-      }
+      const saveLimit = async () => {
+        if (editingLimit) {
+          await chrome.runtime.sendMessage({
+            type: 'UPDATE_DAILY_LIMIT',
+            payload: {
+              ...editingLimit,
+              pattern: normalizedPattern,
+              limitSeconds: totalSeconds,
+              bypassType: formData.bypassType,
+              passwordHash,
+              cooldownSeconds: formData.bypassType === 'cooldown' ? formData.cooldownSeconds : undefined,
+            },
+          });
+        } else {
+          await chrome.runtime.sendMessage({
+            type: 'ADD_DAILY_LIMIT',
+            payload: {
+              pattern: normalizedPattern,
+              limitSeconds: totalSeconds,
+              enabled: true,
+              bypassType: formData.bypassType,
+              passwordHash,
+              cooldownSeconds: formData.bypassType === 'cooldown' ? formData.cooldownSeconds : undefined,
+            },
+          });
+        }
 
-      setShowModal(false);
-      loadData();
+        setShowModal(false);
+        await loadData();
+      };
+
+      if (editingLimit) {
+        await withLockdownCheck(saveLimit);
+      } else {
+        await saveLimit();
+      }
     } catch (err) {
       setError('Failed to save limit');
     }

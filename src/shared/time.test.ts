@@ -1,7 +1,11 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { isTimeWithinScheduleWindow, splitIntervalByLocalDay } from './time';
 
 describe('splitIntervalByLocalDay', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   it('returns a single segment when interval stays within one day', () => {
     const start = new Date('2026-02-19T10:00:00').getTime();
     const end = new Date('2026-02-19T10:30:00').getTime();
@@ -22,6 +26,28 @@ describe('splitIntervalByLocalDay', () => {
     expect(segments[1].date).toBe('2026-02-20');
     expect(segments[0].endSec - segments[0].startSec).toBe(600);
     expect(segments[1].endSec - segments[1].startSec).toBe(600);
+  });
+
+  it('advances to local midnight across a 25-hour daylight-saving day', () => {
+    vi.stubEnv('TZ', 'Australia/Sydney');
+    const start = new Date('2026-04-05T00:00:00').getTime();
+    const end = new Date('2026-04-06T00:00:00').getTime();
+    const segments = splitIntervalByLocalDay(start, end);
+
+    expect(segments).toHaveLength(1);
+    expect(segments[0].date).toBe('2026-04-05');
+    expect(segments[0].endSec - segments[0].startSec).toBe(25 * 60 * 60);
+  });
+
+  it('advances to local midnight across a 23-hour daylight-saving day', () => {
+    vi.stubEnv('TZ', 'Australia/Sydney');
+    const start = new Date('2026-10-04T00:00:00').getTime();
+    const end = new Date('2026-10-05T00:00:00').getTime();
+    const segments = splitIntervalByLocalDay(start, end);
+
+    expect(segments).toHaveLength(1);
+    expect(segments[0].date).toBe('2026-10-04');
+    expect(segments[0].endSec - segments[0].startSec).toBe(23 * 60 * 60);
   });
 });
 

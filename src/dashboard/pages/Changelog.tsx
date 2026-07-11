@@ -3,7 +3,7 @@ import { Tag, Plus, Wrench, Bug, ArrowLeft, Minus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 // Changelog data - update this when releasing new versions
-const CURRENT_VERSION = '0.42.0';
+const CURRENT_VERSION = '0.43.0';
 
 interface ChangelogEntry {
   version: string;
@@ -15,6 +15,21 @@ interface ChangelogEntry {
 }
 
 const changelog: ChangelogEntry[] = [
+  {
+    version: '0.43.0',
+    date: '2026-07-11',
+    changed: [
+      'Daily limits are enforced while a page remains open, with active unsaved time included in the check',
+      'Password-protected sites grant a real 15-minute access window after successful authentication',
+      'Video download capture, scanning, and retained media state stay dormant while the feature is disabled',
+    ],
+    fixed: [
+      'Lockdown authentication is enforced by the background worker for protected changes, including popup password and authenticator flows',
+      'Blocking rules use exact domain and path boundaries instead of matching unrelated lookalike domains',
+      'Browsing sessions split correctly across 23-hour and 25-hour daylight-saving days',
+      'Concurrent browsing, YouTube, cleanup, and blocked-attempt updates no longer overwrite daily statistics',
+    ],
+  },
   {
     version: '0.42.0',
     date: '2026-07-02',
