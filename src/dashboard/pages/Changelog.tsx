@@ -3,7 +3,7 @@ import { Tag, Plus, Wrench, Bug, ArrowLeft, Minus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 // Changelog data - update this when releasing new versions
-const CURRENT_VERSION = '0.41.0';
+const CURRENT_VERSION = '0.42.0';
 
 interface ChangelogEntry {
   version: string;
@@ -15,6 +15,17 @@ interface ChangelogEntry {
 }
 
 const changelog: ChangelogEntry[] = [
+  {
+    version: '0.42.0',
+    date: '2026-07-02',
+    added: [
+      'Reddit video source detection that reads post metadata and DASH manifests',
+      'Background downloads for Reddit video and audio files when Reddit provides separate streams',
+    ],
+    changed: [
+      'Video downloads setting covers Blob-backed videos and Reddit videos',
+    ],
+  },
   {
     version: '0.41.0',
     date: '2026-06-29',

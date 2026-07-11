@@ -117,7 +117,7 @@ export interface Settings {
   blockingEnabled: boolean;
   youtubeTrackingEnabled: boolean; // track YouTube channel watch time
   forcePasteEnabled: boolean; // allow paste in fields that block paste handlers
-  blobVideoDownloaderEnabled: boolean; // show download controls for Blob-backed videos
+  blobVideoDownloaderEnabled: boolean; // show download controls for Blob-backed and Reddit videos
   passwordHash?: string; // master password for unlocking
   lockdownEnabled?: boolean; // require master password to disable blocking
   lockdownAuthMethod?: 'password' | 'totp';
@@ -228,6 +228,7 @@ export type MessageType =
   | { type: 'HEARTBEAT'; payload: { url: string; timestamp: number } }
   | { type: 'VISIBILITY_CHANGE'; payload: { visible: boolean; url: string; timestamp: number } }
   | { type: 'CONTENT_SCRIPT_READY'; payload: { visible: boolean; url: string; timestamp: number } }
+  | { type: 'DOWNLOAD_URL'; payload: { url: string; filename?: string } }
   // Category operations
   | { type: 'GET_DOMAIN_CATEGORIES' }
   | { type: 'SET_DOMAIN_CATEGORY'; payload: { domain: string; category: string | null } }

@@ -479,6 +479,14 @@ async function handleMessage(message: MessageType, sender?: chrome.runtime.Messa
       await handleContentScriptReady(message.payload, sender);
       return { success: true };
     }
+    case 'DOWNLOAD_URL': {
+      const id = await chrome.downloads.download({
+        url: message.payload.url,
+        filename: message.payload.filename,
+        conflictAction: 'uniquify',
+      });
+      return { success: true, id };
+    }
     // YouTube tracking messages
     case 'YOUTUBE_CHANNEL_UPDATE': {
       await handleYouTubeChannelUpdate(message.payload, sender);

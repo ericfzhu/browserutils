@@ -4,6 +4,15 @@ This file tracks notable BrowserUtils changes.
 
 It follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and uses 0.x.0 release versions. Each published release increments x.
 
+## [0.42.0] - 2026-07-02
+
+### Added
+- Reddit video source detection that reads post metadata and DASH manifests
+- Background downloads for Reddit video and audio files when Reddit provides separate streams
+
+### Changed
+- Video downloads setting covers Blob-backed videos and Reddit videos
+
 ## [0.41.0] - 2026-06-29
 
 ### Added

@@ -357,9 +357,9 @@ export default function SettingsPage() {
 
           <label className="flex items-center justify-between gap-4 border-t pt-4">
             <div>
-              <h2 className="text-lg font-semibold">Blob video downloads</h2>
+              <h2 className="text-lg font-semibold">Video downloads</h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                Show a download button when a page uses a downloadable Blob video. Streams and DRM video are ignored.
+                Show a download button for downloadable Blob videos and Reddit videos. DRM video is ignored.
               </p>
             </div>
             <Input
