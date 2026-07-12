@@ -33,7 +33,6 @@ export default defineConfig({
         background: resolve(__dirname, 'src/background/index.ts'),
         content: resolve(__dirname, 'src/content/index.ts'),
         forcePaste: resolve(__dirname, 'src/content/forcePaste.ts'),
-        blobVideoHook: resolve(__dirname, 'src/content/blobVideoHook.ts'),
         blobVideoDownloader: resolve(__dirname, 'src/content/blobVideoDownloader.ts'),
       },
       output: {
@@ -46,9 +45,6 @@ export default defineConfig({
           }
           if (chunkInfo.name === 'forcePaste') {
             return 'force-paste.js';
-          }
-          if (chunkInfo.name === 'blobVideoHook') {
-            return 'blob-video-hook.js';
           }
           if (chunkInfo.name === 'blobVideoDownloader') {
             return 'blob-video-downloader.js';

@@ -3,7 +3,7 @@ import { Tag, Plus, Wrench, Bug, ArrowLeft, Minus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 // Changelog data - update this when releasing new versions
-const CURRENT_VERSION = '0.44.0';
+const CURRENT_VERSION = '0.45.0';
 
 interface ChangelogEntry {
   version: string;
@@ -15,6 +15,16 @@ interface ChangelogEntry {
 }
 
 const changelog: ChangelogEntry[] = [
+  {
+    version: '0.45.0',
+    date: '2026-07-12',
+    changed: [
+      'Video downloads use isolated extension logic without replacing native browser APIs in website code',
+    ],
+    fixed: [
+      'Complex web apps such as Reddit and Microsoft Teams can load normally while BrowserUtils is enabled',
+    ],
+  },
   {
     version: '0.44.0',
     date: '2026-07-12',

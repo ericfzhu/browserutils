@@ -4,6 +4,14 @@ This file tracks notable BrowserUtils changes.
 
 It follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and uses 0.x.0 release versions. Each published release increments x.
 
+## [0.45.0] - 2026-07-12
+
+### Changed
+- Video downloads use isolated extension logic without replacing native browser APIs in website code
+
+### Fixed
+- Complex web apps such as Reddit and Microsoft Teams can load normally while BrowserUtils is enabled
+
 ## [0.44.0] - 2026-07-12
 
 ### Changed
