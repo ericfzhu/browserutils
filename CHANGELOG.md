@@ -4,6 +4,11 @@ This file tracks notable BrowserUtils changes.
 
 It follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and uses 0.x.0 release versions. Each published release increments x.
 
+## [0.46.0] - 2026-07-12
+
+### Changed
+- BrowserUtils no longer replaces Chrome's default new tab page
+
 ## [0.45.0] - 2026-07-12
 
 ### Changed

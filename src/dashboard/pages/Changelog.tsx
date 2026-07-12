@@ -3,7 +3,7 @@ import { Tag, Plus, Wrench, Bug, ArrowLeft, Minus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 // Changelog data - update this when releasing new versions
-const CURRENT_VERSION = '0.45.0';
+const CURRENT_VERSION = '0.46.0';
 
 interface ChangelogEntry {
   version: string;
@@ -15,6 +15,13 @@ interface ChangelogEntry {
 }
 
 const changelog: ChangelogEntry[] = [
+  {
+    version: '0.46.0',
+    date: '2026-07-12',
+    changed: [
+      'BrowserUtils no longer replaces Chrome\'s default new tab page',
+    ],
+  },
   {
     version: '0.45.0',
     date: '2026-07-12',
