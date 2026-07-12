@@ -3,6 +3,7 @@ import {
   isBuiltInCategory,
   getCategoryInfo,
   getCategoryInfoWithOverrides,
+  getCategoryOptions,
   getCategoryForDomain,
   BUILTIN_CATEGORY_IDS,
 } from './categories';
@@ -96,6 +97,20 @@ describe('getCategoryInfoWithOverrides', () => {
     const result = getCategoryInfoWithOverrides('social', customWithBuiltInId, {});
     expect(result.name).toBe('Custom Social');
     expect(result.color).toBe('bg-green-500');
+  });
+});
+
+describe('getCategoryOptions', () => {
+  it('includes ordered custom categories and renamed built-ins', () => {
+    const options = getCategoryOptions([
+      { id: 'later', name: 'Later', color: 'bg-red-500', order: 2 },
+      { id: 'first', name: 'First', color: 'bg-blue-500', order: 0 },
+    ], {
+      social: 'People',
+    });
+
+    expect(options.find(category => category.id === 'social')?.name).toBe('People');
+    expect(options.slice(-2).map(category => category.id)).toEqual(['first', 'later']);
   });
 });
 

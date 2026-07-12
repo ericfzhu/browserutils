@@ -4,10 +4,12 @@ import {
   buildUrlPatternRegex,
   checkDailyLimitForDomain,
   computeStatsFromCompactSessions,
+  getActiveYouTubeSessions,
   getDailyStats,
   matchesPattern,
   mergeIntervals,
   recordSession,
+  setActiveYouTubeSessions,
 } from './storage';
 
 describe('mergeIntervals', () => {
@@ -363,5 +365,38 @@ describe('recordSession', () => {
     const result = await checkDailyLimitForDomain('example.com', 30);
     expect(result.exceeded).toBe(true);
     expect(result.timeSpent).toBe(120);
+  });
+
+  it('keeps active YouTube sessions in temporary session storage', async () => {
+    await setActiveYouTubeSessions({
+      7: {
+        channelName: 'Example Channel',
+        startTime: 1000,
+        lastActiveTime: 2000,
+        tabId: 7,
+        windowId: 1,
+      },
+    });
+
+    expect(sessionStore.activeYouTubeSessions).toBeDefined();
+    expect(localStore.activeYouTubeSessions).toBeUndefined();
+  });
+
+  it('migrates legacy active YouTube sessions out of durable storage', async () => {
+    localStore.activeYouTubeSessions = {
+      9: {
+        channelName: 'Legacy Channel',
+        startTime: 1000,
+        lastActiveTime: 2000,
+        tabId: 9,
+        windowId: 1,
+      },
+    };
+
+    const sessions = await getActiveYouTubeSessions();
+
+    expect(sessions[9].channelName).toBe('Legacy Channel');
+    expect(sessionStore.activeYouTubeSessions).toEqual(sessions);
+    expect(localStore.activeYouTubeSessions).toBeUndefined();
   });
 });

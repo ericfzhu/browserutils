@@ -65,6 +65,21 @@ export function getCategoryInfoWithOverrides(
   return CATEGORIES[CATEGORIES.length - 1];
 }
 
+export function getCategoryOptions(
+  customCategories: CustomCategory[],
+  builtInOverrides: Record<string, string>
+): CategoryInfo[] {
+  const builtIn = CATEGORIES.map(category =>
+    getCategoryInfoWithOverrides(category.id as string, customCategories, builtInOverrides)
+  );
+  const custom = [...customCategories]
+    .filter(category => !isBuiltInCategory(category.id))
+    .sort((a, b) => a.order - b.order)
+    .map(category => ({ id: category.id, name: category.name, color: category.color }));
+
+  return [...builtIn, ...custom];
+}
+
 // Pre-built domain to category mappings
 export const DEFAULT_DOMAIN_CATEGORIES: Record<string, SiteCategory> = {
   // Social Media

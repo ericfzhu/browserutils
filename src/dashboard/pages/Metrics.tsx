@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Calendar, Clock, TrendingDown, TrendingUp, ChevronLeft, ChevronRight, ChevronDown, Layers, Video } from 'lucide-react';
-import { DailyStatsSummary, SiteSession, Settings, ActiveYouTubeSession, YouTubeChannelSession } from '../../shared/types';
-import { CATEGORIES, getCategoryForDomain, getCategoryInfo } from '../../shared/categories';
+import { DailyStatsSummary, SiteSession, Settings, ActiveYouTubeSession, YouTubeChannelSession, CustomCategory } from '../../shared/types';
+import { getCategoryForDomain, getCategoryInfoWithOverrides, getCategoryOptions } from '../../shared/categories';
 import { computeYouTubeStatsWithUrlsLegacy } from '../../shared/storage';
 
 function formatTime(seconds: number): string {
@@ -515,6 +515,8 @@ export default function Metrics() {
   const [loading, setLoading] = useState(true);
   const [hoveredSegment, setHoveredSegment] = useState<{ date: string; domain: string; time: number; percent: number } | null>(null);
   const [domainCategories, setDomainCategories] = useState<Record<string, string>>({});
+  const [customCategories, setCustomCategories] = useState<CustomCategory[]>([]);
+  const [builtInOverrides, setBuiltInOverrides] = useState<Record<string, string>>({});
   const [settings, setSettings] = useState<Settings | null>(null);
   const [activeYoutubeSessions, setActiveYoutubeSessions] = useState<Record<number, ActiveYouTubeSession>>({});
 
@@ -589,14 +591,18 @@ export default function Metrics() {
 
   async function loadStats() {
     try {
-      const [stats, categories, settingsResult, activeYt] = await Promise.all([
+      const [stats, categories, custom, overrides, settingsResult, activeYt] = await Promise.all([
         chrome.runtime.sendMessage({ type: 'GET_STATS_SUMMARY' }),
         chrome.runtime.sendMessage({ type: 'GET_DOMAIN_CATEGORIES' }),
+        chrome.runtime.sendMessage({ type: 'GET_CUSTOM_CATEGORIES' }),
+        chrome.runtime.sendMessage({ type: 'GET_BUILTIN_CATEGORY_OVERRIDES' }),
         chrome.runtime.sendMessage({ type: 'GET_SETTINGS' }),
         chrome.runtime.sendMessage({ type: 'GET_ACTIVE_YOUTUBE_SESSIONS' }),
       ]);
       setAllStats(stats || {});
       setDomainCategories(categories || {});
+      setCustomCategories(custom || []);
+      setBuiltInOverrides(overrides || {});
       setSettings(settingsResult);
       setActiveYoutubeSessions(activeYt || {});
     } catch (err) {
@@ -627,13 +633,17 @@ export default function Metrics() {
     const categoryTotals: Record<string, number> = {};
     let totalTime = 0;
 
+    const categoryOptions = getCategoryOptions(customCategories, builtInOverrides);
+    const validCategoryIds = new Set(categoryOptions.map(category => category.id as string));
+
     for (const [domain, time] of Object.entries(siteTotals)) {
-      const category = getCategoryForDomain(domain, domainCategories);
+      const assignedCategory = getCategoryForDomain(domain, domainCategories);
+      const category = validCategoryIds.has(assignedCategory) ? assignedCategory : 'other';
       categoryTotals[category] = (categoryTotals[category] || 0) + time;
       totalTime += time;
     }
 
-    return CATEGORIES
+    return categoryOptions
       .map(cat => ({
         category: cat.id as string,
         time: categoryTotals[cat.id] || 0,
@@ -900,7 +910,7 @@ export default function Metrics() {
             return (
               <div className="space-y-3">
                 {categoryBreakdown.map(({ category, time, percent }) => {
-                  const info = getCategoryInfo(category);
+                  const info = getCategoryInfoWithOverrides(category, customCategories, builtInOverrides);
                   return (
                     <div key={category} className="flex items-center gap-3">
                       <div className={`w-3 h-3 rounded-full ${info.color}`} />

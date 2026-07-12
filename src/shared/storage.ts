@@ -503,12 +503,24 @@ export async function recordYouTubeSession(session: YouTubeChannelSession): Prom
 
 // Active YouTube sessions management
 export async function getActiveYouTubeSessions(): Promise<Record<number, ActiveYouTubeSession>> {
-  const result = await chrome.storage.local.get(STORAGE_KEYS.ACTIVE_YOUTUBE_SESSIONS);
-  return result[STORAGE_KEYS.ACTIVE_YOUTUBE_SESSIONS] || {};
+  const sessionResult = await chrome.storage.session.get(STORAGE_KEYS.ACTIVE_YOUTUBE_SESSIONS);
+  const sessionValue = sessionResult[STORAGE_KEYS.ACTIVE_YOUTUBE_SESSIONS];
+  if (sessionValue && Object.keys(sessionValue).length > 0) {
+    return sessionValue;
+  }
+
+  // Migrate transient state left by builds that stored it durably.
+  const localResult = await chrome.storage.local.get(STORAGE_KEYS.ACTIVE_YOUTUBE_SESSIONS);
+  const localValue = localResult[STORAGE_KEYS.ACTIVE_YOUTUBE_SESSIONS] || {};
+  if (Object.keys(localValue).length > 0) {
+    await chrome.storage.session.set({ [STORAGE_KEYS.ACTIVE_YOUTUBE_SESSIONS]: localValue });
+    await chrome.storage.local.remove(STORAGE_KEYS.ACTIVE_YOUTUBE_SESSIONS);
+  }
+  return localValue;
 }
 
 export async function setActiveYouTubeSessions(sessions: Record<number, ActiveYouTubeSession>): Promise<void> {
-  await chrome.storage.local.set({ [STORAGE_KEYS.ACTIVE_YOUTUBE_SESSIONS]: sessions });
+  await chrome.storage.session.set({ [STORAGE_KEYS.ACTIVE_YOUTUBE_SESSIONS]: sessions });
 }
 
 export async function addActiveYouTubeSession(tabId: number, session: ActiveYouTubeSession): Promise<void> {
@@ -528,6 +540,7 @@ export async function removeActiveYouTubeSession(tabId: number): Promise<ActiveY
 }
 
 export async function clearActiveYouTubeSessions(): Promise<void> {
+  await chrome.storage.session.remove(STORAGE_KEYS.ACTIVE_YOUTUBE_SESSIONS);
   await chrome.storage.local.remove(STORAGE_KEYS.ACTIVE_YOUTUBE_SESSIONS);
 }
 

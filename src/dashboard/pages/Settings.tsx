@@ -125,9 +125,12 @@ export default function SettingsPage() {
     }
 
     try {
-      await chrome.storage.local.clear();
-      alert('All data cleared. The extension will reload.');
-      window.location.reload();
+      await withLockdownCheck(async () => {
+        const result = await chrome.runtime.sendMessage({ type: 'CLEAR_ALL_DATA' });
+        if (!result?.success) throw new Error(result?.error || 'Failed to clear data');
+        alert('All data cleared. The extension will reload.');
+        window.location.reload();
+      });
     } catch (err) {
       console.error('Failed to clear data:', err);
     }
@@ -154,9 +157,18 @@ export default function SettingsPage() {
     try {
       const text = await file.text();
       const data = JSON.parse(text);
-      await chrome.storage.local.set(data);
-      alert('Data imported successfully!');
-      window.location.reload();
+      if (!data || Array.isArray(data) || typeof data !== 'object') {
+        throw new Error('Invalid import data');
+      }
+      await withLockdownCheck(async () => {
+        const result = await chrome.runtime.sendMessage({
+          type: 'IMPORT_DATA',
+          payload: { data },
+        });
+        if (!result?.success) throw new Error(result?.error || 'Failed to import data');
+        alert('Data imported successfully!');
+        window.location.reload();
+      });
     } catch (err) {
       console.error('Failed to import data:', err);
       alert('Failed to import data. Make sure the file is valid.');

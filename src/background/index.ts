@@ -62,7 +62,7 @@ let cachedSettings: Settings | null = null;
 // before considering a session stale.
 const HEARTBEAT_STALE_MS = 45000;
 
-function isSessionFresh(session: ActiveSession, now: number = Date.now()): boolean {
+function isSessionFresh(session: Pick<ActiveSession, 'lastActiveTime'>, now: number = Date.now()): boolean {
   return now - session.lastActiveTime <= HEARTBEAT_STALE_MS;
 }
 
@@ -146,6 +146,8 @@ async function requiresLockdownAuthentication(message: MessageType): Promise<boo
     'STOP_FOCUS_SESSION',
     'STOP_GLOBAL_FOCUS_SESSION',
     'REMOVE_DAILY_LIMIT',
+    'CLEAR_ALL_DATA',
+    'IMPORT_DATA',
   ]);
 
   let protectedMutation = protectedTypes.has(message.type);
@@ -219,7 +221,7 @@ async function recoverSession(): Promise<void> {
       // Check if tab is still active in a visible window with recent heartbeat
       if (tab.active && tab.windowId) {
         const window = await chrome.windows.get(tab.windowId);
-        if (window.state !== 'minimized' && isSessionFresh(session)) {
+        if (window.focused && window.state !== 'minimized' && isSessionFresh(session)) {
           // Session is still valid, continue tracking
           console.log('Recovered active session for:', session.domain);
           continue;
@@ -238,29 +240,26 @@ async function recoverSession(): Promise<void> {
     }
   }
 
-  // Start tracking for all visible windows if not idle
+  // Start tracking for the currently focused Chrome window if not idle.
   if (!isUserIdle) {
-    await startAllVisibleSessions();
+    await startFocusedWindowSession();
   }
 }
 
-// Start sessions for all visible (non-minimized) windows
-async function startAllVisibleSessions(): Promise<void> {
+async function startFocusedWindowSession(): Promise<void> {
   const settings = await getCachedSettings();
   if (!settings.trackingEnabled) return;
 
   try {
-    const windows = await chrome.windows.getAll({ windowTypes: ['normal'] });
-    for (const window of windows) {
-      if (window.state !== 'minimized' && window.id) {
-        const [tab] = await chrome.tabs.query({ active: true, windowId: window.id });
-        if (tab?.url && tab.id) {
-          await startSession(tab.id, tab.url, window.id);
-        }
+    const window = await chrome.windows.getLastFocused({ windowTypes: ['normal'] });
+    if (window.focused && window.state !== 'minimized' && window.id) {
+      const [tab] = await chrome.tabs.query({ active: true, windowId: window.id });
+      if (tab?.url && tab.id) {
+        await startSession(tab.id, tab.url, window.id);
       }
     }
   } catch {
-    // Failed to get windows
+    // Chrome has no focused normal window.
   }
 }
 
@@ -304,29 +303,26 @@ chrome.idle.onStateChanged.addListener(async (state) => {
     if (isUserIdle) {
       isUserIdle = false;
       await saveIdleState();
-      // Resume tracking for all visible windows
-      await startAllVisibleSessions();
+      await startFocusedWindowSession();
     }
   } else {
     // User is idle or locked
     if (!isUserIdle) {
-      // Check if any active session is playing audio (e.g., YouTube video)
-      const activeSessions = await getActiveSessions();
-      for (const [tabIdStr] of Object.entries(activeSessions)) {
-        try {
-          const tab = await chrome.tabs.get(parseInt(tabIdStr));
-          if (tab.audible) {
-            // A tab is playing audio, continue tracking
-            return;
-          }
-        } catch {
-          // Tab no longer exists
-        }
-      }
       isUserIdle = true;
       await saveIdleState();
-      await endAllSessions();
-      await endAllYouTubeSessions();
+
+      // Preserve only sessions that are actively producing audio. Marking the
+      // user idle prevents every other visible tab from starting again.
+      const activeSessions = await getActiveSessions();
+      for (const [tabIdStr] of Object.entries(activeSessions)) {
+        const tabId = parseInt(tabIdStr);
+        try {
+          const tab = await chrome.tabs.get(tabId);
+          if (!tab.audible) await endSession(tabId);
+        } catch {
+          await endSession(tabId);
+        }
+      }
     }
   }
 });
@@ -421,6 +417,13 @@ async function handleMessage(message: MessageType, sender?: chrome.runtime.Messa
         await setupIdleDetection();
       }
       return settings;
+    }
+    case 'CLEAR_ALL_DATA': {
+      await resetAllData();
+      return { success: true };
+    }
+    case 'IMPORT_DATA': {
+      return importAllData(message.payload.data);
     }
     case 'CHECK_SITE': {
       return checkIfBlocked(message.payload.url);
@@ -675,6 +678,44 @@ async function handleMessage(message: MessageType, sender?: chrome.runtime.Messa
   }
 }
 
+async function resetRuntimeState(): Promise<void> {
+  cachedSettings = null;
+  isUserIdle = false;
+  await saveIdleState();
+  await setupIdleDetection();
+  await updateBlockingRules();
+  await startFocusedWindowSession();
+}
+
+async function resetAllData(): Promise<void> {
+  await endAllSessions();
+  await endAllYouTubeSessions();
+  await chrome.storage.local.clear();
+  await chrome.storage.session.clear();
+  await resetRuntimeState();
+}
+
+async function importAllData(data: Record<string, unknown>): Promise<{ success: boolean; error?: string }> {
+  if (!data || Array.isArray(data) || typeof data !== 'object') {
+    return { success: false, error: 'Invalid import data' };
+  }
+
+  await endAllSessions();
+  await endAllYouTubeSessions();
+  await chrome.storage.local.clear();
+  await chrome.storage.session.clear();
+
+  const durableData = { ...data };
+  delete durableData.activeSessions;
+  delete durableData.activeYouTubeSessions;
+  await chrome.storage.local.set(durableData);
+
+  cachedSettings = null;
+  await migrateSessionsToCompactFormat();
+  await resetRuntimeState();
+  return { success: true };
+}
+
 async function enforceDailyLimit(
   tabId: number,
   url: string,
@@ -716,6 +757,22 @@ async function handleHeartbeat(sender?: chrome.runtime.MessageSender): Promise<v
     return;
   }
 
+  try {
+    const window = await chrome.windows.get(windowId);
+    if (!window.focused || window.state === 'minimized') {
+      await endSession(tabId);
+      return;
+    }
+  } catch {
+    await endSession(tabId);
+    return;
+  }
+
+  if (isUserIdle && !sender.tab.audible) {
+    await endSession(tabId);
+    return;
+  }
+
   const now = Date.now();
   const activeSessions = await getActiveSessions();
   const session = activeSessions[tabId];
@@ -728,7 +785,7 @@ async function handleHeartbeat(sender?: chrome.runtime.MessageSender): Promise<v
       if (sender.tab.active && !isUserIdle) {
         try {
           const window = await chrome.windows.get(windowId);
-          if (window.state !== 'minimized') {
+          if (window.focused && window.state !== 'minimized') {
             await addActiveSession(tabId, {
               domain,
               startTime: now,
@@ -756,7 +813,7 @@ async function handleHeartbeat(sender?: chrome.runtime.MessageSender): Promise<v
     // No active session for this tab - start one if tab is active and visible
     try {
       const window = await chrome.windows.get(windowId);
-      if (window.state !== 'minimized') {
+      if (window.focused && window.state !== 'minimized') {
         await addActiveSession(tabId, {
           domain,
           startTime: now,
@@ -793,7 +850,7 @@ async function handleVisibilityChange(
     if (sender.tab.active && !isUserIdle) {
       try {
         const window = await chrome.windows.get(windowId);
-        if (window.state !== 'minimized') {
+        if (window.focused && window.state !== 'minimized') {
           const activeSessions = await getActiveSessions();
           // Start new session if we don't have one for this tab
           if (!activeSessions[tabId]) {
@@ -861,12 +918,11 @@ async function handleYouTubeChannelUpdate(
     const nameChanged = existingSession.channelName !== payload.channelName;
     const idChanged = existingSession.channelId && payload.channelId &&
                       existingSession.channelId !== payload.channelId;
-    const channelChanged = nameChanged || idChanged;
+    const sessionStale = !isSessionFresh(existingSession, now);
+    const channelChanged = nameChanged || idChanged || sessionStale;
     if (channelChanged) {
-      console.log('[YouTube] Channel changed, ending previous session');
-      // Channel changed - end previous session and start new one
+      console.log('[YouTube] Channel changed or session became stale, ending previous session');
       await endYouTubeSession(tabId);
-      // Start new session for new channel
       await addActiveYouTubeSession(tabId, {
         channelName: payload.channelName,
         channelId: payload.channelId,
@@ -1274,12 +1330,6 @@ async function startSession(tabId: number, url: string, windowId?: number): Prom
     try {
       const tab = await chrome.tabs.get(tabId);
       actualWindowId = tab.windowId;
-      if (actualWindowId) {
-        const window = await chrome.windows.get(actualWindowId);
-        if (window.state === 'minimized') {
-          return; // Don't track minimized windows
-        }
-      }
     } catch {
       // Tab or window doesn't exist
       return;
@@ -1287,6 +1337,13 @@ async function startSession(tabId: number, url: string, windowId?: number): Prom
   }
 
   if (!actualWindowId) return;
+
+  try {
+    const window = await chrome.windows.get(actualWindowId);
+    if (!window.focused || window.state === 'minimized') return;
+  } catch {
+    return;
+  }
 
   // Check if we already have a session for this tab
   const activeSessions = await getActiveSessions();
@@ -1384,31 +1441,24 @@ chrome.webNavigation.onBeforeNavigate.addListener(async (details) => {
 });
 
 chrome.windows.onFocusChanged.addListener(async (windowId) => {
+  if (windowId === chrome.windows.WINDOW_ID_NONE) {
+    await endAllSessions();
+    return;
+  }
+
   if (isUserIdle) return;
 
-  // Check all windows for minimized state and end those sessions
-  // (runs on both WINDOW_ID_NONE and normal focus changes)
+  // A single Chrome window owns general browsing time. End every session from
+  // other windows before starting the newly focused tab.
   try {
     const activeSessions = await getActiveSessions();
     for (const [tabIdStr, session] of Object.entries(activeSessions)) {
-      try {
-        const win = await chrome.windows.get(session.windowId);
-        if (win.state === 'minimized') {
-          await endSession(parseInt(tabIdStr));
-        }
-      } catch {
-        // Window no longer exists
+      if (session.windowId !== windowId) {
         await endSession(parseInt(tabIdStr));
       }
     }
   } catch {
     // Error checking sessions
-  }
-
-  // When Chrome loses focus (user switched to another app), don't start new sessions
-  // but let existing sessions continue via heartbeat (visible windows keep tracking)
-  if (windowId === chrome.windows.WINDOW_ID_NONE) {
-    return;
   }
 
   // Start a session for the newly focused window's active tab if not minimized
@@ -1426,19 +1476,20 @@ chrome.windows.onFocusChanged.addListener(async (windowId) => {
 });
 
 // Handle window state changes (minimize/restore)
-// Note: onBoundsChanged doesn't fire for minimize, so we use periodic checkMinimizedWindows
+// Note: onBoundsChanged does not fire for minimize, so a periodic check backs up
+// focus and window-state events.
 
-// Check for minimized windows periodically and handle them
-async function checkMinimizedWindows(): Promise<void> {
+// Check for minimized or unfocused windows periodically and handle them.
+async function checkInactiveWindows(): Promise<void> {
   const now = Date.now();
   const activeSessions = await getActiveSessions();
   const windows = await chrome.windows.getAll({ windowTypes: ['normal'] });
-  const minimizedWindowIds = new Set(
-    windows.filter(w => w.state === 'minimized').map(w => w.id)
+  const inactiveWindowIds = new Set(
+    windows.filter(w => !w.focused || w.state === 'minimized').map(w => w.id)
   );
 
   for (const [tabIdStr, session] of Object.entries(activeSessions)) {
-    if (minimizedWindowIds.has(session.windowId) || !isSessionFresh(session, now)) {
+    if (inactiveWindowIds.has(session.windowId) || !isSessionFresh(session, now)) {
       await endSession(parseInt(tabIdStr));
     }
   }
@@ -1447,7 +1498,7 @@ async function checkMinimizedWindows(): Promise<void> {
 // Periodic save and cleanup
 chrome.alarms.create('saveSession', { periodInMinutes: 1 });
 chrome.alarms.create('cleanup', { periodInMinutes: 60 });
-chrome.alarms.create('checkMinimized', { periodInMinutes: 0.25 }); // Every 15 seconds
+chrome.alarms.create('checkMinimized', { periodInMinutes: 0.5 }); // Chrome's production minimum: 30 seconds
 
 chrome.alarms.onAlarm.addListener(async (alarm) => {
   // Restore idle state in case service worker was restarted
@@ -1477,7 +1528,7 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
         const tab = await chrome.tabs.get(tabId);
         if (tab.active && tab.windowId) {
           const window = await chrome.windows.get(tab.windowId);
-          if (window.state !== 'minimized') {
+          if (window.focused && window.state !== 'minimized') {
             const endTime = Math.min(now, session.lastActiveTime);
             const progress = await recordActiveSessionProgress(session, endTime);
             if (progress.recorded) {
@@ -1506,7 +1557,7 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
   }
 
   if (alarm.name === 'checkMinimized') {
-    await checkMinimizedWindows();
+    await checkInactiveWindows();
   }
 
   if (alarm.name === 'cleanup') {

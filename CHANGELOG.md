@@ -4,6 +4,17 @@ This file tracks notable BrowserUtils changes.
 
 It follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and uses 0.x.0 release versions. Each published release increments x.
 
+## [0.44.0] - 2026-07-12
+
+### Changed
+- General browsing time follows only the focused Chrome window, while audible tabs may continue during system idle
+- Active YouTube sessions use temporary session storage and stale playback sessions are split after long gaps
+- Clear and import operations reset background caches, active sessions, idle state, and blocking rules together
+- Overview and Metrics include custom categories, custom colors, and renamed built-in categories
+
+### Fixed
+- The custom new tab page is registered as Chrome's actual new tab override
+
 ## [0.43.0] - 2026-07-11
 
 ### Changed

@@ -7,7 +7,7 @@ A Chrome extension for tracking website usage and blocking distracting sites.
 ### Time Tracking
 - Tracks time spent on each website with per-domain breakdown
 - Accurate tracking using content script heartbeats (15-second intervals)
-- Respects page visibility (pauses when tab is hidden or minimized)
+- Tracks only the active tab in the focused Chrome window and pauses when Chrome loses focus
 - Continues tracking during media playback (e.g., YouTube videos)
 - Daily, weekly, and monthly statistics with visual breakdowns
 

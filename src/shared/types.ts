@@ -210,6 +210,8 @@ export type MessageType =
   | { type: 'GET_BLOCKED_SITES' }
   | { type: 'GET_SETTINGS' }
   | { type: 'UPDATE_SETTINGS'; payload: Partial<Settings> }
+  | { type: 'CLEAR_ALL_DATA' }
+  | { type: 'IMPORT_DATA'; payload: { data: Record<string, unknown> } }
   | { type: 'CHECK_SITE'; payload: { url: string } }
   | { type: 'CHECK_SITE_WITH_REDIRECT'; payload: { url: string } }
   | { type: 'INCREMENT_BLOCKED_ATTEMPT'; payload: { domain: string } }
