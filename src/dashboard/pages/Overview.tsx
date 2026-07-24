@@ -4,6 +4,13 @@ import { Clock, Globe, Shield, TrendingUp, Layers, Video } from 'lucide-react';
 import { DailyStats, BlockedSite, SiteSession, DailyLimit, Settings, ActiveYouTubeSession, CompactSessions, CompactYouTubeSessions, CustomCategory } from '../../shared/types';
 import { getCategoryForDomain, getCategoryInfoWithOverrides, getCategoryOptions } from '../../shared/categories';
 import { computeYouTubeStatsWithUrls } from '../../shared/storage';
+import {
+  analyticsBarTrackClass,
+  analyticsEmptyStateClass,
+  analyticsLinkClass,
+  analyticsPanelClass,
+  analyticsStatCardClass,
+} from '../components/analyticsStyles';
 
 // Expand compact sessions to SiteSession[] for UI components
 function expandCompactSessions(sessions: CompactSessions | undefined): SiteSession[] {
@@ -54,11 +61,6 @@ interface TimelinePreviewProps {
   sessions: SiteSession[];
   sites: Record<string, number>;
 }
-
-const panelClass = 'rounded-2xl bg-card p-6 text-card-foreground shadow-[var(--shadow-card)]';
-const statCardClass = 'rounded-2xl bg-card p-6 text-card-foreground shadow-[var(--shadow-card)]';
-const barTrackClass = 'h-2 overflow-hidden rounded-full bg-muted';
-const linkClass = 'text-sm font-medium text-primary transition-colors duration-150 ease-out hover:text-primary/80 hover:underline';
 
 // Simplified timeline preview for Overview - shows top 5 sites, no navigation
 function TimelinePreview({ sessions, sites }: TimelinePreviewProps) {
@@ -361,8 +363,8 @@ export default function Overview() {
       <h1 className="mb-6 text-2xl font-bold text-foreground">Overview</h1>
 
       {/* Stats Cards */}
-      <div className="mb-6 grid grid-cols-4 gap-4">
-        <div className={statCardClass}>
+      <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className={analyticsStatCardClass}>
           <div className="flex items-center gap-3 mb-2">
             <div className="rounded-xl bg-blue-100 p-2 dark:bg-blue-900/50">
               <Clock className="h-5 w-5 text-blue-600 dark:text-blue-400" />
@@ -372,7 +374,7 @@ export default function Overview() {
           <p className="text-2xl font-bold tabular-nums">{formatTime(todayStats?.totalTime || 0)}</p>
         </div>
 
-        <div className={statCardClass}>
+        <div className={analyticsStatCardClass}>
           <div className="flex items-center gap-3 mb-2">
             <div className="rounded-xl bg-green-100 p-2 dark:bg-green-900/50">
               <Globe className="h-5 w-5 text-green-600 dark:text-green-400" />
@@ -382,7 +384,7 @@ export default function Overview() {
           <p className="text-2xl font-bold tabular-nums">{Object.keys(todayStats?.sites || {}).length}</p>
         </div>
 
-        <div className={statCardClass}>
+        <div className={analyticsStatCardClass}>
           <div className="flex items-center gap-3 mb-2">
             <div className="rounded-xl bg-red-100 p-2 dark:bg-red-900/50">
               <Shield className="h-5 w-5 text-red-600 dark:text-red-400" />
@@ -392,7 +394,7 @@ export default function Overview() {
           <p className="text-2xl font-bold tabular-nums">{todayStats?.blockedAttempts || 0}</p>
         </div>
 
-        <div className={statCardClass}>
+        <div className={analyticsStatCardClass}>
           <div className="flex items-center gap-3 mb-2">
             <div className="rounded-xl bg-purple-100 p-2 dark:bg-purple-900/50">
               <TrendingUp className="h-5 w-5 text-purple-600 dark:text-purple-400" />
@@ -404,10 +406,10 @@ export default function Overview() {
       </div>
 
       {/* Activity Timeline Preview */}
-      <div className={`${panelClass} mb-6`}>
+      <div className={`${analyticsPanelClass} mb-6`}>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold">Today's activity</h2>
-          <Link to="/metrics#activity-timeline" className={linkClass}>
+          <Link to="/metrics#activity-timeline" className={analyticsLinkClass}>
             View all
           </Link>
         </div>
@@ -417,9 +419,9 @@ export default function Overview() {
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-6 mb-6">
+      <div className="mb-6 grid gap-6 lg:grid-cols-2">
         {/* Top Sites Today */}
-        <div className={panelClass}>
+        <div className={analyticsPanelClass}>
           <h2 className="text-lg font-semibold mb-4">Top sites today</h2>
           {topSites.length > 0 ? (
             <div className="space-y-3">
@@ -440,7 +442,7 @@ export default function Overview() {
                         </a>
                         <span className="text-sm text-muted-foreground tabular-nums">{formatTime(time)}</span>
                       </div>
-                      <div className={barTrackClass}>
+                      <div className={analyticsBarTrackClass}>
                         <div
                           className="h-full rounded-full bg-primary"
                           style={{
@@ -454,17 +456,17 @@ export default function Overview() {
               })()}
             </div>
           ) : (
-            <p className="py-8 text-center text-muted-foreground">No activity recorded yet</p>
+            <p className={analyticsEmptyStateClass}>No activity recorded yet</p>
           )}
         </div>
 
         {/* By Category Today */}
-        <div className={panelClass}>
+        <div className={analyticsPanelClass}>
           <h2 className="text-lg font-semibold mb-4">By category</h2>
           {(() => {
             const categoryBreakdown = getCategoryBreakdown();
             if (categoryBreakdown.length === 0) {
-              return <p className="py-8 text-center text-muted-foreground">No activity recorded yet</p>;
+              return <p className={analyticsEmptyStateClass}>No activity recorded yet</p>;
             }
             const maxCategoryTime = categoryBreakdown[0]?.time || 1;
             return (
@@ -480,7 +482,7 @@ export default function Overview() {
                           <span className="text-sm font-medium">{info.name}</span>
                           <span className="text-sm text-muted-foreground tabular-nums">{formatTime(time)}</span>
                         </div>
-                        <div className={barTrackClass}>
+                        <div className={analyticsBarTrackClass}>
                           <div
                             className={`h-full ${info.color} transition-[width] duration-300 ease-out`}
                             style={{ width: `${barWidth}%` }}
@@ -568,13 +570,13 @@ export default function Overview() {
 
       {/* YouTube Channels - only shown when tracking is enabled */}
       {settings?.youtubeTrackingEnabled && (
-        <div className={`${panelClass} mb-6`}>
+        <div className={`${analyticsPanelClass} mb-6`}>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold flex items-center gap-2">
               <Video className="w-5 h-5 text-red-600" />
               YouTube channels
             </h2>
-            <Link to="/metrics#youtube-channels" className={linkClass}>
+            <Link to="/metrics#youtube-channels" className={analyticsLinkClass}>
               View all
             </Link>
           </div>
@@ -582,7 +584,7 @@ export default function Overview() {
             const youtubeSessions = (todayStats?.youtubeSessions || {}) as CompactYouTubeSessions;
             if (Object.keys(youtubeSessions).length === 0) {
               return (
-                <p className="py-8 text-center text-muted-foreground">
+                <p className={analyticsEmptyStateClass}>
                   No YouTube activity recorded today
                 </p>
               );
@@ -625,7 +627,7 @@ export default function Overview() {
                         )}
                         <span className="text-muted-foreground tabular-nums">{formatTime(stats.time)}</span>
                       </div>
-                      <div className={barTrackClass}>
+                      <div className={analyticsBarTrackClass}>
                         <div
                           className="h-full rounded-full bg-red-500 transition-[width] duration-300 ease-out"
                           style={{ width: `${barWidth}%` }}
@@ -646,15 +648,15 @@ export default function Overview() {
       )}
 
       {/* Blocked Sites */}
-      <div className={panelClass}>
+      <div className={analyticsPanelClass}>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold">Blocked sites</h2>
-          <Link to="/blocked" className={linkClass}>
+          <Link to="/blocked" className={analyticsLinkClass}>
             Manage
           </Link>
         </div>
         {blockedSites.length > 0 ? (
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid gap-2 sm:grid-cols-2">
             {blockedSites.slice(0, 6).map((site) => (
               <div
                 key={site.id}
@@ -665,7 +667,7 @@ export default function Overview() {
                   className={`text-xs px-2 py-1 rounded-full flex-shrink-0 ${
                     site.enabled
                       ? 'bg-red-100 dark:bg-red-700/80 text-red-700 dark:text-red-200'
-                      : 'bg-gray-200 dark:bg-gray-600/80 text-gray-600 dark:text-gray-300'
+                      : 'bg-muted text-muted-foreground'
                   }`}
                 >
                   {site.enabled ? 'On' : 'Off'}
@@ -674,7 +676,7 @@ export default function Overview() {
             ))}
           </div>
         ) : (
-          <p className="py-8 text-center text-muted-foreground">No blocked sites configured</p>
+          <p className={analyticsEmptyStateClass}>No blocked sites configured</p>
         )}
         {blockedSites.length > 6 && (
           <p className="pt-3 text-center text-sm text-muted-foreground tabular-nums">
