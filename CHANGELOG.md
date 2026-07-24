@@ -4,6 +4,11 @@ This file tracks notable BrowserUtils changes.
 
 It follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and uses 0.x.0 release versions. Each published release increments x.
 
+## [0.49.0] - 2026-07-24
+
+### Changed
+- Analytics cards and panels retain clear borders across both Overview and Metrics
+
 ## [0.48.0] - 2026-07-24
 
 ### Changed

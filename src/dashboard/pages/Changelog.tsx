@@ -3,7 +3,7 @@ import { Tag, Plus, Wrench, Bug, ArrowLeft, Minus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 // Changelog data - update this when releasing new versions
-const CURRENT_VERSION = '0.48.0';
+const CURRENT_VERSION = '0.49.0';
 
 interface ChangelogEntry {
   version: string;
@@ -15,6 +15,13 @@ interface ChangelogEntry {
 }
 
 const changelog: ChangelogEntry[] = [
+  {
+    version: '0.49.0',
+    date: '2026-07-24',
+    changed: [
+      'Analytics cards and panels retain clear borders across both Overview and Metrics',
+    ],
+  },
   {
     version: '0.48.0',
     date: '2026-07-24',
