@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Trash2, AlertTriangle, Sun, Moon, Monitor, Lock, GitBranch, ShieldCheck } from 'lucide-react';
+import { Trash2, AlertTriangle, Sun, Moon, Monitor, Lock, GitBranch, ShieldCheck, Download, Upload } from 'lucide-react';
 import QRCode from 'react-qr-code';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -638,22 +638,26 @@ export default function SettingsPage() {
         <h2 className="text-lg font-semibold mb-4">Data Management</h2>
 
         <div className="flex flex-col gap-4">
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <Button
               onClick={exportData}
-              className="bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 px-4 py-2 rounded-lg transition-colors"
+              variant="secondary"
             >
+              <Download data-icon="inline-start" />
               Export Data
             </Button>
-            <label className="bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 px-4 py-2 rounded-lg transition-colors cursor-pointer">
-              Import Data
-              <Input
-                type="file"
-                accept=".json"
-                onChange={(e) => e.target.files?.[0] && importData(e.target.files[0])}
-                className="hidden"
-              />
-            </label>
+            <Button asChild variant="secondary">
+              <label className="cursor-pointer">
+                <Upload data-icon="inline-start" />
+                Import Data
+                <Input
+                  type="file"
+                  accept=".json"
+                  onChange={(e) => e.target.files?.[0] && importData(e.target.files[0])}
+                  className="hidden"
+                />
+              </label>
+            </Button>
           </div>
 
           <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
@@ -666,9 +670,9 @@ export default function SettingsPage() {
                 </p>
                 <Button
                   onClick={clearAllData}
-                  className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-colors"
+                  variant="destructive"
                 >
-                  <Trash2 className="w-4 h-4" />
+                  <Trash2 data-icon="inline-start" />
                   Clear All Data
                 </Button>
               </div>
