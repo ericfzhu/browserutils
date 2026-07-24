@@ -3,7 +3,7 @@ import { Tag, Plus, Wrench, Bug, ArrowLeft, Minus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 // Changelog data - update this when releasing new versions
-const CURRENT_VERSION = '0.49.0';
+const CURRENT_VERSION = '0.47.0';
 
 interface ChangelogEntry {
   version: string;
@@ -16,25 +16,12 @@ interface ChangelogEntry {
 
 const changelog: ChangelogEntry[] = [
   {
-    version: '0.49.0',
-    date: '2026-07-24',
-    changed: [
-      'Analytics cards and panels retain clear borders across both Overview and Metrics',
-    ],
-  },
-  {
-    version: '0.48.0',
-    date: '2026-07-24',
-    changed: [
-      'Overview and Metrics share the same analytics cards, panels, typography, chart bars, empty states, and responsive layouts',
-      'Metrics date controls use the dashboard theme, larger hit areas, and consistent interaction feedback',
-    ],
-  },
-  {
     version: '0.47.0',
     date: '2026-07-24',
     changed: [
       'Data management actions use consistent typography, sizing, icons, and shared button styles',
+      'Overview and Metrics share the same bordered analytics cards, panels, typography, chart bars, empty states, and responsive layouts',
+      'Metrics date controls use the dashboard theme, larger hit areas, and consistent interaction feedback',
     ],
   },
   {
