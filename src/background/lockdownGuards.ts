@@ -6,6 +6,7 @@ export function blockedSiteMutationRequiresAuth(
 ): boolean {
   return (current.enabled && !next.enabled) ||
     current.pattern !== next.pattern ||
+    current.folderId !== next.folderId ||
     current.unlockType !== next.unlockType ||
     current.passwordHash !== next.passwordHash ||
     current.timerDuration !== next.timerDuration ||

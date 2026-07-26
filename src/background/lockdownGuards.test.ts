@@ -42,6 +42,7 @@ describe('Lockdown mutation guards', () => {
   it('still protects site removal and blocking-rule changes', () => {
     expect(blockedSitesMutationRequiresAuth([site], [])).toBe(true);
     expect(blockedSiteMutationRequiresAuth(site, { ...site, pattern: 'other.example' })).toBe(true);
+    expect(blockedSiteMutationRequiresAuth(site, { ...site, folderId: 'folder-2' })).toBe(true);
   });
 
   it('allows enabling a daily limit but protects disabling it', () => {

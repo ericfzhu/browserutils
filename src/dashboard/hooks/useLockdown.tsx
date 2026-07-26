@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, createContext, useContext, ReactNode } from 'react';
 import { LockdownStatus } from '../../shared/types';
+import { assertRuntimeMutationSucceeded } from '../../shared/runtimeMessages';
 
 interface LockdownContextValue {
   status: LockdownStatus | null;
@@ -66,7 +67,8 @@ export function LockdownProvider({ children }: LockdownProviderProps) {
 
   const clearSession = useCallback(async () => {
     try {
-      await chrome.runtime.sendMessage({ type: 'LOCKDOWN_CLEAR_SESSION' });
+      const result = await chrome.runtime.sendMessage({ type: 'LOCKDOWN_CLEAR_SESSION' });
+      assertRuntimeMutationSucceeded(result, 'Failed to clear Lockdown session');
       await refreshStatus();
     } catch (err) {
       console.error('Failed to clear session:', err);

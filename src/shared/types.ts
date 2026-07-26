@@ -131,6 +131,7 @@ export interface Settings {
   idleThreshold: number; // seconds before considered idle (0 = disabled)
   displayName: string; // user's name for greeting
   quickLinks: QuickLink[]; // bookmarks for new tab
+  categoryOrder: string[]; // dashboard category display order
 }
 
 export interface QuickLink {
@@ -184,6 +185,7 @@ export const DEFAULT_SETTINGS: Settings = {
   idleThreshold: 60, // 60 seconds default
   displayName: '',
   quickLinks: [],
+  categoryOrder: [],
 };
 
 // Lightweight stats without session arrays (for faster loading)

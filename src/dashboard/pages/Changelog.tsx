@@ -20,7 +20,9 @@ const changelog: ChangelogEntry[] = [
     date: '2026-07-26',
     fixed: [
       'Enable All and individual enable actions are no longer rejected by Lockdown Mode',
-      'Blocked-site and daily-limit toggles detect failed background updates instead of showing temporary state',
+      'Settings, blocked-site, daily-limit, category, and quick-link controls no longer show changes that failed to persist',
+      'Moving a blocked site between folders now respects Lockdown Mode',
+      'Built-in category renames and category drag order now persist after the dashboard reloads',
     ],
   },
   {

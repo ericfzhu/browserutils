@@ -17,6 +17,7 @@ import { Progress } from '@/components/ui/progress';
 import { Switch } from '@/components/ui/switch';
 import { DailyLimit, DailyStats } from '../../shared/types';
 import { hashPassword } from '../../shared/storage';
+import { assertRuntimeMutationSucceeded } from '../../shared/runtimeMessages';
 import { useLockdown } from '../hooks/useLockdown';
 
 function formatTime(seconds: number): string {
@@ -140,7 +141,7 @@ export default function Limits() {
 
       const saveLimit = async () => {
         if (editingLimit) {
-          await chrome.runtime.sendMessage({
+          const result = await chrome.runtime.sendMessage({
             type: 'UPDATE_DAILY_LIMIT',
             payload: {
               ...editingLimit,
@@ -151,8 +152,9 @@ export default function Limits() {
               cooldownSeconds: formData.bypassType === 'cooldown' ? formData.cooldownSeconds : undefined,
             },
           });
+          assertRuntimeMutationSucceeded(result, 'Failed to update daily limit');
         } else {
-          await chrome.runtime.sendMessage({
+          const result = await chrome.runtime.sendMessage({
             type: 'ADD_DAILY_LIMIT',
             payload: {
               pattern: normalizedPattern,
@@ -163,6 +165,7 @@ export default function Limits() {
               cooldownSeconds: formData.bypassType === 'cooldown' ? formData.cooldownSeconds : undefined,
             },
           });
+          assertRuntimeMutationSucceeded(result, 'Failed to add daily limit');
         }
 
         setShowModal(false);
@@ -184,8 +187,9 @@ export default function Limits() {
       if (!confirm('Are you sure you want to delete this limit?')) return;
 
       try {
-        await chrome.runtime.sendMessage({ type: 'REMOVE_DAILY_LIMIT', payload: { id } });
-        loadData();
+        const result = await chrome.runtime.sendMessage({ type: 'REMOVE_DAILY_LIMIT', payload: { id } });
+        assertRuntimeMutationSucceeded(result, 'Failed to remove daily limit');
+        await loadData();
       } catch (err) {
         console.error('Failed to delete limit:', err);
       }
@@ -199,9 +203,7 @@ export default function Limits() {
           type: 'UPDATE_DAILY_LIMIT',
           payload: { ...limit, enabled: !limit.enabled },
         });
-        if (!result?.success) {
-          throw new Error(result?.error || 'Failed to update daily limit');
-        }
+        assertRuntimeMutationSucceeded(result, 'Failed to update daily limit');
         await loadData();
       } catch (err) {
         console.error('Failed to toggle limit:', err);

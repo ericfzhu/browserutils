@@ -3,6 +3,7 @@ import { Plus, Trash2, Edit2, X, Shield, Clock, Calendar, Lock, FolderPlus, Chev
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import { BlockedSite, BlockedSiteFolder } from '../../shared/types';
 import { hashPassword } from '../../shared/storage';
+import { assertRuntimeMutationSucceeded } from '../../shared/runtimeMessages';
 import { useLockdown } from '../hooks/useLockdown';
 
 type UnlockType = BlockedSite['unlockType'];
@@ -251,15 +252,17 @@ export default function BlockedSites() {
     try {
       const saveSite = async () => {
         if (editingSite) {
-          await chrome.runtime.sendMessage({
+          const result = await chrome.runtime.sendMessage({
             type: 'UPDATE_BLOCKED_SITE',
             payload: { ...editingSite, ...payload, unlockedUntil: undefined },
           });
+          assertRuntimeMutationSucceeded(result, 'Failed to update blocked site');
         } else {
-          await chrome.runtime.sendMessage({
+          const result = await chrome.runtime.sendMessage({
             type: 'ADD_BLOCKED_SITE',
             payload,
           });
+          assertRuntimeMutationSucceeded(result, 'Failed to add blocked site');
         }
         await loadData();
         setShowModal(false);
@@ -281,15 +284,17 @@ export default function BlockedSites() {
 
     try {
       if (editingFolder) {
-        await chrome.runtime.sendMessage({
+        const result = await chrome.runtime.sendMessage({
           type: 'UPDATE_BLOCKED_SITE_FOLDER',
           payload: { ...editingFolder, name: folderName.trim() },
         });
+        assertRuntimeMutationSucceeded(result, 'Failed to update folder');
       } else {
-        await chrome.runtime.sendMessage({
+        const result = await chrome.runtime.sendMessage({
           type: 'ADD_BLOCKED_SITE_FOLDER',
           payload: { name: folderName.trim(), order: folders.length },
         });
+        assertRuntimeMutationSucceeded(result, 'Failed to add folder');
       }
       await loadData();
       setShowFolderModal(false);
@@ -303,10 +308,11 @@ export default function BlockedSites() {
       if (!confirm('Delete this folder? Sites in this folder will be moved to Uncategorized.')) return;
 
       try {
-        await chrome.runtime.sendMessage({
+        const result = await chrome.runtime.sendMessage({
           type: 'REMOVE_BLOCKED_SITE_FOLDER',
           payload: { id },
         });
+        assertRuntimeMutationSucceeded(result, 'Failed to remove folder');
         await loadData();
       } catch (err) {
         console.error('Failed to delete folder:', err);
@@ -317,10 +323,16 @@ export default function BlockedSites() {
   async function toggleFolderCollapse(folder: BlockedSiteFolder) {
     const updated = { ...folder, collapsed: !folder.collapsed };
     setFolders(folders.map(f => f.id === folder.id ? updated : f));
-    await chrome.runtime.sendMessage({
-      type: 'UPDATE_BLOCKED_SITE_FOLDER',
-      payload: updated,
-    });
+    try {
+      const result = await chrome.runtime.sendMessage({
+        type: 'UPDATE_BLOCKED_SITE_FOLDER',
+        payload: updated,
+      });
+      assertRuntimeMutationSucceeded(result, 'Failed to update folder');
+    } catch (err) {
+      console.error('Failed to update folder:', err);
+      await loadData();
+    }
   }
 
   async function toggleFolderSitesEnabled(folderId: string | undefined, enabled: boolean) {
@@ -339,9 +351,7 @@ export default function BlockedSites() {
           type: 'UPDATE_BLOCKED_SITES',
           payload: newSites,
         });
-        if (!result?.success) {
-          throw new Error(result?.error || 'Failed to update blocked sites');
-        }
+        assertRuntimeMutationSucceeded(result, 'Failed to update blocked sites');
         setSites(newSites);
       }
 
@@ -362,9 +372,7 @@ export default function BlockedSites() {
           // Immediately update local state for responsive UI
           const newStatuses: Record<string, TimerStatus> = {};
           for (const { site, result } of results) {
-            if (!result?.success) {
-              throw new Error(result?.error || `Failed to start timer for ${site.pattern}`);
-            }
+            assertRuntimeMutationSucceeded(result, `Failed to start timer for ${site.pattern}`);
             if (result?.success && result.blockedUntil) {
               newStatuses[site.id] = {
                 isActive: true,
@@ -387,9 +395,7 @@ export default function BlockedSites() {
             )
           );
           for (const { site, result } of results) {
-            if (!result?.success) {
-              throw new Error(result?.error || `Failed to clear timer for ${site.pattern}`);
-            }
+            assertRuntimeMutationSucceeded(result, `Failed to clear timer for ${site.pattern}`);
           }
           // Immediately update local state
           const clearedStatuses: Record<string, TimerStatus> = {};
@@ -425,9 +431,7 @@ export default function BlockedSites() {
           type: 'UPDATE_BLOCKED_SITE',
           payload: { ...site, enabled: !site.enabled },
         });
-        if (!result?.success) {
-          throw new Error(result?.error || 'Failed to update blocked site');
-        }
+        assertRuntimeMutationSucceeded(result, 'Failed to update blocked site');
         await loadData();
       } catch (err) {
         console.error('Failed to toggle site:', err);
@@ -447,10 +451,11 @@ export default function BlockedSites() {
       if (!confirm('Are you sure you want to remove this blocked site?')) return;
 
       try {
-        await chrome.runtime.sendMessage({
+        const result = await chrome.runtime.sendMessage({
           type: 'REMOVE_BLOCKED_SITE',
           payload: { id },
         });
+        assertRuntimeMutationSucceeded(result, 'Failed to remove blocked site');
         await loadData();
       } catch (err) {
         console.error('Failed to delete site:', err);
@@ -464,6 +469,7 @@ export default function BlockedSites() {
         type: 'START_TIMER_BLOCK',
         payload: { id },
       });
+      assertRuntimeMutationSucceeded(result, 'Failed to start timer');
       // Immediately update local state for responsive UI
       if (result?.success && result.blockedUntil) {
         setTimerStatuses(prev => ({
@@ -483,10 +489,11 @@ export default function BlockedSites() {
   async function clearTimerBlock(id: string) {
     await withLockdownCheck(async () => {
       try {
-        await chrome.runtime.sendMessage({
+        const result = await chrome.runtime.sendMessage({
           type: 'CLEAR_TIMER_BLOCK',
           payload: { id },
         });
+        assertRuntimeMutationSucceeded(result, 'Failed to clear timer');
         // Immediately update local state for responsive UI
         setTimerStatuses(prev => ({
           ...prev,
@@ -565,6 +572,7 @@ export default function BlockedSites() {
             type: 'START_FOCUS_SESSION',
             payload: { folderId: focusTarget.folderId, durationMinutes: focusDuration },
           });
+      assertRuntimeMutationSucceeded(result, 'Failed to start focus session');
       // Immediately update local state for responsive UI
       if (result?.success && result.focusUntil) {
         if (focusTarget.type === 'global') {
@@ -598,10 +606,11 @@ export default function BlockedSites() {
   async function stopFocusSession(folderId: string) {
     await withLockdownCheck(async () => {
       try {
-        await chrome.runtime.sendMessage({
+        const result = await chrome.runtime.sendMessage({
           type: 'STOP_FOCUS_SESSION',
           payload: { folderId },
         });
+        assertRuntimeMutationSucceeded(result, 'Failed to stop focus session');
         // Immediately update local state
         setFocusStatuses(prev => ({
           ...prev,
@@ -620,9 +629,10 @@ export default function BlockedSites() {
   async function stopGlobalFocusSession() {
     await withLockdownCheck(async () => {
       try {
-        await chrome.runtime.sendMessage({
+        const result = await chrome.runtime.sendMessage({
           type: 'STOP_GLOBAL_FOCUS_SESSION',
         });
+        assertRuntimeMutationSucceeded(result, 'Failed to stop global focus session');
         setGlobalFocusStatus({
           isActive: false,
           focusUntil: undefined,
@@ -636,6 +646,15 @@ export default function BlockedSites() {
   }
 
   async function handleDragEnd(result: DropResult) {
+    try {
+      await persistDragEnd(result);
+    } catch (err) {
+      console.error('Failed to reorder blocked sites:', err);
+      await loadData();
+    }
+  }
+
+  async function persistDragEnd(result: DropResult) {
     if (!result.destination) return;
 
     const { source, destination, type } = result;
@@ -654,11 +673,12 @@ export default function BlockedSites() {
         order: index,
       }));
 
-      setFolders(updatedFolders);
-      await chrome.runtime.sendMessage({
+      const response = await chrome.runtime.sendMessage({
         type: 'UPDATE_BLOCKED_SITE_FOLDERS',
         payload: updatedFolders,
       });
+      assertRuntimeMutationSucceeded(response, 'Failed to reorder folders');
+      setFolders(updatedFolders);
       return;
     }
 
@@ -690,11 +710,12 @@ export default function BlockedSites() {
         return { ...site, order: newIndex };
       });
 
-      setSites(updatedSites);
-      await chrome.runtime.sendMessage({
+      const response = await chrome.runtime.sendMessage({
         type: 'UPDATE_BLOCKED_SITES',
         payload: updatedSites,
       });
+      assertRuntimeMutationSucceeded(response, 'Failed to reorder sites');
+      setSites(updatedSites);
     } else {
       // Moving site to a different folder
       const destFolderSites = sites
@@ -724,10 +745,13 @@ export default function BlockedSites() {
         return site;
       });
 
-      setSites(updatedSites);
-      await chrome.runtime.sendMessage({
-        type: 'UPDATE_BLOCKED_SITES',
-        payload: updatedSites,
+      await withLockdownCheck(async () => {
+        const response = await chrome.runtime.sendMessage({
+          type: 'UPDATE_BLOCKED_SITES',
+          payload: updatedSites,
+        });
+        assertRuntimeMutationSucceeded(response, 'Failed to move site');
+        setSites(updatedSites);
       });
     }
   }

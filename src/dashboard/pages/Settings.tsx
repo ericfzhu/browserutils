@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Settings as SettingsType } from '../../shared/types';
 import { applyTheme } from '../../shared/theme';
 import { buildOtpAuthUri, generateTotpSecret, verifyTotpCode } from '../../shared/totp';
+import { assertRuntimeMutationSucceeded } from '../../shared/runtimeMessages';
 import { useLockdown } from '../hooks/useLockdown';
 
 export default function SettingsPage() {
@@ -27,6 +28,7 @@ export default function SettingsPage() {
     try {
       const result = await chrome.runtime.sendMessage({ type: 'GET_SETTINGS' });
       setSettings(result);
+      applyTheme(result.theme, result.colorTheme || 'monochrome');
     } catch (err) {
       console.error('Failed to load settings:', err);
     } finally {
@@ -38,13 +40,15 @@ export default function SettingsPage() {
     setSettings((current) => current ? { ...current, ...patch } : current);
 
     try {
-      await chrome.runtime.sendMessage({
+      const result = await chrome.runtime.sendMessage({
         type: 'UPDATE_SETTINGS',
         payload: patch,
       });
+      assertRuntimeMutationSucceeded(result, 'Failed to save settings');
     } catch (err) {
       console.error('Failed to save settings:', err);
       await loadSettings();
+      throw err;
     }
   }
 
@@ -280,7 +284,15 @@ export default function SettingsPage() {
             <Input
               type="checkbox"
               checked={settings.blockingEnabled}
-              onChange={(e) => void updateSettings({ blockingEnabled: e.target.checked })}
+              onChange={async (e) => {
+                const enabled = e.target.checked;
+                const applyChange = () => updateSettings({ blockingEnabled: enabled });
+                if (enabled) {
+                  await applyChange();
+                } else {
+                  await withLockdownCheck(applyChange);
+                }
+              }}
               className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
             />
           </label>

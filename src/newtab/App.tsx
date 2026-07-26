@@ -13,6 +13,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
 import { DailyStats, Settings as SettingsType, QuickLink } from '../shared/types';
+import { assertRuntimeMutationSucceeded } from '../shared/runtimeMessages';
 
 function formatTime(seconds: number): string {
   const hours = Math.floor(seconds / 3600);
@@ -149,10 +150,11 @@ export default function App() {
       quickLinks: [...settings.quickLinks, link],
     };
 
-    await chrome.runtime.sendMessage({
+    const response = await chrome.runtime.sendMessage({
       type: 'UPDATE_SETTINGS',
       payload: { quickLinks: updatedSettings.quickLinks },
     });
+    assertRuntimeMutationSucceeded(response, 'Failed to add quick link');
 
     setSettings(updatedSettings);
     setNewLinkUrl('');
@@ -163,10 +165,11 @@ export default function App() {
     if (!settings) return;
 
     const updatedLinks = settings.quickLinks.filter((l) => l.id !== id);
-    await chrome.runtime.sendMessage({
+    const response = await chrome.runtime.sendMessage({
       type: 'UPDATE_SETTINGS',
       payload: { quickLinks: updatedLinks },
     });
+    assertRuntimeMutationSucceeded(response, 'Failed to remove quick link');
 
     setSettings({ ...settings, quickLinks: updatedLinks });
   }

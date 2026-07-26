@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { BlockedSite, BlockedSiteFolder, DailyStats, Settings as SettingsType, LockdownStatus } from '../shared/types';
+import { assertRuntimeMutationSucceeded } from '../shared/runtimeMessages';
 
 function formatTime(seconds: number): string {
   if (seconds < 60) {
@@ -116,7 +117,12 @@ export default function App() {
       return;
     }
 
-    await doToggleBlocking();
+    try {
+      await doToggleBlocking();
+    } catch (err) {
+      console.error('Failed to update blocking:', err);
+      setAuthError(err instanceof Error ? err.message : 'Failed to update blocking');
+    }
   }
 
   async function doToggleBlocking() {
@@ -126,6 +132,7 @@ export default function App() {
       type: 'UPDATE_SETTINGS',
       payload: { blockingEnabled: newEnabled, trackingEnabled: newEnabled },
     });
+    assertRuntimeMutationSucceeded(updated, 'Failed to update blocking');
     setSettings(updated);
     setShowPasswordInput(false);
     setPassword('');
@@ -152,8 +159,8 @@ export default function App() {
       } else {
         setAuthError(result.error || 'Invalid credential');
       }
-    } catch {
-      setAuthError('Authentication failed');
+    } catch (err) {
+      setAuthError(err instanceof Error ? err.message : 'Authentication failed');
     } finally {
       setAuthenticating(false);
     }

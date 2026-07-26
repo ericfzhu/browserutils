@@ -20,8 +20,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { DailyStatsSummary, CustomCategory } from '../../shared/types';
+import { DailyStatsSummary, CustomCategory, Settings, SiteCategory } from '../../shared/types';
 import { CATEGORIES, getCategoryForDomain, getCategoryInfoWithOverrides, isBuiltInCategory, DEFAULT_DOMAIN_CATEGORIES, CATEGORY_COLOR_OPTIONS } from '../../shared/categories';
+import { assertRuntimeMutationSucceeded } from '../../shared/runtimeMessages';
 
 function formatTime(seconds: number): string {
   const hours = Math.floor(seconds / 3600);
@@ -42,7 +43,7 @@ interface SiteWithTime {
 interface CategoryModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (name: string, color: string) => void;
+  onSave: (name: string, color: string) => Promise<void>;
   pendingDomain: string | null;
   editingCategory?: CustomCategory | null;
   editingBuiltInId?: string | null;
@@ -52,6 +53,8 @@ interface CategoryModalProps {
 function CategoryModal({ isOpen, onClose, onSave, pendingDomain, editingCategory, editingBuiltInId, builtInOverrides = {} }: CategoryModalProps) {
   const [name, setName] = useState('');
   const [color, setColor] = useState(CATEGORY_COLOR_OPTIONS[0]);
+  const [saveError, setSaveError] = useState('');
+  const [saving, setSaving] = useState(false);
 
   // Determine if editing a built-in category (name only)
   const isEditingBuiltIn = !!editingBuiltInId;
@@ -69,15 +72,26 @@ function CategoryModal({ isOpen, onClose, onSave, pendingDomain, editingCategory
       setName('');
       setColor(CATEGORY_COLOR_OPTIONS[Math.floor(Math.random() * CATEGORY_COLOR_OPTIONS.length)]);
     }
+    setSaveError('');
+    setSaving(false);
   }, [editingCategory, editingBuiltInId, builtInInfo, builtInOverrides, isOpen]);
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (name.trim()) {
-      onSave(name.trim(), color);
-      onClose();
+    if (name.trim() && !saving) {
+      setSaving(true);
+      setSaveError('');
+      try {
+        await onSave(name.trim(), color);
+        onClose();
+      } catch (err) {
+        console.error('Failed to save category:', err);
+        setSaveError(err instanceof Error ? err.message : 'Failed to save category');
+      } finally {
+        setSaving(false);
+      }
     }
   };
 
@@ -137,6 +151,12 @@ function CategoryModal({ isOpen, onClose, onSave, pendingDomain, editingCategory
             </div>
           )}
 
+          {saveError && (
+            <Alert variant="destructive">
+              <AlertDescription>{saveError}</AlertDescription>
+            </Alert>
+          )}
+
           <DialogFooter>
             <Button
               type="button"
@@ -145,10 +165,8 @@ function CategoryModal({ isOpen, onClose, onSave, pendingDomain, editingCategory
             >
               Cancel
             </Button>
-            <Button
-              type="submit"
-            >
-              {submitLabel}
+            <Button type="submit" disabled={saving}>
+              {saving ? 'Saving...' : submitLabel}
             </Button>
           </DialogFooter>
         </form>
@@ -175,6 +193,7 @@ export default function Categories() {
 
   // Category order (stores all category IDs in display order, except 'other' which is always last)
   const [categoryOrder, setCategoryOrder] = useState<string[]>([]);
+  const [savedCategoryOrder, setSavedCategoryOrder] = useState<string[]>([]);
 
   // Selection mode for bulk operations
   const [selectMode, setSelectMode] = useState(false);
@@ -184,14 +203,17 @@ export default function Categories() {
     loadData();
   }, []);
 
-  // Initialize category order when data loads
+  // Initialize category order when data loads, preserving saved positions and
+  // appending categories introduced since the order was last saved.
   useEffect(() => {
     if (!loading && categoryOrder.length === 0) {
       const builtInIds = CATEGORIES.filter(c => c.id !== 'other').map(c => c.id as string);
-      const customIds = customCategories.sort((a, b) => a.order - b.order).map(c => c.id);
-      setCategoryOrder([...builtInIds, ...customIds]);
+      const customIds = [...customCategories].sort((a, b) => a.order - b.order).map(c => c.id);
+      const availableIds = [...builtInIds, ...customIds];
+      const savedIds = savedCategoryOrder.filter(id => availableIds.includes(id));
+      setCategoryOrder([...savedIds, ...availableIds.filter(id => !savedIds.includes(id))]);
     }
-  }, [loading, customCategories, categoryOrder.length]);
+  }, [loading, customCategories, categoryOrder.length, savedCategoryOrder]);
 
   function toggleCollapse(categoryId: string) {
     setCollapsedCategories(prev => {
@@ -262,10 +284,11 @@ export default function Categories() {
       const defaultCategory = DEFAULT_DOMAIN_CATEGORIES[normalizedDomain] || DEFAULT_DOMAIN_CATEGORIES[domain] || 'other';
       const categoryToSet = targetCategoryId === defaultCategory ? null : targetCategoryId;
 
-      await chrome.runtime.sendMessage({
+      const response = await chrome.runtime.sendMessage({
         type: 'SET_DOMAIN_CATEGORY',
         payload: { domain, category: categoryToSet },
       });
+      assertRuntimeMutationSucceeded(response, `Failed to move ${domain}`);
 
       setDomainCategories(prev => {
         if (categoryToSet === null) {
@@ -281,16 +304,19 @@ export default function Categories() {
 
   async function loadData() {
     try {
-      const [stats, categories, custom, overrides] = await Promise.all([
+      const [stats, categories, custom, overrides, settings] = await Promise.all([
         chrome.runtime.sendMessage({ type: 'GET_STATS_SUMMARY' }),
         chrome.runtime.sendMessage({ type: 'GET_DOMAIN_CATEGORIES' }),
         chrome.runtime.sendMessage({ type: 'GET_CUSTOM_CATEGORIES' }),
         chrome.runtime.sendMessage({ type: 'GET_BUILTIN_CATEGORY_OVERRIDES' }),
+        chrome.runtime.sendMessage({ type: 'GET_SETTINGS' }),
       ]);
       setAllStats(stats || {});
       setDomainCategories(categories || {});
       setCustomCategories(custom || []);
       setBuiltInOverrides(overrides || {});
+      setSavedCategoryOrder((settings as Settings | undefined)?.categoryOrder || []);
+      setCategoryOrder([]);
     } catch (err) {
       console.error('Failed to load data:', err);
     } finally {
@@ -304,16 +330,18 @@ export default function Categories() {
       type: 'ADD_CUSTOM_CATEGORY',
       payload: { name, color, order: customCategories.length },
     });
+    assertRuntimeMutationSucceeded(newCategory, 'Failed to create category');
 
     setCustomCategories(prev => [...prev, newCategory]);
     setCategoryOrder(prev => [...prev, newCategory.id]);
 
     // If there's a pending domain, assign it to the new category
     if (pendingDomain) {
-      await chrome.runtime.sendMessage({
+      const response = await chrome.runtime.sendMessage({
         type: 'SET_DOMAIN_CATEGORY',
         payload: { domain: pendingDomain, category: newCategory.id },
       });
+      assertRuntimeMutationSucceeded(response, `Failed to categorize ${pendingDomain}`);
       setDomainCategories(prev => ({ ...prev, [pendingDomain]: newCategory.id }));
       setPendingDomain(null);
     }
@@ -324,10 +352,11 @@ export default function Categories() {
     if (!editingCategory) return;
 
     const updated: CustomCategory = { ...editingCategory, name, color };
-    await chrome.runtime.sendMessage({
+    const response = await chrome.runtime.sendMessage({
       type: 'UPDATE_CUSTOM_CATEGORY',
       payload: updated,
     });
+    assertRuntimeMutationSucceeded(response, 'Failed to update category');
 
     setCustomCategories(prev => prev.map(c => c.id === updated.id ? updated : c));
     setEditingCategory(null);
@@ -341,10 +370,11 @@ export default function Categories() {
     const original = CATEGORIES.find(c => c.id === editingBuiltInId);
     const nameToSet = name.trim() === '' || name.trim() === original?.name ? null : name.trim();
 
-    await chrome.runtime.sendMessage({
-      type: 'UPDATE_BUILTIN_CATEGORY_NAME',
-      payload: { id: editingBuiltInId, name: nameToSet },
+    const response = await chrome.runtime.sendMessage({
+      type: 'SET_BUILTIN_CATEGORY_NAME',
+      payload: { id: editingBuiltInId as SiteCategory, name: nameToSet },
     });
+    assertRuntimeMutationSucceeded(response, 'Failed to rename category');
 
     setBuiltInOverrides(prev => {
       if (nameToSet === null) {
@@ -357,22 +387,23 @@ export default function Categories() {
   }
 
   // Handle save from modal (routes to create or update)
-  function handleModalSave(name: string, color: string) {
+  async function handleModalSave(name: string, color: string) {
     if (editingCategory) {
-      handleUpdateCategory(name, color);
+      await handleUpdateCategory(name, color);
     } else if (editingBuiltInId) {
-      handleUpdateBuiltInName(name);
+      await handleUpdateBuiltInName(name);
     } else {
-      handleCreateCategory(name, color);
+      await handleCreateCategory(name, color);
     }
   }
 
   // Handle deleting a custom category
   async function handleDeleteCategory(categoryId: string) {
-    await chrome.runtime.sendMessage({
+    const response = await chrome.runtime.sendMessage({
       type: 'DELETE_CUSTOM_CATEGORY',
       payload: { id: categoryId },
     });
+    assertRuntimeMutationSucceeded(response, 'Failed to delete category');
 
     setCustomCategories(prev => prev.filter(c => c.id !== categoryId));
     setCategoryOrder(prev => prev.filter(id => id !== categoryId));
@@ -391,6 +422,15 @@ export default function Categories() {
 
   // Handle drag end
   async function handleDragEnd(result: DropResult) {
+    try {
+      await persistDragEnd(result);
+    } catch (err) {
+      console.error('Failed to move category item:', err);
+      await loadData();
+    }
+  }
+
+  async function persistDragEnd(result: DropResult) {
     const { source, destination, draggableId, type } = result;
 
     // Dropped outside a valid droppable
@@ -403,7 +443,13 @@ export default function Categories() {
       const reordered = Array.from(categoryOrder);
       const [moved] = reordered.splice(source.index, 1);
       reordered.splice(destination.index, 0, moved);
+      const response = await chrome.runtime.sendMessage({
+        type: 'UPDATE_SETTINGS',
+        payload: { categoryOrder: reordered },
+      });
+      assertRuntimeMutationSucceeded(response, 'Failed to reorder categories');
       setCategoryOrder(reordered);
+      setSavedCategoryOrder(reordered);
       return;
     }
 
@@ -430,10 +476,11 @@ export default function Categories() {
     const categoryToSet = targetCategory === defaultCategory ? null : targetCategory;
 
     // Update backend
-    await chrome.runtime.sendMessage({
+    const response = await chrome.runtime.sendMessage({
       type: 'SET_DOMAIN_CATEGORY',
       payload: { domain, category: categoryToSet },
     });
+    assertRuntimeMutationSucceeded(response, `Failed to move ${domain}`);
 
     // Update local state
     setDomainCategories(prev => {
@@ -471,7 +518,7 @@ export default function Categories() {
   }
 
   // Add custom categories
-  for (const cat of customCategories.sort((a, b) => a.order - b.order)) {
+  for (const cat of [...customCategories].sort((a, b) => a.order - b.order)) {
     sitesByCategory.set(cat.id, []);
   }
 

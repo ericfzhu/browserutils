@@ -41,8 +41,14 @@ function LockdownModal() {
   async function handleAuthSubmit(credential: string) {
     const result = await authenticate(credential);
     if (result.success && pendingAction) {
-      // Execute the pending action after successful authentication
-      await pendingAction();
+      try {
+        await pendingAction();
+      } catch (err) {
+        return {
+          success: false,
+          error: err instanceof Error ? err.message : 'The requested change failed',
+        };
+      }
     }
     return result;
   }
