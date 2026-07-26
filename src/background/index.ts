@@ -44,6 +44,11 @@ import {
   setBuiltInCategoryName,
   migrateSessionsToCompactFormat,
 } from '../shared/storage';
+import {
+  blockedSiteMutationRequiresAuth,
+  blockedSitesMutationRequiresAuth,
+  dailyLimitMutationRequiresAuth,
+} from './lockdownGuards';
 import { ActiveSession, BlockedSite, MessageType, Settings } from '../shared/types';
 import { isTimeWithinScheduleWindow } from '../shared/time';
 import { verifyTotpCode } from '../shared/totp';
@@ -160,39 +165,13 @@ async function requiresLockdownAuthentication(message: MessageType): Promise<boo
       Object.prototype.hasOwnProperty.call(patch, 'lockdownTotpSecret');
   } else if (message.type === 'UPDATE_BLOCKED_SITE') {
     const current = (await getBlockedSites()).find(site => site.id === message.payload.id);
-    protectedMutation = !!current && (
-      current.enabled !== message.payload.enabled ||
-      current.pattern !== message.payload.pattern ||
-      current.unlockType !== message.payload.unlockType ||
-      current.passwordHash !== message.payload.passwordHash ||
-      current.timerDuration !== message.payload.timerDuration ||
-      JSON.stringify(current.schedule) !== JSON.stringify(message.payload.schedule)
-    );
+    protectedMutation = !!current && blockedSiteMutationRequiresAuth(current, message.payload);
   } else if (message.type === 'UPDATE_BLOCKED_SITES') {
     const currentSites = await getBlockedSites();
-    const currentById = new Map(currentSites.map(site => [site.id, site]));
-    const nextIds = new Set(message.payload.map(site => site.id));
-    protectedMutation = currentSites.some(site => !nextIds.has(site.id)) || message.payload.some(site => {
-      const current = currentById.get(site.id);
-      return !!current && (
-        current.enabled !== site.enabled ||
-        current.pattern !== site.pattern ||
-        current.unlockType !== site.unlockType ||
-        current.passwordHash !== site.passwordHash ||
-        current.timerDuration !== site.timerDuration ||
-        JSON.stringify(current.schedule) !== JSON.stringify(site.schedule)
-      );
-    });
+    protectedMutation = blockedSitesMutationRequiresAuth(currentSites, message.payload);
   } else if (message.type === 'UPDATE_DAILY_LIMIT') {
     const current = (await getDailyLimits()).find(limit => limit.id === message.payload.id);
-    protectedMutation = !!current && (
-      current.enabled !== message.payload.enabled ||
-      current.pattern !== message.payload.pattern ||
-      current.limitSeconds !== message.payload.limitSeconds ||
-      current.bypassType !== message.payload.bypassType ||
-      current.passwordHash !== message.payload.passwordHash ||
-      current.cooldownSeconds !== message.payload.cooldownSeconds
-    );
+    protectedMutation = !!current && dailyLimitMutationRequiresAuth(current, message.payload);
   }
 
   if (!protectedMutation) return false;

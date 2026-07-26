@@ -4,6 +4,12 @@ This file tracks notable BrowserUtils changes.
 
 It follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and uses 0.x.0 release versions. Each published release increments x.
 
+## [0.48.0] - 2026-07-26
+
+### Fixed
+- Enable All and individual enable actions are no longer rejected by Lockdown Mode
+- Blocked-site and daily-limit toggles detect failed background updates instead of showing temporary state
+
 ## [0.47.0] - 2026-07-24
 
 ### Changed

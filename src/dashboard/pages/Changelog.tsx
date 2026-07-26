@@ -3,7 +3,7 @@ import { Tag, Plus, Wrench, Bug, ArrowLeft, Minus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 // Changelog data - update this when releasing new versions
-const CURRENT_VERSION = '0.47.0';
+const CURRENT_VERSION = '0.48.0';
 
 interface ChangelogEntry {
   version: string;
@@ -15,6 +15,14 @@ interface ChangelogEntry {
 }
 
 const changelog: ChangelogEntry[] = [
+  {
+    version: '0.48.0',
+    date: '2026-07-26',
+    fixed: [
+      'Enable All and individual enable actions are no longer rejected by Lockdown Mode',
+      'Blocked-site and daily-limit toggles detect failed background updates instead of showing temporary state',
+    ],
+  },
   {
     version: '0.47.0',
     date: '2026-07-24',

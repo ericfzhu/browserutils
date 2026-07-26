@@ -330,14 +330,19 @@ export default function BlockedSites() {
       // For non-timer sites, update the enabled flag
       const nonTimerSites = folderSites.filter(s => s.unlockType !== 'timer');
       if (nonTimerSites.length > 0) {
-        const sitesToUpdate = nonTimerSites.map(s => ({ ...s, enabled }));
-        const otherSites = sites.filter(s => s.folderId !== folderId || s.unlockType === 'timer');
-        const newSites = [...otherSites, ...sitesToUpdate];
-        setSites(newSites);
-        await chrome.runtime.sendMessage({
+        const newSites = sites.map(site =>
+          site.folderId === folderId && site.unlockType !== 'timer'
+            ? { ...site, enabled }
+            : site
+        );
+        const result = await chrome.runtime.sendMessage({
           type: 'UPDATE_BLOCKED_SITES',
           payload: newSites,
         });
+        if (!result?.success) {
+          throw new Error(result?.error || 'Failed to update blocked sites');
+        }
+        setSites(newSites);
       }
 
       // For timer sites, start/clear timer blocks
@@ -357,6 +362,9 @@ export default function BlockedSites() {
           // Immediately update local state for responsive UI
           const newStatuses: Record<string, TimerStatus> = {};
           for (const { site, result } of results) {
+            if (!result?.success) {
+              throw new Error(result?.error || `Failed to start timer for ${site.pattern}`);
+            }
             if (result?.success && result.blockedUntil) {
               newStatuses[site.id] = {
                 isActive: true,
@@ -370,14 +378,19 @@ export default function BlockedSites() {
           }
         } else {
           // Clear timer blocks when disabling - run in parallel
-          await Promise.all(
+          const results = await Promise.all(
             timerSites.map(site =>
               chrome.runtime.sendMessage({
                 type: 'CLEAR_TIMER_BLOCK',
                 payload: { id: site.id },
-              })
+              }).then(result => ({ site, result }))
             )
           );
+          for (const { site, result } of results) {
+            if (!result?.success) {
+              throw new Error(result?.error || `Failed to clear timer for ${site.pattern}`);
+            }
+          }
           // Immediately update local state
           const clearedStatuses: Record<string, TimerStatus> = {};
           for (const site of timerSites) {
@@ -392,21 +405,29 @@ export default function BlockedSites() {
       }
     };
 
-    // If disabling sites, require lockdown check
-    if (!enabled) {
-      await withLockdownCheck(doToggle);
-    } else {
-      await doToggle();
+    try {
+      // If disabling sites, require lockdown check
+      if (!enabled) {
+        await withLockdownCheck(doToggle);
+      } else {
+        await doToggle();
+      }
+    } catch (err) {
+      console.error('Failed to toggle folder sites:', err);
+      await loadData();
     }
   }
 
   async function toggleSite(site: BlockedSite) {
     const doToggle = async () => {
       try {
-        await chrome.runtime.sendMessage({
+        const result = await chrome.runtime.sendMessage({
           type: 'UPDATE_BLOCKED_SITE',
           payload: { ...site, enabled: !site.enabled },
         });
+        if (!result?.success) {
+          throw new Error(result?.error || 'Failed to update blocked site');
+        }
         await loadData();
       } catch (err) {
         console.error('Failed to toggle site:', err);

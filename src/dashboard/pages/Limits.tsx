@@ -195,11 +195,14 @@ export default function Limits() {
   async function toggleEnabled(limit: DailyLimit) {
     const doToggle = async () => {
       try {
-        await chrome.runtime.sendMessage({
+        const result = await chrome.runtime.sendMessage({
           type: 'UPDATE_DAILY_LIMIT',
           payload: { ...limit, enabled: !limit.enabled },
         });
-        loadData();
+        if (!result?.success) {
+          throw new Error(result?.error || 'Failed to update daily limit');
+        }
+        await loadData();
       } catch (err) {
         console.error('Failed to toggle limit:', err);
       }
