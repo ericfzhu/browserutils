@@ -178,14 +178,14 @@ function DateRangePicker({ startDate, endDate, onSelectRange, onClose }: DateRan
       <div className="flex items-center justify-between mb-3 text-sm">
         <button
           onClick={() => setSelectingStart(true)}
-          className={`min-h-10 rounded-lg px-3 text-sm font-medium transition-[background-color,color,transform] duration-150 ease-out active:scale-[0.96] ${selectingStart ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground hover:text-foreground'}`}
+          className={`min-h-10 rounded-lg px-3 text-sm font-medium transition-[background-color,color] duration-150 ease-out ${selectingStart ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground hover:text-foreground'}`}
         >
           {formatDateLabel(localStartDate)}
         </button>
         <span className="text-muted-foreground">→</span>
         <button
           onClick={() => setSelectingStart(false)}
-          className={`min-h-10 rounded-lg px-3 text-sm font-medium transition-[background-color,color,transform] duration-150 ease-out active:scale-[0.96] ${!selectingStart ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground hover:text-foreground'}`}
+          className={`min-h-10 rounded-lg px-3 text-sm font-medium transition-[background-color,color] duration-150 ease-out ${!selectingStart ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground hover:text-foreground'}`}
         >
           {formatDateLabel(localEndDate)}
         </button>
@@ -193,11 +193,11 @@ function DateRangePicker({ startDate, endDate, onSelectRange, onClose }: DateRan
 
       {/* Calendar */}
       <div className="flex items-center justify-between mb-4">
-        <button onClick={prevMonth} className="flex size-10 items-center justify-center rounded-lg text-muted-foreground transition-[background-color,color,transform] duration-150 ease-out hover:bg-muted hover:text-foreground active:scale-[0.96]" title="Previous month">
+        <button onClick={prevMonth} className="flex size-10 items-center justify-center rounded-lg text-muted-foreground transition-[background-color,color] duration-150 ease-out hover:bg-muted hover:text-foreground" title="Previous month">
           <ChevronLeft className="w-5 h-5" />
         </button>
         <span className="font-medium">{monthName}</span>
-        <button onClick={nextMonth} className="flex size-10 items-center justify-center rounded-lg text-muted-foreground transition-[background-color,color,transform] duration-150 ease-out hover:bg-muted hover:text-foreground active:scale-[0.96]" title="Next month">
+        <button onClick={nextMonth} className="flex size-10 items-center justify-center rounded-lg text-muted-foreground transition-[background-color,color] duration-150 ease-out hover:bg-muted hover:text-foreground" title="Next month">
           <ChevronRight className="w-5 h-5" />
         </button>
       </div>
@@ -218,7 +218,7 @@ function DateRangePicker({ startDate, endDate, onSelectRange, onClose }: DateRan
               key={idx}
               onClick={() => !isDisabled && handleDayClick(day)}
               disabled={isDisabled}
-              className={`aspect-square rounded-lg text-sm tabular-nums transition-[background-color,color,transform] duration-150 ease-out active:scale-[0.96] ${
+              className={`aspect-square rounded-lg text-sm tabular-nums transition-[background-color,color] duration-150 ease-out ${
                 isSelected
                   ? 'bg-primary text-primary-foreground'
                   : isRangeDate
@@ -238,10 +238,10 @@ function DateRangePicker({ startDate, endDate, onSelectRange, onClose }: DateRan
 
       {/* Presets */}
       <div className="mt-4 flex flex-wrap gap-2 border-t pt-4">
-        <button onClick={setWeekToDate} className="min-h-10 rounded-lg bg-muted px-3 text-xs font-medium transition-[background-color,transform] duration-150 ease-out hover:bg-muted/70 active:scale-[0.96]">Week to date</button>
-        <button onClick={setMonthToDate} className="min-h-10 rounded-lg bg-muted px-3 text-xs font-medium transition-[background-color,transform] duration-150 ease-out hover:bg-muted/70 active:scale-[0.96]">Month to date</button>
-        <button onClick={setLast7Days} className="min-h-10 rounded-lg bg-muted px-3 text-xs font-medium transition-[background-color,transform] duration-150 ease-out hover:bg-muted/70 active:scale-[0.96]">Last 7 days</button>
-        <button onClick={setLast30Days} className="min-h-10 rounded-lg bg-muted px-3 text-xs font-medium transition-[background-color,transform] duration-150 ease-out hover:bg-muted/70 active:scale-[0.96]">Last 30 days</button>
+        <button onClick={setWeekToDate} className="min-h-10 rounded-lg bg-muted px-3 text-xs font-medium transition-colors duration-150 ease-out hover:bg-muted/70">Week to date</button>
+        <button onClick={setMonthToDate} className="min-h-10 rounded-lg bg-muted px-3 text-xs font-medium transition-colors duration-150 ease-out hover:bg-muted/70">Month to date</button>
+        <button onClick={setLast7Days} className="min-h-10 rounded-lg bg-muted px-3 text-xs font-medium transition-colors duration-150 ease-out hover:bg-muted/70">Last 7 days</button>
+        <button onClick={setLast30Days} className="min-h-10 rounded-lg bg-muted px-3 text-xs font-medium transition-colors duration-150 ease-out hover:bg-muted/70">Last 30 days</button>
       </div>
 
       {/* Actions */}
@@ -501,7 +501,7 @@ function Timeline({ sessions, sites, startDate, endDate, animationDirection }: T
         <div className="mt-4 flex min-h-10 justify-center">
           <button
             onClick={() => setExpanded(!expanded)}
-            className="flex min-h-10 items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-primary transition-[background-color,color,transform] duration-150 ease-out hover:bg-muted hover:text-primary/80 active:scale-[0.96]"
+            className="flex min-h-10 items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-primary transition-[background-color,color] duration-150 ease-out hover:bg-muted hover:text-primary/80"
           >
             <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`} />
             <span className="w-14">{expanded ? 'Collapse' : 'Expand'}</span>
@@ -767,7 +767,7 @@ export default function Metrics() {
             />
             <button
               onClick={() => setPreset('day')}
-              className={`relative z-10 min-h-10 w-16 rounded-lg text-center text-sm font-medium transition-[color,transform] duration-150 ease-out active:scale-[0.96] ${
+              className={`relative z-10 min-h-10 w-16 rounded-lg text-center text-sm font-medium transition-colors duration-150 ease-out ${
                 selectedPeriod === 'day' ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
               }`}
             >
@@ -775,7 +775,7 @@ export default function Metrics() {
             </button>
             <button
               onClick={() => setPreset('week')}
-              className={`relative z-10 min-h-10 w-16 rounded-lg text-center text-sm font-medium transition-[color,transform] duration-150 ease-out active:scale-[0.96] ${
+              className={`relative z-10 min-h-10 w-16 rounded-lg text-center text-sm font-medium transition-colors duration-150 ease-out ${
                 selectedPeriod === 'week' ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
               }`}
             >
@@ -783,7 +783,7 @@ export default function Metrics() {
             </button>
             <button
               onClick={() => setPreset('month')}
-              className={`relative z-10 min-h-10 w-16 rounded-lg text-center text-sm font-medium transition-[color,transform] duration-150 ease-out active:scale-[0.96] ${
+              className={`relative z-10 min-h-10 w-16 rounded-lg text-center text-sm font-medium transition-colors duration-150 ease-out ${
                 selectedPeriod === 'month' ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
               }`}
             >
@@ -792,7 +792,7 @@ export default function Metrics() {
             <div className="relative">
               <button
                 onClick={() => setShowDateRangePicker(!showDateRangePicker)}
-                className={`relative z-10 min-h-10 w-16 rounded-lg text-center text-sm font-medium transition-[color,transform] duration-150 ease-out active:scale-[0.96] ${
+                className={`relative z-10 min-h-10 w-16 rounded-lg text-center text-sm font-medium transition-colors duration-150 ease-out ${
                   selectedPeriod === 'custom' ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
@@ -1107,7 +1107,7 @@ export default function Metrics() {
                   <div className="mt-4 flex justify-center h-5">
                     <button
                       onClick={() => setYoutubeExpanded(!youtubeExpanded)}
-                      className="flex min-h-10 items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-primary transition-[background-color,color,transform] duration-150 ease-out hover:bg-muted hover:text-primary/80 active:scale-[0.96]"
+                      className="flex min-h-10 items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-primary transition-[background-color,color] duration-150 ease-out hover:bg-muted hover:text-primary/80"
                     >
                       <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${youtubeExpanded ? 'rotate-180' : ''}`} />
                       <span className="w-14">{youtubeExpanded ? 'Collapse' : 'Expand'}</span>

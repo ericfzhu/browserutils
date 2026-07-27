@@ -218,7 +218,7 @@ export default function App() {
               <a
                 key={link.id}
                 href={link.url}
-                className="group relative flex min-w-[100px] flex-col items-center gap-2 rounded-2xl bg-card p-4 text-card-foreground shadow-[var(--shadow-card)] transition-[background-color,box-shadow,transform] duration-150 ease-out hover:bg-muted hover:shadow-[var(--shadow-card-hover)] active:scale-[0.96]"
+                className="group relative flex min-w-[100px] flex-col items-center gap-2 rounded-2xl bg-card p-4 text-card-foreground shadow-[var(--shadow-card)] transition-[background-color,box-shadow] duration-150 ease-out hover:bg-muted hover:shadow-[var(--shadow-card-hover)]"
               >
                 <Button
                   onClick={(e) => {
