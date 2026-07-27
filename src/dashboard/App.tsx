@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Routes, Route, NavLink, Link } from 'react-router-dom';
+import { Routes, Route, NavLink } from 'react-router-dom';
 import { BarChart3, Shield, Settings, LayoutDashboard, Sparkles, Timer, Tag } from 'lucide-react';
 import Overview from './pages/Overview';
 import BlockedSites from './pages/BlockedSites';
@@ -19,7 +19,6 @@ const navItems = [
   { to: '/limits', icon: Timer, label: 'Daily Limits' },
   { to: '/metrics', icon: BarChart3, label: 'Metrics' },
   { to: '/categories', icon: Tag, label: 'Categories' },
-  { to: '/settings', icon: Settings, label: 'Settings' },
 ];
 
 // Component that handles the lockdown password modal
@@ -123,13 +122,34 @@ export default function App() {
 
         <div className="mt-auto flex flex-col gap-2 pt-4">
           <Separator />
-          <Link
+          <NavLink
             to="/changelog"
-            className="flex min-h-10 items-center gap-2 rounded-md px-3 text-sm text-muted-foreground transition-[background-color,color,box-shadow] duration-150 ease-out hover:bg-[var(--sidebar-accent)] hover:text-[var(--sidebar-accent-foreground)] hover:shadow-[inset_3px_0_0_var(--sidebar-primary)]"
+            className={({ isActive }) =>
+              cn(
+                'flex min-h-10 items-center gap-2 rounded-md px-3 text-sm transition-[background-color,color,box-shadow] duration-150 ease-out',
+                isActive
+                  ? 'bg-primary text-primary-foreground shadow-[var(--shadow-border)]'
+                  : 'text-muted-foreground hover:bg-[var(--sidebar-accent)] hover:text-[var(--sidebar-accent-foreground)] hover:shadow-[inset_3px_0_0_var(--sidebar-primary)]'
+              )
+            }
           >
             <Sparkles className="size-4" />
             What's New
-          </Link>
+          </NavLink>
+          <NavLink
+            to="/settings"
+            className={({ isActive }) =>
+              cn(
+                'flex min-h-10 items-center gap-2 rounded-md px-3 text-sm transition-[background-color,color,box-shadow] duration-150 ease-out',
+                isActive
+                  ? 'bg-primary text-primary-foreground shadow-[var(--shadow-border)]'
+                  : 'text-muted-foreground hover:bg-[var(--sidebar-accent)] hover:text-[var(--sidebar-accent-foreground)] hover:shadow-[inset_3px_0_0_var(--sidebar-primary)]'
+              )
+            }
+          >
+            <Settings className="size-4" />
+            Settings
+          </NavLink>
           <p className="text-center text-xs text-muted-foreground tabular-nums">v{CURRENT_VERSION}</p>
         </div>
       </nav>
