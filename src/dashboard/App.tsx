@@ -111,7 +111,7 @@ export default function App() {
                   'flex min-h-10 items-center gap-3 rounded-md px-3 text-sm font-medium transition-[background-color,color,box-shadow] duration-150 ease-out',
                   isActive
                     ? 'bg-primary text-primary-foreground shadow-[var(--shadow-border)]'
-                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                    : 'text-muted-foreground hover:bg-[var(--sidebar-accent)] hover:text-[var(--sidebar-accent-foreground)] hover:shadow-[inset_3px_0_0_var(--sidebar-primary)]'
                 )
               }
             >
@@ -125,7 +125,7 @@ export default function App() {
           <Separator />
           <Link
             to="/changelog"
-            className="flex min-h-10 items-center gap-2 rounded-md px-3 text-sm text-muted-foreground transition-[background-color,color] duration-150 ease-out hover:bg-muted hover:text-foreground"
+            className="flex min-h-10 items-center gap-2 rounded-md px-3 text-sm text-muted-foreground transition-[background-color,color,box-shadow] duration-150 ease-out hover:bg-[var(--sidebar-accent)] hover:text-[var(--sidebar-accent-foreground)] hover:shadow-[inset_3px_0_0_var(--sidebar-primary)]"
           >
             <Sparkles className="size-4" />
             What's New
