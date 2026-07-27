@@ -14,7 +14,6 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
-import { Switch } from '@/components/ui/switch';
 import { DailyLimit, DailyStats } from '../../shared/types';
 import { hashPassword } from '../../shared/storage';
 import { assertRuntimeMutationSucceeded } from '../../shared/runtimeMessages';
@@ -274,9 +273,6 @@ export default function Limits() {
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
                       <span className="font-medium">{limit.pattern}</span>
-                      {!limit.enabled && (
-                        <Badge variant="secondary">Disabled</Badge>
-                      )}
                       {exceeded && limit.enabled && (
                         <Badge variant="destructive">Exceeded</Badge>
                       )}
@@ -297,7 +293,18 @@ export default function Limits() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Switch checked={limit.enabled} onCheckedChange={() => toggleEnabled(limit)} />
+                    <button
+                      type="button"
+                      onClick={() => toggleEnabled(limit)}
+                      aria-label={limit.enabled ? `Disable limit for ${limit.pattern}` : `Enable limit for ${limit.pattern}`}
+                      className={`w-[72px] rounded-full py-1 text-xs transition-colors ${
+                        limit.enabled
+                          ? 'bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-700/80 dark:text-red-200 dark:hover:bg-red-700'
+                          : 'bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-gray-600/80 dark:text-gray-300 dark:hover:bg-gray-600'
+                      }`}
+                    >
+                      {limit.enabled ? 'Limiting' : 'Disabled'}
+                    </button>
                     <Button
                       onClick={() => openEditModal(limit)}
                       variant="ghost"
