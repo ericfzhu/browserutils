@@ -182,7 +182,7 @@ export default function SettingsPage() {
   if (loading || !settings) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
       </div>
     );
   }
@@ -195,7 +195,7 @@ export default function SettingsPage() {
       <h1 className="text-2xl font-bold text-foreground mb-6">Settings</h1>
 
       {/* Appearance */}
-      <div className="rounded-xl border bg-card p-6 mb-6">
+      <div className="rounded-lg border bg-card p-6 mb-6">
         <h2 className="text-lg font-semibold mb-4">Appearance</h2>
         <div className="flex flex-col gap-4">
           <div>
@@ -215,7 +215,7 @@ export default function SettingsPage() {
                   }}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-colors ${
                     settings?.theme === value
-                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+                      ? 'border-primary bg-primary/10 text-primary'
                       : 'border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
                   }`}
                 >
@@ -260,7 +260,7 @@ export default function SettingsPage() {
       </div>
 
       {/* General Settings */}
-      <div className="rounded-xl border bg-card p-6 mb-6">
+      <div className="rounded-lg border bg-card p-6 mb-6">
         <h2 className="text-lg font-semibold mb-4">General</h2>
         <div className="flex flex-col gap-4">
           <label className="flex items-center justify-between">
@@ -272,7 +272,7 @@ export default function SettingsPage() {
               type="checkbox"
               checked={settings.trackingEnabled}
               onChange={(e) => void updateSettings({ trackingEnabled: e.target.checked })}
-              className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              className="w-5 h-5 rounded border-gray-300 text-primary focus:ring-ring"
             />
           </label>
 
@@ -293,7 +293,7 @@ export default function SettingsPage() {
                   await withLockdownCheck(applyChange);
                 }
               }}
-              className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              className="w-5 h-5 rounded border-gray-300 text-primary focus:ring-ring"
             />
           </label>
 
@@ -306,7 +306,7 @@ export default function SettingsPage() {
               type="checkbox"
               checked={settings.youtubeTrackingEnabled}
               onChange={(e) => void updateSettings({ youtubeTrackingEnabled: e.target.checked })}
-              className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              className="w-5 h-5 rounded border-gray-300 text-primary focus:ring-ring"
             />
           </label>
 
@@ -316,7 +316,7 @@ export default function SettingsPage() {
             <select
               value={settings.retentionDays}
               onChange={(e) => void updateSettings({ retentionDays: parseInt(e.target.value) })}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full rounded-md border border-input bg-background px-3 py-2 focus:border-ring focus:ring-2 focus:ring-ring/45"
             >
               <option value={7}>7 days</option>
               <option value={14}>14 days</option>
@@ -339,7 +339,7 @@ export default function SettingsPage() {
                 min={0}
                 max={3600}
                 step={15}
-                className="w-32 px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-32 rounded-md border border-input bg-background px-3 py-2 focus:border-ring focus:ring-2 focus:ring-ring/45"
               />
               <span className="text-sm text-muted-foreground">seconds</span>
               <div className="flex gap-2 ml-auto">
@@ -350,7 +350,7 @@ export default function SettingsPage() {
                     onClick={() => void updateSettings({ idleThreshold: val })}
                     className={`px-2 py-1 text-xs rounded ${
                       settings.idleThreshold === val
-                        ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300'
+                        ? 'bg-primary text-primary-foreground'
                         : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                     }`}
                   >
@@ -368,7 +368,7 @@ export default function SettingsPage() {
       </div>
 
       {/* Browser Utilities */}
-      <div className="rounded-xl border bg-card p-6 mb-6">
+      <div className="rounded-lg border bg-card p-6 mb-6">
         <div className="flex flex-col gap-4">
           <label className="flex items-center justify-between gap-4">
             <div>
@@ -381,7 +381,7 @@ export default function SettingsPage() {
               type="checkbox"
               checked={settings.forcePasteEnabled}
               onChange={(e) => void updateSettings({ forcePasteEnabled: e.target.checked })}
-              className="w-5 h-5 shrink-0 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              className="w-5 h-5 shrink-0 rounded border-gray-300 text-primary focus:ring-ring"
             />
           </label>
 
@@ -396,14 +396,14 @@ export default function SettingsPage() {
               type="checkbox"
               checked={settings.blobVideoDownloaderEnabled}
               onChange={(e) => void updateSettings({ blobVideoDownloaderEnabled: e.target.checked })}
-              className="w-5 h-5 shrink-0 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              className="w-5 h-5 shrink-0 rounded border-gray-300 text-primary focus:ring-ring"
             />
           </label>
         </div>
       </div>
 
       {/* New Tab Settings */}
-      <div className="rounded-xl border bg-card p-6 mb-6">
+      <div className="rounded-lg border bg-card p-6 mb-6">
         <h2 className="text-lg font-semibold mb-4">New Tab</h2>
         <div className="flex flex-col gap-4">
           <div>
@@ -416,7 +416,7 @@ export default function SettingsPage() {
               value={settings.displayName}
               onChange={(e) => void updateSettings({ displayName: e.target.value })}
               placeholder="Enter your name"
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full rounded-md border border-input bg-background px-3 py-2 focus:border-ring focus:ring-2 focus:ring-ring/45"
             />
           </div>
           <p className="text-sm text-muted-foreground">
@@ -426,7 +426,7 @@ export default function SettingsPage() {
       </div>
 
       {/* Master Password */}
-      <div className="rounded-xl border bg-card p-6 mb-6">
+      <div className="rounded-lg border bg-card p-6 mb-6">
         <h2 className="text-lg font-semibold mb-4">Master Password</h2>
         <p className="text-sm text-muted-foreground mb-4">
           Set a master password for unlocking password-protected blocked sites.
@@ -444,7 +444,7 @@ export default function SettingsPage() {
               setPasswordError('');
             }}
             placeholder="New password"
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full rounded-md border border-input bg-background px-3 py-2 focus:border-ring focus:ring-2 focus:ring-ring/45"
           />
           <Input
             type="password"
@@ -454,7 +454,7 @@ export default function SettingsPage() {
               setPasswordError('');
             }}
             placeholder="Confirm password"
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full rounded-md border border-input bg-background px-3 py-2 focus:border-ring focus:ring-2 focus:ring-ring/45"
           />
           {passwordError && (
             <p className="text-sm text-red-600">{passwordError}</p>
@@ -486,7 +486,7 @@ export default function SettingsPage() {
                 }}
                 className={`flex items-center gap-2 p-3 border rounded-lg transition-colors ${
                   settings.lockdownAuthMethod === 'password'
-                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+                    ? 'border-primary bg-primary/10 text-primary'
                     : 'border-gray-200 dark:border-gray-600'
                 } ${!settings.passwordHash ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50 dark:hover:bg-gray-700'}`}
               >
@@ -504,7 +504,7 @@ export default function SettingsPage() {
                 }}
                 className={`flex items-center gap-2 p-3 border rounded-lg transition-colors ${
                   settings.lockdownAuthMethod === 'totp'
-                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+                    ? 'border-primary bg-primary/10 text-primary'
                     : 'border-gray-200 dark:border-gray-600'
                 } ${!settings.lockdownTotpSecret ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50 dark:hover:bg-gray-700'}`}
               >
@@ -516,7 +516,7 @@ export default function SettingsPage() {
 
           <label className={`flex items-center justify-between ${!hasLockdownMethod ? 'opacity-50' : ''}`}>
             <div className="flex items-start gap-3">
-              <Lock className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5" />
+              <Lock className="w-5 h-5 text-primary mt-0.5" />
               <div>
                 <span className="font-medium">Lockdown Mode</span>
                 <p className="text-sm text-muted-foreground">
@@ -545,13 +545,13 @@ export default function SettingsPage() {
                 }
               }}
               disabled={!hasLockdownMethod}
-              className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 disabled:cursor-not-allowed"
+              className="w-5 h-5 rounded border-gray-300 text-primary focus:ring-ring disabled:cursor-not-allowed"
             />
           </label>
         </div>
       </div>
 
-      <div className="rounded-xl border bg-card p-6 mb-6">
+      <div className="rounded-lg border bg-card p-6 mb-6">
         <h2 className="text-lg font-semibold mb-4">Authenticator App</h2>
         <p className="text-sm text-muted-foreground mb-4">
           Set up a TOTP authenticator app as an alternative Lockdown authentication method.
@@ -617,7 +617,7 @@ export default function SettingsPage() {
                 setTotpError('');
               }}
               placeholder="Enter 6-digit code to confirm"
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full rounded-md border border-input bg-background px-3 py-2 focus:border-ring focus:ring-2 focus:ring-ring/45"
             />
             {totpError && (
               <p className="text-sm text-red-600">{totpError}</p>
@@ -626,7 +626,7 @@ export default function SettingsPage() {
             <div className="flex gap-3">
               <Button
                 onClick={confirmTotpSetup}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
+                className="rounded-md bg-primary px-4 py-2 text-primary-foreground transition-colors hover:bg-primary/85"
               >
                 Confirm Authenticator
               </Button>
@@ -646,7 +646,7 @@ export default function SettingsPage() {
       </div>
 
       {/* Data Management */}
-      <div className="rounded-xl border bg-card p-6 mb-6">
+      <div className="rounded-lg border bg-card p-6 mb-6">
         <h2 className="text-lg font-semibold mb-4">Data Management</h2>
 
         <div className="flex flex-col gap-4">
@@ -694,13 +694,13 @@ export default function SettingsPage() {
       </div>
 
       {/* About */}
-      <div className="rounded-xl border bg-card p-6">
+      <div className="rounded-lg border bg-card p-6">
         <h2 className="text-lg font-semibold mb-4">About</h2>
         <a
           href="https://github.com/ericfzhu/browserutils"
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-2 text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+          className="inline-flex items-center gap-2 text-muted-foreground transition-colors hover:text-primary"
         >
           <GitBranch className="w-5 h-5" />
           View on GitHub

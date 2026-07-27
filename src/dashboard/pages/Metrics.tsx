@@ -173,7 +173,7 @@ function DateRangePicker({ startDate, endDate, onSelectRange, onClose }: DateRan
   };
 
   return (
-    <div className="absolute right-0 top-full z-50 mt-2 w-80 max-w-[calc(100vw-2rem)] rounded-2xl bg-popover p-4 text-popover-foreground shadow-[var(--shadow-card-hover)]">
+    <div className="absolute right-0 top-full z-50 mt-2 w-80 max-w-[calc(100vw-2rem)] rounded-lg border border-border bg-popover p-4 text-popover-foreground shadow-[var(--shadow-card-hover)]">
       {/* Selection indicator */}
       <div className="flex items-center justify-between mb-3 text-sm">
         <button
@@ -750,7 +750,7 @@ export default function Metrics() {
           </span>
 
           {/* Period selector with sliding indicator */}
-          <div className="relative flex w-fit rounded-xl bg-muted p-1">
+          <div className="relative flex w-fit rounded-lg border border-border bg-muted p-1">
             {/* Animated sliding background */}
             <div
               className="absolute bottom-1 top-1 rounded-lg bg-background shadow-[var(--shadow-border)] transition-transform duration-300 ease-out"
@@ -818,7 +818,7 @@ export default function Metrics() {
       <div className="mb-6 grid gap-4 md:grid-cols-3">
         <div className={analyticsStatCardClass}>
           <div className="mb-2 flex items-center gap-3">
-            <div className="rounded-xl bg-blue-100 p-2 dark:bg-blue-900/50">
+            <div className="rounded-md bg-blue-100 p-2 dark:bg-blue-900/50">
               <Clock className="h-5 w-5 text-blue-600 dark:text-blue-400" />
             </div>
             <span className="text-sm text-muted-foreground">Total time</span>
@@ -838,7 +838,7 @@ export default function Metrics() {
 
         <div className={analyticsStatCardClass}>
           <div className="mb-2 flex items-center gap-3">
-            <div className="rounded-xl bg-green-100 p-2 dark:bg-green-900/50">
+            <div className="rounded-md bg-green-100 p-2 dark:bg-green-900/50">
               <Calendar className="h-5 w-5 text-green-600 dark:text-green-400" />
             </div>
             <span className="text-sm text-muted-foreground">Daily average</span>
@@ -849,7 +849,7 @@ export default function Metrics() {
 
         <div className={analyticsStatCardClass}>
           <div className="mb-2 flex items-center gap-3">
-            <div className="rounded-xl bg-red-100 p-2 dark:bg-red-900/50">
+            <div className="rounded-md bg-red-100 p-2 dark:bg-red-900/50">
               <Shield className="h-5 w-5 text-red-600 dark:text-red-400" />
             </div>
             <span className="text-sm text-muted-foreground">Sites blocked</span>

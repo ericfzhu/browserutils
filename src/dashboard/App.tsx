@@ -71,13 +71,13 @@ export default function App() {
       <LockdownModal />
       <div className="flex min-h-screen bg-background text-foreground">
       {/* Sidebar */}
-      <nav className="sticky top-0 flex h-screen w-64 flex-col bg-[var(--sidebar)] p-4 text-[var(--sidebar-foreground)] shadow-[inset_-1px_0_0_rgba(0,0,0,0.08),8px_0_24px_-24px_rgba(0,0,0,0.55)] backdrop-blur dark:shadow-[inset_-1px_0_0_rgba(255,255,255,0.12),8px_0_28px_-24px_rgba(0,0,0,0.9)]">
+      <nav className="sticky top-0 flex h-screen w-64 flex-col border-r border-[var(--sidebar-border)] bg-[var(--sidebar)] p-4 text-[var(--sidebar-foreground)]">
         <div
-          className="mb-8 flex cursor-default items-center gap-3 rounded-2xl p-2"
+          className="mb-8 flex cursor-default items-center gap-3 rounded-lg p-2"
           onMouseEnter={() => setIsHovered(true)}
           onMouseLeave={() => setIsHovered(false)}
         >
-          <div className="flex size-10 items-center justify-center rounded-xl bg-primary shadow-[var(--shadow-border)]">
+          <div className="flex size-10 items-center justify-center rounded-md bg-primary shadow-[var(--shadow-border)]">
             <Shield className="size-6 text-primary-foreground" />
           </div>
           <div className="min-w-0">
@@ -108,7 +108,7 @@ export default function App() {
               to={to}
               className={({ isActive }) =>
                 cn(
-                  'flex min-h-10 items-center gap-3 rounded-xl px-3 text-sm font-medium transition-[background-color,color,box-shadow] duration-150 ease-out',
+                  'flex min-h-10 items-center gap-3 rounded-md px-3 text-sm font-medium transition-[background-color,color,box-shadow] duration-150 ease-out',
                   isActive
                     ? 'bg-primary text-primary-foreground shadow-[var(--shadow-border)]'
                     : 'text-muted-foreground hover:bg-muted hover:text-foreground'
@@ -125,7 +125,7 @@ export default function App() {
           <Separator />
           <Link
             to="/changelog"
-            className="flex min-h-10 items-center gap-2 rounded-xl px-3 text-sm text-muted-foreground transition-[background-color,color] duration-150 ease-out hover:bg-muted hover:text-foreground"
+            className="flex min-h-10 items-center gap-2 rounded-md px-3 text-sm text-muted-foreground transition-[background-color,color] duration-150 ease-out hover:bg-muted hover:text-foreground"
           >
             <Sparkles className="size-4" />
             What's New

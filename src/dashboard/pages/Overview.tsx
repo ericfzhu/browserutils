@@ -366,7 +366,7 @@ export default function Overview() {
       <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <div className={analyticsStatCardClass}>
           <div className="flex items-center gap-3 mb-2">
-            <div className="rounded-xl bg-blue-100 p-2 dark:bg-blue-900/50">
+            <div className="rounded-md bg-blue-100 p-2 dark:bg-blue-900/50">
               <Clock className="h-5 w-5 text-blue-600 dark:text-blue-400" />
             </div>
             <span className="text-sm text-muted-foreground">Time today</span>
@@ -376,7 +376,7 @@ export default function Overview() {
 
         <div className={analyticsStatCardClass}>
           <div className="flex items-center gap-3 mb-2">
-            <div className="rounded-xl bg-green-100 p-2 dark:bg-green-900/50">
+            <div className="rounded-md bg-green-100 p-2 dark:bg-green-900/50">
               <Globe className="h-5 w-5 text-green-600 dark:text-green-400" />
             </div>
             <span className="text-sm text-muted-foreground">Sites visited</span>
@@ -386,7 +386,7 @@ export default function Overview() {
 
         <div className={analyticsStatCardClass}>
           <div className="flex items-center gap-3 mb-2">
-            <div className="rounded-xl bg-red-100 p-2 dark:bg-red-900/50">
+            <div className="rounded-md bg-red-100 p-2 dark:bg-red-900/50">
               <Shield className="h-5 w-5 text-red-600 dark:text-red-400" />
             </div>
             <span className="text-sm text-muted-foreground">Blocks today</span>
@@ -396,7 +396,7 @@ export default function Overview() {
 
         <div className={analyticsStatCardClass}>
           <div className="flex items-center gap-3 mb-2">
-            <div className="rounded-xl bg-purple-100 p-2 dark:bg-purple-900/50">
+            <div className="rounded-md bg-purple-100 p-2 dark:bg-purple-900/50">
               <TrendingUp className="h-5 w-5 text-purple-600 dark:text-purple-400" />
             </div>
             <span className="text-sm text-muted-foreground">Active blocks</span>
@@ -503,7 +503,7 @@ export default function Overview() {
         const exceeded = getLimitsExceeded();
         if (exceeded.length === 0) return null;
         return (
-          <div className="mb-6 rounded-2xl bg-red-50 p-4 shadow-[0_0_0_1px_rgba(239,68,68,0.24),0_10px_28px_-24px_rgba(239,68,68,0.65)] dark:bg-red-950/30 dark:shadow-[0_0_0_1px_rgba(248,113,113,0.24)]">
+          <div className="mb-6 rounded-lg border border-red-300 bg-red-50 p-4 dark:border-red-700 dark:bg-red-950/30">
             <h3 className="mb-2 text-sm font-semibold text-red-800 dark:text-red-300">Limits exceeded</h3>
             <div className="space-y-2">
               {exceeded.map(({ limit, timeSpent, percent }) => (
@@ -537,7 +537,7 @@ export default function Overview() {
         const approaching = getLimitsApproaching();
         if (approaching.length === 0) return null;
         return (
-          <div className="mb-6 rounded-2xl bg-amber-50 p-4 shadow-[0_0_0_1px_rgba(245,158,11,0.24),0_10px_28px_-24px_rgba(245,158,11,0.6)] dark:bg-amber-900/20 dark:shadow-[0_0_0_1px_rgba(251,191,36,0.24)]">
+          <div className="mb-6 rounded-lg border border-amber-300 bg-amber-50 p-4 dark:border-amber-700 dark:bg-amber-900/20">
             <h3 className="text-sm font-semibold text-amber-800 dark:text-amber-300 mb-2">Limits approaching</h3>
             <div className="space-y-2">
               {approaching.map(({ limit, timeSpent, percent }) => (
@@ -660,7 +660,7 @@ export default function Overview() {
             {blockedSites.slice(0, 6).map((site) => (
               <div
                 key={site.id}
-                className="flex items-center justify-between rounded-xl bg-muted px-3 py-2"
+                className="flex items-center justify-between rounded-md border border-border bg-muted px-3 py-2"
               >
                 <span className="text-sm font-medium truncate">{site.pattern}</span>
                 <span

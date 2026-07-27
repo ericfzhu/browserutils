@@ -143,7 +143,7 @@ function CategoryModal({ isOpen, onClose, onSave, pendingDomain, editingCategory
                     type="button"
                     onClick={() => setColor(c)}
                     className={`w-7 h-7 rounded-full ${c} transition-transform ${
-                      color === c ? 'ring-2 ring-offset-2 ring-blue-500 scale-110' : 'hover:scale-105'
+                      color === c ? 'ring-2 ring-primary ring-offset-2 scale-110' : 'hover:scale-105'
                     }`}
                   />
                 ))}
@@ -544,7 +544,7 @@ export default function Categories() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
       </div>
     );
   }
@@ -649,15 +649,15 @@ export default function Categories() {
                 const isCollapsed = collapsedCategories.has(categoryId);
 
                 const categoryContent = (dragHandleProps?: React.HTMLAttributes<HTMLDivElement>, isDraggingOver?: boolean) => (
-                  <div className={`bg-white dark:bg-gray-800 rounded-xl border overflow-hidden transition-colors ${
+                  <div className={`bg-white dark:bg-gray-800 rounded-lg border overflow-hidden transition-colors ${
                     isDraggingOver && isCollapsed
-                      ? 'border-blue-500 ring-2 ring-blue-500/50'
+                      ? 'border-primary ring-2 ring-primary/40'
                       : 'border-gray-200 dark:border-gray-700'
                   }`}>
                     {/* Category Header */}
                     <div className={`flex items-center gap-2 px-4 py-3 transition-colors ${
                       isDraggingOver && isCollapsed
-                        ? 'bg-blue-50 dark:bg-blue-900/30'
+                        ? 'bg-primary/10'
                         : 'bg-gray-50 dark:bg-gray-700/50'
                     } ${isCollapsed ? '' : 'border-b border-gray-200 dark:border-gray-700'}`}>
                       {!isOther && (
@@ -690,7 +690,7 @@ export default function Categories() {
                               e.stopPropagation();
                               toggleSelectAll(sites);
                             }}
-                            className="p-1.5 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded transition-colors"
+                            className="rounded p-1.5 text-primary transition-colors hover:bg-primary/10"
                             title={sites.every(s => selectedSites.has(s.domain)) ? "Deselect all in category" : "Select all in category"}
                           >
                             {sites.every(s => selectedSites.has(s.domain)) ? (
@@ -753,7 +753,7 @@ export default function Categories() {
                     >
                       <div className="overflow-hidden">
                         <div className={`p-2 min-h-[48px] transition-colors ${
-                          isDraggingOver && !isCollapsed ? 'bg-blue-50 dark:bg-blue-900/20' : ''
+                          isDraggingOver && !isCollapsed ? 'bg-primary/10' : ''
                         }`}>
                           {sites.length === 0 ? (
                             <div className="text-center py-4 text-sm text-gray-400 dark:text-gray-500">
@@ -777,14 +777,14 @@ export default function Categories() {
                                           selectMode ? 'cursor-pointer' : 'cursor-grab'
                                         } ${
                                           snapshot.isDragging
-                                            ? 'bg-white dark:bg-gray-700 shadow-lg ring-2 ring-blue-500'
+                                            ? 'bg-white dark:bg-gray-700 shadow-lg ring-2 ring-primary'
                                             : isSelected
-                                            ? 'bg-blue-50 dark:bg-blue-900/30 ring-1 ring-blue-500'
+                                            ? 'bg-primary/10 ring-1 ring-primary'
                                             : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'
                                         }`}
                                       >
                                         {selectMode ? (
-                                          <div className="text-blue-600 dark:text-blue-400">
+                                          <div className="text-primary">
                                             {isSelected ? (
                                               <CheckSquare className="w-4 h-4" />
                                             ) : (
@@ -857,17 +857,17 @@ export default function Categories() {
             <div
               ref={provided.innerRef}
               {...provided.droppableProps}
-              className={`border-2 border-dashed rounded-xl p-6 text-center transition-colors mt-4 ${
+              className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors mt-4 ${
                 snapshot.isDraggingOver
-                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                  ? 'border-primary bg-primary/10'
                   : 'border-gray-300 dark:border-gray-600'
               }`}
             >
               <Plus className={`w-8 h-8 mx-auto mb-2 ${
-                snapshot.isDraggingOver ? 'text-blue-500' : 'text-gray-400'
+                snapshot.isDraggingOver ? 'text-primary' : 'text-gray-400'
               }`} />
               <p className={`text-sm font-medium ${
-                snapshot.isDraggingOver ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400'
+                snapshot.isDraggingOver ? 'text-primary' : 'text-gray-500 dark:text-gray-400'
               }`}>
                 Drop here to create new category
               </p>

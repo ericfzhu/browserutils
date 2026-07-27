@@ -819,7 +819,7 @@ export default function BlockedSites() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
       </div>
     );
   }
@@ -906,7 +906,7 @@ export default function BlockedSites() {
     const isFocusActive = focusStatus?.isActive;
 
     const content = (dragHandleProps?: React.HTMLAttributes<HTMLDivElement>) => (
-      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-600 overflow-hidden">
         <div className={`flex items-center gap-2 px-4 py-3 bg-gray-100 dark:bg-gray-700 ${isCollapsed ? '' : 'border-b border-gray-200 dark:border-gray-600'}`}>
           {folder && (
             <div {...dragHandleProps} className="text-gray-300 dark:text-gray-600 hover:text-gray-500 dark:hover:text-gray-400 cursor-grab">
@@ -1066,7 +1066,7 @@ export default function BlockedSites() {
           </button>
           <button
             onClick={openAddModal}
-            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
+            className="flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-primary-foreground transition-colors hover:bg-primary/85"
           >
             <Plus className="w-5 h-5" />
             Add Site
@@ -1088,13 +1088,13 @@ export default function BlockedSites() {
       </DragDropContext>
 
       {sites.length === 0 && folders.length === 0 && (
-        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-12 text-center mt-4">
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-600 p-12 text-center mt-4">
           <Shield className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">No blocked sites</h3>
           <p className="text-gray-500 dark:text-gray-400 mb-4">Add sites you want to block to help stay focused.</p>
           <button
             onClick={openAddModal}
-            className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors"
+            className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-primary-foreground transition-colors hover:bg-primary/85"
           >
             <Plus className="w-5 h-5" />
             Add Your First Site
@@ -1115,7 +1115,7 @@ export default function BlockedSites() {
             role="dialog"
             aria-modal="true"
             aria-labelledby="blocked-site-dialog-title"
-            className="bg-white dark:bg-gray-800 rounded-xl w-full max-w-lg mx-4 overflow-hidden"
+            className="bg-white dark:bg-gray-800 rounded-lg border border-gray-300 shadow-[var(--shadow-card)] dark:border-gray-600 w-full max-w-lg mx-4 overflow-hidden"
           >
             <div className="flex items-center justify-between px-6 py-4 border-b dark:border-gray-700">
               <h2 id="blocked-site-dialog-title" className="text-lg font-semibold">
@@ -1142,7 +1142,7 @@ export default function BlockedSites() {
                   value={formData.pattern}
                   onChange={(e) => setFormData({ ...formData, pattern: e.target.value })}
                   placeholder="e.g., twitter.com or *.reddit.com"
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 focus:border-ring focus:ring-2 focus:ring-ring/45"
                   required
                   autoFocus
                 />
@@ -1169,7 +1169,7 @@ export default function BlockedSites() {
                       onClick={() => setFormData({ ...formData, unlockType: value as UnlockType })}
                       className={`flex items-center gap-2 p-3 border rounded-lg transition-colors ${
                         formData.unlockType === value
-                          ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+                          ? 'border-primary bg-primary/10 text-primary'
                           : 'border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
                       }`}
                     >
@@ -1191,7 +1191,7 @@ export default function BlockedSites() {
                     value={formData.password}
                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                     placeholder={editingSite ? 'Leave blank to keep current' : 'Enter password'}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 focus:border-ring focus:ring-2 focus:ring-ring/45"
                     required={!editingSite}
                   />
                 </div>
@@ -1223,7 +1223,7 @@ export default function BlockedSites() {
                     }}
                     min={1}
                     max={480}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 focus:border-ring focus:ring-2 focus:ring-ring/45"
                   />
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                     Enable timer to block site for this duration
@@ -1251,7 +1251,7 @@ export default function BlockedSites() {
                           }}
                           className={`flex-1 py-2 text-xs font-medium rounded transition-colors ${
                             formData.scheduleDays.includes(index)
-                              ? 'bg-blue-600 text-white'
+                              ? 'bg-primary text-primary-foreground'
                               : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                           }`}
                         >
@@ -1271,7 +1271,7 @@ export default function BlockedSites() {
                         onChange={(e) =>
                           setFormData({ ...formData, scheduleStart: e.target.value })
                         }
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="w-full rounded-md border border-input bg-background px-3 py-2 focus:border-ring focus:ring-2 focus:ring-ring/45"
                       />
                     </div>
                     <div>
@@ -1284,7 +1284,7 @@ export default function BlockedSites() {
                         onChange={(e) =>
                           setFormData({ ...formData, scheduleEnd: e.target.value })
                         }
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="w-full rounded-md border border-input bg-background px-3 py-2 focus:border-ring focus:ring-2 focus:ring-ring/45"
                       />
                     </div>
                   </div>
@@ -1300,7 +1300,7 @@ export default function BlockedSites() {
                   <select
                     value={formData.folderId || ''}
                     onChange={(e) => setFormData({ ...formData, folderId: e.target.value || undefined })}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 focus:border-ring focus:ring-2 focus:ring-ring/45"
                   >
                     <option value="">Uncategorized</option>
                     {folders.map(folder => (
@@ -1321,7 +1321,7 @@ export default function BlockedSites() {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                  className="rounded-md bg-primary px-4 py-2 text-primary-foreground transition-colors hover:bg-primary/85"
                 >
                   {editingSite ? 'Save Changes' : 'Add Site'}
                 </button>
@@ -1334,7 +1334,7 @@ export default function BlockedSites() {
       {/* Add/Edit Folder Modal */}
       {showFolderModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-xl w-full max-w-md mx-4 overflow-hidden">
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-300 shadow-[var(--shadow-card)] dark:border-gray-600 w-full max-w-md mx-4 overflow-hidden">
             <div className="flex items-center justify-between px-6 py-4 border-b dark:border-gray-700">
               <h2 className="text-lg font-semibold">
                 {editingFolder ? 'Edit Folder' : 'Add Folder'}
@@ -1357,7 +1357,7 @@ export default function BlockedSites() {
                   value={folderName}
                   onChange={(e) => setFolderName(e.target.value)}
                   placeholder="e.g., Social Media, Shopping"
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 focus:border-ring focus:ring-2 focus:ring-ring/45"
                   required
                   autoFocus
                 />
@@ -1373,7 +1373,7 @@ export default function BlockedSites() {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                  className="rounded-md bg-primary px-4 py-2 text-primary-foreground transition-colors hover:bg-primary/85"
                 >
                   {editingFolder ? 'Save Changes' : 'Add Folder'}
                 </button>
@@ -1386,7 +1386,7 @@ export default function BlockedSites() {
       {/* Focus Session Modal */}
       {showFocusModal && focusTarget && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-xl w-full max-w-sm mx-4 overflow-hidden">
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-300 shadow-[var(--shadow-card)] dark:border-gray-600 w-full max-w-sm mx-4 overflow-hidden">
             <div className="flex items-center justify-between px-6 py-4 border-b dark:border-gray-700">
               <h2 className="text-lg font-semibold flex items-center gap-2">
                 <Focus className="w-5 h-5 text-purple-600" />

@@ -77,7 +77,7 @@ interface FocusInfo {
 }
 
 const blockedPageClass = 'flex min-h-screen items-center justify-center bg-[rgb(244,244,245)] p-6 dark:bg-[rgb(18,18,18)]';
-const blockedCardClass = 'w-full max-w-md rounded-[1.75rem] bg-card p-2 shadow-[0_0_0_1px_rgba(0,0,0,0.16),0_24px_70px_-38px_rgba(0,0,0,0.65)] dark:shadow-[0_0_0_1px_rgba(255,255,255,0.18),0_24px_80px_-40px_rgba(0,0,0,0.95)]';
+const blockedCardClass = 'w-full max-w-md rounded-lg border border-border bg-card p-2 shadow-[var(--shadow-card)]';
 const blockedHeaderClass = 'justify-items-center px-8 pb-2 pt-8 text-center';
 
 export default function App() {
@@ -351,7 +351,7 @@ export default function App() {
       <div className={blockedPageClass}>
         <Card className={blockedCardClass}>
           <CardHeader className={blockedHeaderClass}>
-            <div className="mb-3 flex size-16 items-center justify-center rounded-2xl bg-muted shadow-[var(--shadow-border)]">
+            <div className="mb-3 flex size-16 items-center justify-center rounded-lg bg-muted shadow-[var(--shadow-border)]">
               <Timer className="size-8 text-primary" />
             </div>
             <CardTitle className="text-2xl leading-tight">Daily Limit Reached</CardTitle>
@@ -361,7 +361,7 @@ export default function App() {
           </CardHeader>
 
           <CardContent className="flex flex-col gap-5 px-8">
-            <div className="rounded-xl bg-muted/50 p-4 shadow-[var(--shadow-border)]">
+            <div className="rounded-md bg-muted/50 p-4 shadow-[var(--shadow-border)]">
               <div className="mb-2 flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">Time spent today</span>
                 <span className="font-medium tabular-nums">{formatTime(limitInfo.timeSpent)}</span>
@@ -384,12 +384,12 @@ export default function App() {
                     Wait {limitInfo.limit.cooldownSeconds || 30}s to continue
                   </Button>
                 ) : countdown > 0 ? (
-                  <div className="rounded-xl bg-muted/40 p-4 text-center shadow-[var(--shadow-border)]">
+                  <div className="rounded-md bg-muted/40 p-4 text-center shadow-[var(--shadow-border)]">
                     <div className="text-4xl font-bold leading-none tabular-nums">{countdown}</div>
                     <p className="mt-2 text-sm text-muted-foreground">Taking a moment to reconsider...</p>
                   </div>
                 ) : (
-                  <div className="rounded-xl bg-muted/40 p-4 text-center shadow-[var(--shadow-border)]">
+                  <div className="rounded-md bg-muted/40 p-4 text-center shadow-[var(--shadow-border)]">
                     <div className="mx-auto size-8 animate-spin rounded-full border-b-2 border-primary"></div>
                     <p className="mt-2 text-sm text-muted-foreground">Granting access...</p>
                   </div>
@@ -457,7 +457,7 @@ export default function App() {
       <div className={blockedPageClass}>
         <Card className={blockedCardClass}>
           <CardHeader className={blockedHeaderClass}>
-            <div className="mb-2 flex size-16 items-center justify-center rounded-2xl bg-muted shadow-[var(--shadow-border)]">
+            <div className="mb-2 flex size-16 items-center justify-center rounded-lg bg-muted shadow-[var(--shadow-border)]">
               <Shield className="size-8 text-destructive" />
             </div>
             <CardTitle className="text-2xl">Site Blocked</CardTitle>
@@ -472,7 +472,7 @@ export default function App() {
     <div className={blockedPageClass}>
       <Card className={blockedCardClass}>
         <CardHeader className={blockedHeaderClass}>
-          <div className="mb-2 flex size-16 items-center justify-center rounded-2xl bg-muted shadow-[var(--shadow-border)]">
+          <div className="mb-2 flex size-16 items-center justify-center rounded-lg bg-muted shadow-[var(--shadow-border)]">
             <Shield className="size-8 text-destructive" />
           </div>
           <CardTitle className="text-2xl">
@@ -489,7 +489,7 @@ export default function App() {
         <CardContent className="flex flex-col gap-4">
           {focusInfo && (
             <div className="flex flex-col gap-4">
-              <div className="rounded-xl bg-muted/50 p-4 shadow-[var(--shadow-border)]">
+              <div className="rounded-md bg-muted/50 p-4 shadow-[var(--shadow-border)]">
                 <div className="mb-3 flex items-center gap-2 text-sm text-muted-foreground">
                   <Clock className="size-4" />
                   <span>Focus session active: {focusInfo.label}</span>
@@ -537,7 +537,7 @@ export default function App() {
 
           {!focusInfo && site.unlockType === 'timer' && timerRemainingMs > 0 && (
             <div className="flex flex-col gap-4">
-              <div className="rounded-xl bg-muted/50 p-4 shadow-[var(--shadow-border)]">
+              <div className="rounded-md bg-muted/50 p-4 shadow-[var(--shadow-border)]">
                 <div className="mb-3 flex items-center gap-2 text-sm text-muted-foreground">
                   <Clock className="size-4" />
                   <span>Temporary block active</span>

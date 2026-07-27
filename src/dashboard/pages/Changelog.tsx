@@ -577,17 +577,17 @@ export default function Changelog() {
         {changelog.map((entry, index) => (
           <div
             key={entry.version}
-            className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6"
+            className="bg-white dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-600 p-6"
           >
             <div className="flex items-center gap-3 mb-4">
-              <div className={`p-2 rounded-lg ${index === 0 ? 'bg-blue-100 dark:bg-blue-900/50' : 'bg-gray-100 dark:bg-gray-700'}`}>
-                <Tag className={`w-5 h-5 ${index === 0 ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400'}`} />
+              <div className={`p-2 rounded-md ${index === 0 ? 'bg-primary/10' : 'bg-gray-100 dark:bg-gray-700'}`}>
+                <Tag className={`w-5 h-5 ${index === 0 ? 'text-primary' : 'text-gray-500 dark:text-gray-400'}`} />
               </div>
               <div>
                 <div className="flex items-center gap-2">
                   <h2 className="text-lg font-semibold">v{entry.version}</h2>
                   {index === 0 && (
-                    <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 text-xs font-medium rounded-full">
+                    <span className="rounded-md bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
                       Current
                     </span>
                   )}

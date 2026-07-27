@@ -1,8 +1,8 @@
 export const analyticsPanelClass =
-  'rounded-2xl border border-border bg-card p-6 text-card-foreground shadow-[var(--shadow-card)]';
+  'rounded-lg border border-border bg-card p-6 text-card-foreground shadow-[var(--shadow-card)]';
 
 export const analyticsStatCardClass =
-  'rounded-2xl border border-border bg-card p-6 text-card-foreground shadow-[var(--shadow-card)]';
+  'rounded-lg border border-border bg-card p-6 text-card-foreground shadow-[var(--shadow-card)]';
 
 export const analyticsBarTrackClass =
   'h-2 overflow-hidden rounded-full bg-muted';

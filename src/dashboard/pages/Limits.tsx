@@ -392,7 +392,7 @@ export default function Limits() {
                       name="bypassType"
                       checked={formData.bypassType === 'cooldown'}
                       onChange={() => setFormData({ ...formData, bypassType: 'cooldown' })}
-                      className="w-4 h-4 text-blue-600"
+                      className="w-4 h-4 text-primary"
                     />
                     <div>
                       <span className="text-sm font-medium">Wait to continue</span>
@@ -405,7 +405,7 @@ export default function Limits() {
                       name="bypassType"
                       checked={formData.bypassType === 'password'}
                       onChange={() => setFormData({ ...formData, bypassType: 'password' })}
-                      className="w-4 h-4 text-blue-600"
+                      className="w-4 h-4 text-primary"
                     />
                     <div>
                       <span className="text-sm font-medium">Password required</span>
@@ -418,7 +418,7 @@ export default function Limits() {
                       name="bypassType"
                       checked={formData.bypassType === 'none'}
                       onChange={() => setFormData({ ...formData, bypassType: 'none' })}
-                      className="w-4 h-4 text-blue-600"
+                      className="w-4 h-4 text-primary"
                     />
                     <div>
                       <span className="text-sm font-medium">No bypass</span>

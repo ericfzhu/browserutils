@@ -218,7 +218,7 @@ export default function App() {
               <a
                 key={link.id}
                 href={link.url}
-                className="group relative flex min-w-[100px] flex-col items-center gap-2 rounded-2xl bg-card p-4 text-card-foreground shadow-[var(--shadow-card)] transition-[background-color,box-shadow] duration-150 ease-out hover:bg-muted hover:shadow-[var(--shadow-card-hover)]"
+                className="group relative flex min-w-[100px] flex-col items-center gap-2 rounded-lg border border-border bg-card p-4 text-card-foreground shadow-[var(--shadow-card)] transition-[background-color,box-shadow] duration-150 ease-out hover:bg-muted hover:shadow-[var(--shadow-card-hover)]"
               >
                 <Button
                   onClick={(e) => {
@@ -233,7 +233,7 @@ export default function App() {
                 >
                   <X />
                 </Button>
-                <div className="flex size-12 items-center justify-center overflow-hidden rounded-xl bg-muted shadow-[var(--shadow-border)]">
+                <div className="flex size-12 items-center justify-center overflow-hidden rounded-md bg-muted shadow-[var(--shadow-border)]">
                   <img
                     src={getFaviconUrl(link.url)}
                     alt={link.name}
@@ -253,9 +253,9 @@ export default function App() {
             <Button
               onClick={() => setShowAddLink(true)}
               variant="outline"
-              className="flex h-auto min-w-[100px] flex-col items-center gap-2 rounded-2xl p-4 shadow-[var(--shadow-card)] hover:shadow-[var(--shadow-card-hover)]"
+              className="flex h-auto min-w-[100px] flex-col items-center gap-2 rounded-lg border border-border p-4 shadow-[var(--shadow-card)] hover:shadow-[var(--shadow-card-hover)]"
             >
-              <div className="flex size-12 items-center justify-center rounded-xl">
+              <div className="flex size-12 items-center justify-center rounded-md">
                 <Plus className="size-6 text-muted-foreground" />
               </div>
               <span className="text-sm text-muted-foreground">Add</span>
