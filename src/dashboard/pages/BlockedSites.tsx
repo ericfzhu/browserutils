@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Plus, Trash2, Edit2, X, Shield, Clock, Calendar, Lock, FolderPlus, ChevronRight, GripVertical, Focus } from 'lucide-react';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import { BlockedSite, BlockedSiteFolder } from '../../shared/types';
@@ -93,6 +93,7 @@ export default function BlockedSites() {
   const [focusModalMode, setFocusModalMode] = useState<FocusModalMode>('start');
   const [focusDuration, setFocusDuration] = useState(30);
   const [minimumFocusDuration, setMinimumFocusDuration] = useState(1);
+  const siteFormRef = useRef<HTMLFormElement>(null);
   const { withLockdownCheck } = useLockdown();
 
   useEffect(() => {
@@ -209,6 +210,24 @@ export default function BlockedSites() {
       folderId: site.folderId,
     });
     setShowModal(true);
+  }
+
+  function closeSiteModal() {
+    setShowModal(false);
+  }
+
+  function handleSiteModalKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+      closeSiteModal();
+      return;
+    }
+
+    if (e.key === 'Enter' && !e.repeat) {
+      e.preventDefault();
+      siteFormRef.current?.requestSubmit();
+    }
   }
 
   function openAddFolderModal() {
@@ -1085,21 +1104,34 @@ export default function BlockedSites() {
 
       {/* Add/Edit Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-xl w-full max-w-lg mx-4 overflow-hidden">
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) closeSiteModal();
+          }}
+          onKeyDown={handleSiteModalKeyDown}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="blocked-site-dialog-title"
+            className="bg-white dark:bg-gray-800 rounded-xl w-full max-w-lg mx-4 overflow-hidden"
+          >
             <div className="flex items-center justify-between px-6 py-4 border-b dark:border-gray-700">
-              <h2 className="text-lg font-semibold">
+              <h2 id="blocked-site-dialog-title" className="text-lg font-semibold">
                 {editingSite ? 'Edit Blocked Site' : 'Add Blocked Site'}
               </h2>
               <button
-                onClick={() => setShowModal(false)}
+                type="button"
+                onClick={closeSiteModal}
+                aria-label="Close"
                 className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+            <form ref={siteFormRef} onSubmit={handleSubmit} className="p-6 space-y-4">
               {/* Pattern Input */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -1112,6 +1144,7 @@ export default function BlockedSites() {
                   placeholder="e.g., twitter.com or *.reddit.com"
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   required
+                  autoFocus
                 />
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                   Use *.domain.com to block all subdomains
@@ -1281,7 +1314,7 @@ export default function BlockedSites() {
               <div className="flex justify-end gap-3 pt-4">
                 <button
                   type="button"
-                  onClick={() => setShowModal(false)}
+                  onClick={closeSiteModal}
                   className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
                 >
                   Cancel
