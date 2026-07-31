@@ -14,6 +14,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { BlockedSite, BlockedSiteFolder, DailyLimit, DailyStats } from '../shared/types';
+import { getRefreshRedirect } from './refreshRedirect';
 
 function formatTime(seconds: number): string {
   const hours = Math.floor(seconds / 3600);
@@ -156,6 +157,24 @@ export default function App() {
 
   async function loadData() {
     try {
+      const returnUrl = getReturnUrl();
+      if (returnUrl) {
+        try {
+          const result = await chrome.runtime.sendMessage({
+            type: 'CHECK_SITE_WITH_REDIRECT',
+            payload: { url: returnUrl },
+          });
+          const redirectUrl = getRefreshRedirect(window.location.href, returnUrl, result);
+
+          if (redirectUrl) {
+            window.location.replace(redirectUrl);
+            return;
+          }
+        } catch (err) {
+          console.error('Failed to recheck blocked site:', err);
+        }
+      }
+
       const params = new URLSearchParams(window.location.search);
       const type = params.get('type');
       const siteId = params.get('site');
