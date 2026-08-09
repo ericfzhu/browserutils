@@ -19,18 +19,12 @@ A Chrome extension for tracking website usage and blocking distracting sites.
   - Timer-based unlock (temporary access)
   - Schedule-based blocking (block during specific hours/days)
 
-### Custom New Tab
-- Replaces Chrome's new tab page
-- Shows current time with personalized greeting
-- Quick links with auto-fetched favicons
-- Today's browsing stats at a glance
-
 ### Dashboard
 - Overview of daily activity
 - Detailed metrics with charts
 - Manage blocked sites
 - Configure settings (tracking, blocking, data retention)
-- Export/import data
+- Create and restore password-encrypted backups
 - Set master password for protected sites
 
 ## Installation

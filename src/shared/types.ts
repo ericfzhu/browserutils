@@ -139,16 +139,7 @@ export interface Settings {
   colorTheme?: 'monochrome' | 'blue';
   retentionDays: number; // how long to keep history
   idleThreshold: number; // seconds before considered idle (0 = disabled)
-  displayName: string; // user's name for greeting
-  quickLinks: QuickLink[]; // bookmarks for new tab
   categoryOrder: string[]; // dashboard category display order
-}
-
-export interface QuickLink {
-  id: string;
-  name: string;
-  url: string;
-  icon?: string; // emoji or URL
 }
 
 export interface ActiveSession {
@@ -194,8 +185,6 @@ export const DEFAULT_SETTINGS: Settings = {
   colorTheme: 'monochrome',
   retentionDays: 30,
   idleThreshold: 60, // 60 seconds default
-  displayName: '',
-  quickLinks: [],
   categoryOrder: [],
 };
 
@@ -222,6 +211,7 @@ export type MessageType =
   | { type: 'GET_TIMER_STATUS'; payload: { id: string } }
   | { type: 'GET_BLOCKED_SITES' }
   | { type: 'GET_SETTINGS' }
+  | { type: 'GET_STORAGE_USAGE' }
   | { type: 'UPDATE_SETTINGS'; payload: Partial<Settings> }
   | { type: 'CLEAR_ALL_DATA' }
   | { type: 'EXPORT_DATA'; payload: { password: string } }

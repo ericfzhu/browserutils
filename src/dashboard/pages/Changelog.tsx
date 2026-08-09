@@ -3,7 +3,7 @@ import { Tag, Plus, Wrench, Bug, ArrowLeft, Minus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 // Changelog data - update this when releasing new versions
-const CURRENT_VERSION = '0.49.0';
+const CURRENT_VERSION = '1.0.0';
 
 interface ChangelogEntry {
   version: string;
@@ -15,6 +15,28 @@ interface ChangelogEntry {
 }
 
 const changelog: ChangelogEntry[] = [
+  {
+    version: '1.0.0',
+    date: '2026-08-09',
+    added: [
+      'Complete password-encrypted backups preserve settings, protected rules, authenticator setup, and usage history',
+      'Settings shows current local storage usage and the available browser quota',
+    ],
+    changed: [
+      'Usage history is stored by day so routine tracking updates no longer rewrite the full retained history',
+      'New passwords use salted PBKDF2 hashes while existing SHA-256 passwords upgrade after successful use',
+      'Paste Anyway and video download scripts run only while their settings are enabled',
+      'The retired custom new tab page, settings, build output, and documentation have been removed',
+      'Automated coverage now reports untested background, blocked-page, and content-script code instead of only shared modules',
+    ],
+    fixed: [
+      'Overlapping site rules evaluate every match so an inactive rule cannot hide a later active block',
+      'Dynamic blocking rules update atomically and preserve the original destination on the blocked page',
+      'Concurrent tab and YouTube events no longer overwrite active tracking sessions',
+      'Imports validate before replacement and restore the previous data if writing or initialization fails',
+      'Background message failures return actionable errors instead of leaving callers waiting',
+    ],
+  },
   {
     version: '0.49.0',
     date: '2026-08-09',

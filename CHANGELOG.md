@@ -2,7 +2,27 @@
 
 This file tracks notable BrowserUtils changes.
 
-It follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and uses 0.x.0 release versions. Each published release increments x.
+It follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and semantic versioning.
+
+## [1.0.0] - 2026-08-09
+
+### Added
+- Complete password-encrypted backups preserve settings, protected rules, authenticator setup, and usage history
+- Settings shows current local storage usage and the available browser quota
+
+### Changed
+- Usage history is stored by day so routine tracking updates no longer rewrite the full retained history
+- New passwords use salted PBKDF2 hashes while existing SHA-256 passwords upgrade after successful use
+- Paste Anyway and video download scripts run only while their settings are enabled
+- The retired custom new tab page, settings, build output, and documentation have been removed
+- Automated coverage now reports untested background, blocked-page, and content-script code instead of only shared modules
+
+### Fixed
+- Overlapping site rules evaluate every match so an inactive rule cannot hide a later active block
+- Dynamic blocking rules update atomically and preserve the original destination on the blocked page
+- Concurrent tab and YouTube events no longer overwrite active tracking sessions
+- Imports validate before replacement and restore the previous data if writing or initialization fails
+- Background message failures return actionable errors instead of leaving callers waiting
 
 ## [0.49.0] - 2026-08-09
 

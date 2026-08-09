@@ -298,7 +298,15 @@ export async function removeBlockedSiteFolder(id: string): Promise<void> {
 
 export async function getSettings(): Promise<Settings> {
   const result = await chrome.storage.local.get(STORAGE_KEYS.SETTINGS);
-  return { ...DEFAULT_SETTINGS, ...result[STORAGE_KEYS.SETTINGS] };
+  const stored = { ...(result[STORAGE_KEYS.SETTINGS] || {}) } as Record<string, unknown>;
+  const hadRetiredNewTabSettings = 'displayName' in stored || 'quickLinks' in stored;
+  delete stored.displayName;
+  delete stored.quickLinks;
+  const settings = { ...DEFAULT_SETTINGS, ...stored } as Settings;
+  if (hadRetiredNewTabSettings) {
+    await chrome.storage.local.set({ [STORAGE_KEYS.SETTINGS]: settings });
+  }
+  return settings;
 }
 
 export async function updateSettings(settings: Partial<Settings>): Promise<Settings> {

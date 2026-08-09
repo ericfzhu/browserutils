@@ -68,7 +68,7 @@ let markdown = `# Changelog
 
 This file tracks notable BrowserUtils changes.
 
-It follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and uses 0.x.0 release versions. Each published release increments x.
+It follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and semantic versioning.
 
 `;
 

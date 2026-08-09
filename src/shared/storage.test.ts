@@ -10,6 +10,7 @@ import {
   getActiveYouTubeSessions,
   getDailyStats,
   getFocusSessionsForRange,
+  getSettings,
   hashPassword,
   matchesPattern,
   mergeIntervals,
@@ -547,5 +548,20 @@ describe('recordSession', () => {
     expect(sessions[9].channelName).toBe('Legacy Channel');
     expect(sessionStore.activeYouTubeSessions).toEqual(sessions);
     expect(localStore.activeYouTubeSessions).toBeUndefined();
+  });
+
+  it('removes retired new-tab settings from durable settings', async () => {
+    localStore.settings = {
+      trackingEnabled: false,
+      displayName: 'Legacy user',
+      quickLinks: [{ id: 'one', name: 'Example', url: 'https://example.com' }],
+    };
+
+    const settings = await getSettings();
+
+    expect(settings.trackingEnabled).toBe(false);
+    expect(settings).not.toHaveProperty('displayName');
+    expect(settings).not.toHaveProperty('quickLinks');
+    expect(localStore.settings).not.toHaveProperty('displayName');
   });
 });

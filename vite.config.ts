@@ -29,7 +29,6 @@ export default defineConfig({
         popup: resolve(__dirname, 'popup.html'),
         dashboard: resolve(__dirname, 'dashboard.html'),
         blocked: resolve(__dirname, 'blocked.html'),
-        newtab: resolve(__dirname, 'newtab.html'),
         background: resolve(__dirname, 'src/background/index.ts'),
         content: resolve(__dirname, 'src/content/index.ts'),
         forcePaste: resolve(__dirname, 'src/content/forcePaste.ts'),

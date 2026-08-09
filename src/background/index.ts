@@ -489,6 +489,12 @@ async function handleMessage(message: MessageType, sender?: chrome.runtime.Messa
     case 'GET_SETTINGS': {
       return getCachedSettings();
     }
+    case 'GET_STORAGE_USAGE': {
+      return {
+        bytesInUse: await chrome.storage.local.getBytesInUse(null),
+        quotaBytes: chrome.storage.local.QUOTA_BYTES,
+      };
+    }
     case 'UPDATE_SETTINGS': {
       const previousSettings = await getCachedSettings();
       const settings = await updateSettings(message.payload);
@@ -1309,7 +1315,7 @@ async function updateBlockingRules(): Promise<void> {
   const rules: chrome.declarativeNetRequest.Rule[] = [];
   let ruleId = 1;
 
-  for (const site of settings.blockingEnabled ? sites : []) {
+  for (const [siteIndex, site] of (settings.blockingEnabled ? sites : []).entries()) {
     if (!isSiteRuleActive(site, {
       now,
       globalFocusActive: globalFocus.isActive,
@@ -1321,7 +1327,7 @@ async function updateBlockingRules(): Promise<void> {
 
     rules.push({
       id: ruleId++,
-      priority: 1,
+      priority: sites.length - siteIndex,
       action: {
         type: chrome.declarativeNetRequest.RuleActionType.REDIRECT,
         redirect: {

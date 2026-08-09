@@ -36,10 +36,29 @@ export default function SettingsPage() {
   const [backupError, setBackupError] = useState('');
   const [backupBusy, setBackupBusy] = useState(false);
   const [pendingImport, setPendingImport] = useState<unknown>(null);
+  const [storageUsage, setStorageUsage] = useState<{ bytesInUse: number; quotaBytes: number } | null>(null);
 
   useEffect(() => {
     loadSettings();
+    void loadStorageUsage();
   }, []);
+
+  async function loadStorageUsage() {
+    try {
+      const result = await chrome.runtime.sendMessage({ type: 'GET_STORAGE_USAGE' });
+      if (typeof result?.bytesInUse === 'number' && typeof result?.quotaBytes === 'number') {
+        setStorageUsage(result);
+      }
+    } catch (error) {
+      console.error('Failed to load storage usage:', error);
+    }
+  }
+
+  function formatStorageSize(bytes: number): string {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
 
   async function loadSettings() {
     try {
@@ -387,6 +406,22 @@ export default function SettingsPage() {
               <option value={60}>60 days</option>
               <option value={90}>90 days</option>
             </select>
+            {storageUsage && (
+              <div className="mt-3">
+                <div className="mb-1 flex items-center justify-between text-xs text-muted-foreground">
+                  <span>Local storage</span>
+                  <span className="tabular-nums">
+                    {formatStorageSize(storageUsage.bytesInUse)} of {formatStorageSize(storageUsage.quotaBytes)}
+                  </span>
+                </div>
+                <div className="h-1.5 overflow-hidden rounded-sm bg-muted">
+                  <div
+                    className="h-full bg-primary"
+                    style={{ width: `${Math.min(100, (storageUsage.bytesInUse / storageUsage.quotaBytes) * 100)}%` }}
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           <div>
@@ -462,29 +497,6 @@ export default function SettingsPage() {
               className="w-5 h-5 shrink-0 rounded border-gray-300 text-primary focus:ring-ring"
             />
           </label>
-        </div>
-      </div>
-
-      {/* New Tab Settings */}
-      <div className="rounded-lg border bg-card p-6 mb-6">
-        <h2 className="text-lg font-semibold mb-4">New Tab</h2>
-        <div className="flex flex-col gap-4">
-          <div>
-            <label className="block font-medium mb-1">Display Name</label>
-            <p className="text-sm text-muted-foreground mb-2">
-              Your name for the greeting on new tabs
-            </p>
-            <Input
-              type="text"
-              value={settings.displayName}
-              onChange={(e) => void updateSettings({ displayName: e.target.value })}
-              placeholder="Enter your name"
-              className="w-full rounded-md border border-input bg-background px-3 py-2 focus:border-ring focus:ring-2 focus:ring-ring/45"
-            />
-          </div>
-          <p className="text-sm text-muted-foreground">
-            Quick links can be added and removed directly on the new tab page.
-          </p>
         </div>
       </div>
 
