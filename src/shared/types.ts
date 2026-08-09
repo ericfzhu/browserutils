@@ -69,6 +69,16 @@ export interface BlockedSiteFolder {
   focusDuration?: number; // Default focus duration in minutes
 }
 
+export interface FocusSession {
+  id: string;
+  targetType: 'global' | 'folder';
+  targetId?: string;
+  targetName: string;
+  startTime: number;
+  plannedEndTime: number;
+  endTime?: number;
+}
+
 export interface SiteVisit {
   url: string;
   domain: string;
@@ -170,6 +180,7 @@ export interface StorageData {
   dailyLimits: DailyLimit[];
   customCategories: CustomCategory[]; // User-created categories
   builtInCategoryOverrides: Record<SiteCategory, string>; // Built-in category ID -> custom name
+  focusSessions: FocusSession[];
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -200,7 +211,7 @@ export interface DailyStatsSummary {
 export type MessageType =
   | { type: 'GET_STATS'; payload?: { date?: string } }
   | { type: 'GET_STATS_SUMMARY' } // Returns all stats without sessions (faster)
-  | { type: 'GET_SESSIONS_FOR_RANGE'; payload: { startDate: string; endDate: string } } // Get sessions for timeline
+  | { type: 'GET_SESSIONS_FOR_RANGE'; payload: { startDate: string; endDate: string } } // Get browsing and focus sessions for timeline and metrics
   | { type: 'ADD_BLOCKED_SITE'; payload: Omit<BlockedSite, 'id' | 'createdAt'> }
   | { type: 'REMOVE_BLOCKED_SITE'; payload: { id: string } }
   | { type: 'UPDATE_BLOCKED_SITE'; payload: BlockedSite }

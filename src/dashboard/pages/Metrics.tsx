@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Calendar, Clock, TrendingDown, TrendingUp, ChevronLeft, ChevronRight, ChevronDown, Layers, Shield, Video } from 'lucide-react';
-import { DailyStatsSummary, SiteSession, Settings, ActiveYouTubeSession, YouTubeChannelSession, CustomCategory } from '../../shared/types';
+import { Calendar, Clock, TrendingDown, TrendingUp, ChevronLeft, ChevronRight, ChevronDown, Focus, Layers, Shield, Video } from 'lucide-react';
+import { DailyStatsSummary, SiteSession, Settings, ActiveYouTubeSession, YouTubeChannelSession, CustomCategory, FocusSession } from '../../shared/types';
 import { getCategoryForDomain, getCategoryInfoWithOverrides, getCategoryOptions } from '../../shared/categories';
 import { computeYouTubeStatsWithUrlsLegacy } from '../../shared/storage';
 import {
@@ -516,7 +516,11 @@ export default function Metrics() {
   // Summary stats (without sessions) - loaded once on mount
   const [allStats, setAllStats] = useState<Record<string, DailyStatsSummary>>({});
   // Session data for timeline - loaded for selected date range
-  const [sessionData, setSessionData] = useState<{ sessions: SiteSession[]; youtubeSessions: YouTubeChannelSession[] }>({ sessions: [], youtubeSessions: [] });
+  const [sessionData, setSessionData] = useState<{
+    sessions: SiteSession[];
+    youtubeSessions: YouTubeChannelSession[];
+    focusSessions: FocusSession[];
+  }>({ sessions: [], youtubeSessions: [], focusSessions: [] });
   const [loadingSessions, setLoadingSessions] = useState(false);
   const [loading, setLoading] = useState(true);
   const [hoveredSegment, setHoveredSegment] = useState<{ date: string; domain: string; time: number; percent: number } | null>(null);
@@ -525,6 +529,7 @@ export default function Metrics() {
   const [builtInOverrides, setBuiltInOverrides] = useState<Record<string, string>>({});
   const [settings, setSettings] = useState<Settings | null>(null);
   const [activeYoutubeSessions, setActiveYoutubeSessions] = useState<Record<number, ActiveYouTubeSession>>({});
+  const [metricsNow, setMetricsNow] = useState(() => Date.now());
 
   // Unified date range state
   const today = getDateString(new Date());
@@ -578,6 +583,11 @@ export default function Metrics() {
     loadStats();
   }, []);
 
+  useEffect(() => {
+    const interval = window.setInterval(() => setMetricsNow(Date.now()), 30_000);
+    return () => window.clearInterval(interval);
+  }, []);
+
   // Load sessions when date range changes
   useEffect(() => {
     if (!loading) {
@@ -626,7 +636,7 @@ export default function Metrics() {
         type: 'GET_SESSIONS_FOR_RANGE',
         payload: { startDate, endDate },
       });
-      setSessionData(data || { sessions: [], youtubeSessions: [] });
+      setSessionData(data || { sessions: [], youtubeSessions: [], focusSessions: [] });
     } catch (err) {
       console.error('Failed to load sessions:', err);
     } finally {
@@ -697,6 +707,27 @@ export default function Metrics() {
   const totalTime = periodStats.reduce((sum, s) => sum + s.totalTime, 0);
   const totalBlocks = periodStats.reduce((sum, s) => sum + s.blockedAttempts, 0);
   const avgDailyTime = totalTime / periodDays;
+
+  const rangeStartTime = new Date(`${dateRangeStart}T00:00:00`).getTime();
+  const rangeEndDate = new Date(`${dateRangeEnd}T00:00:00`);
+  rangeEndDate.setDate(rangeEndDate.getDate() + 1);
+  const rangeEndTime = rangeEndDate.getTime();
+  const now = metricsNow;
+  const focusSessions = [...(sessionData.focusSessions || [])].sort((a, b) => b.startTime - a.startTime);
+  const getFocusSessionEnd = (session: FocusSession) =>
+    session.endTime ?? Math.min(session.plannedEndTime, now);
+  const getFocusSessionDuration = (session: FocusSession) =>
+    Math.max(
+      0,
+      Math.round((
+        Math.min(getFocusSessionEnd(session), rangeEndTime) -
+        Math.max(session.startTime, rangeStartTime)
+      ) / 1000)
+    );
+  const totalFocusTime = focusSessions.reduce(
+    (sum, session) => sum + getFocusSessionDuration(session),
+    0
+  );
 
   // Aggregate site times across period
   const siteTotals: Record<string, number> = {};
@@ -815,7 +846,7 @@ export default function Metrics() {
       </div>
 
       {/* Summary Cards */}
-      <div className="mb-6 grid gap-4 md:grid-cols-3">
+      <div className="mb-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <div className={analyticsStatCardClass}>
           <div className="mb-2 flex items-center gap-3">
             <div className="rounded-md bg-blue-100 p-2 dark:bg-blue-900/50">
@@ -857,6 +888,19 @@ export default function Metrics() {
           <p className="text-2xl font-bold tabular-nums">{totalBlocks}</p>
           <p className="mt-1 text-sm text-muted-foreground">distractions avoided</p>
         </div>
+
+        <div className={analyticsStatCardClass}>
+          <div className="mb-2 flex items-center gap-3">
+            <div className="rounded-md bg-violet-100 p-2 dark:bg-violet-900/50">
+              <Focus className="h-5 w-5 text-violet-600 dark:text-violet-400" />
+            </div>
+            <span className="text-sm text-muted-foreground">Focus time</span>
+          </div>
+          <p className="text-2xl font-bold tabular-nums">{formatTime(totalFocusTime)}</p>
+          <p className="mt-1 text-sm text-muted-foreground tabular-nums">
+            {focusSessions.length} session{focusSessions.length === 1 ? '' : 's'}
+          </p>
+        </div>
       </div>
 
       {/* Activity timeline */}
@@ -877,6 +921,71 @@ export default function Metrics() {
             />
           )}
         </div>
+      </div>
+
+      {/* Focus sessions */}
+      <div id="focus-sessions" className={`${analyticsPanelClass} mb-6`}>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <h2 className="flex items-center gap-2 text-lg font-semibold">
+            <Focus className="h-5 w-5 text-violet-600 dark:text-violet-400" />
+            Focus sessions
+          </h2>
+          {focusSessions.length > 0 && (
+            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+              <span className="tabular-nums">
+                {focusSessions.length} session{focusSessions.length === 1 ? '' : 's'}
+              </span>
+              <span className="tabular-nums">Total: {formatTime(totalFocusTime)}</span>
+            </div>
+          )}
+        </div>
+
+        {loadingSessions ? (
+          <div className="flex items-center justify-center py-8">
+            <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-violet-600" />
+          </div>
+        ) : focusSessions.length > 0 ? (
+          <div className="divide-y divide-border">
+            {focusSessions.map(session => {
+              const sessionEnd = getFocusSessionEnd(session);
+              const isActive = session.endTime === undefined && session.plannedEndTime > now;
+              const sameDay = getDateString(new Date(session.startTime)) === getDateString(new Date(sessionEnd));
+              const endLabel = sameDay
+                ? formatTimeOfDay(sessionEnd)
+                : `${formatDate(getDateString(new Date(sessionEnd)))} at ${formatTimeOfDay(sessionEnd)}`;
+
+              return (
+                <div
+                  key={session.id}
+                  className="flex flex-col gap-3 py-4 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="truncate text-sm font-medium">{session.targetName}</span>
+                      <span className="rounded-md border border-border bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+                        {session.targetType === 'global' ? 'Global' : 'Folder'}
+                      </span>
+                      {isActive && (
+                        <span className="rounded-md border border-violet-300 bg-violet-50 px-1.5 py-0.5 text-xs font-medium text-violet-700 dark:border-violet-800 dark:bg-violet-950 dark:text-violet-300">
+                          Active
+                        </span>
+                      )}
+                    </div>
+                    <p className="mt-1 text-sm text-muted-foreground tabular-nums">
+                      {formatDate(getDateString(new Date(session.startTime)))} at {formatTimeOfDay(session.startTime)}
+                      {' to '}{endLabel}
+                    </p>
+                  </div>
+                  <span className="shrink-0 text-sm font-semibold tabular-nums">
+                    {formatTime(getFocusSessionDuration(session))}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <p className={analyticsEmptyStateClass}>No focus sessions recorded in this period</p>
+        )}
       </div>
 
       {/* Top sites and Category Breakdown - Two Columns */}

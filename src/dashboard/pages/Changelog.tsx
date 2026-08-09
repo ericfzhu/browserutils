@@ -3,7 +3,7 @@ import { Tag, Plus, Wrench, Bug, ArrowLeft, Minus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 // Changelog data - update this when releasing new versions
-const CURRENT_VERSION = '0.48.0';
+const CURRENT_VERSION = '0.49.0';
 
 interface ChangelogEntry {
   version: string;
@@ -15,6 +15,13 @@ interface ChangelogEntry {
 }
 
 const changelog: ChangelogEntry[] = [
+  {
+    version: '0.49.0',
+    date: '2026-08-09',
+    added: [
+      'Metrics records global and folder focus sessions with focus time, duration, status, and date-range filtering',
+    ],
+  },
   {
     version: '0.48.0',
     date: '2026-07-26',

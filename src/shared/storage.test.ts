@@ -4,10 +4,13 @@ import {
   buildUrlPatternRegex,
   checkDailyLimitForDomain,
   computeStatsFromCompactSessions,
+  endFocusSession,
   getActiveYouTubeSessions,
   getDailyStats,
+  getFocusSessionsForRange,
   matchesPattern,
   mergeIntervals,
+  recordFocusSession,
   recordSession,
   setActiveYouTubeSessions,
 } from './storage';
@@ -380,6 +383,60 @@ describe('recordSession', () => {
 
     expect(sessionStore.activeYouTubeSessions).toBeDefined();
     expect(localStore.activeYouTubeSessions).toBeUndefined();
+  });
+
+  it('records focus sessions and returns sessions overlapping a date range', async () => {
+    const startTime = new Date('2026-06-22T23:30:00').getTime();
+
+    await recordFocusSession({
+      targetType: 'folder',
+      targetId: 'folder-1',
+      targetName: 'Social media',
+      startTime,
+      plannedEndTime: startTime + 60 * 60 * 1000,
+    });
+
+    const sessions = await getFocusSessionsForRange('2026-06-23', '2026-06-23');
+    expect(sessions).toHaveLength(1);
+    expect(sessions[0].targetName).toBe('Social media');
+  });
+
+  it('extends an active focus session without creating a duplicate', async () => {
+    const startTime = Date.now() - 60_000;
+
+    await recordFocusSession({
+      targetType: 'global',
+      targetName: 'All blocked sites',
+      startTime,
+      plannedEndTime: startTime + 30 * 60 * 1000,
+    });
+    await recordFocusSession({
+      targetType: 'global',
+      targetName: 'All blocked sites',
+      startTime: Date.now(),
+      plannedEndTime: startTime + 60 * 60 * 1000,
+    }, true);
+
+    const sessions = localStore.focusSessions as Array<{ plannedEndTime: number }>;
+    expect(sessions).toHaveLength(1);
+    expect(sessions[0].plannedEndTime).toBe(startTime + 60 * 60 * 1000);
+  });
+
+  it('records the actual end when a focus session is stopped early', async () => {
+    const startTime = Date.now() - 60_000;
+    const endTime = Date.now();
+
+    await recordFocusSession({
+      targetType: 'folder',
+      targetId: 'folder-2',
+      targetName: 'News',
+      startTime,
+      plannedEndTime: startTime + 60 * 60 * 1000,
+    });
+    await endFocusSession('folder', 'folder-2', endTime);
+
+    const sessions = localStore.focusSessions as Array<{ endTime?: number }>;
+    expect(sessions[0].endTime).toBe(endTime);
   });
 
   it('migrates legacy active YouTube sessions out of durable storage', async () => {

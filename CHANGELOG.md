@@ -4,6 +4,11 @@ This file tracks notable BrowserUtils changes.
 
 It follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and uses 0.x.0 release versions. Each published release increments x.
 
+## [0.49.0] - 2026-08-09
+
+### Added
+- Metrics records global and folder focus sessions with focus time, duration, status, and date-range filtering
+
 ## [0.48.0] - 2026-07-26
 
 ### Fixed

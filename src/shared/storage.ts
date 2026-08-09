@@ -1,4 +1,4 @@
-import { BlockedSite, BlockedSiteFolder, DailyStats, SiteSession, ActiveSession, Settings, DEFAULT_SETTINGS, SiteCategory, DailyLimit, YouTubeChannelSession, ActiveYouTubeSession, CustomCategory, CompactSessions, CompactYouTubeSessions } from './types';
+import { BlockedSite, BlockedSiteFolder, DailyStats, SiteSession, ActiveSession, Settings, DEFAULT_SETTINGS, SiteCategory, DailyLimit, YouTubeChannelSession, ActiveYouTubeSession, CustomCategory, CompactSessions, CompactYouTubeSessions, FocusSession } from './types';
 import { getLocalDateString, splitIntervalByLocalDay } from './time';
 
 const STORAGE_KEYS = {
@@ -12,16 +12,103 @@ const STORAGE_KEYS = {
   DAILY_LIMITS: 'dailyLimits',
   CUSTOM_CATEGORIES: 'customCategories',
   BUILTIN_CATEGORY_OVERRIDES: 'builtInCategoryOverrides',
+  FOCUS_SESSIONS: 'focusSessions',
 } as const;
 
 // Service-worker events can interleave at each await. Serialize dailyStats
 // read-modify-write operations so stale snapshots cannot overwrite newer data.
 let dailyStatsWriteQueue: Promise<void> = Promise.resolve();
+let focusSessionsWriteQueue: Promise<void> = Promise.resolve();
 
 function queueDailyStatsWrite<T>(operation: () => Promise<T>): Promise<T> {
   const result = dailyStatsWriteQueue.then(operation, operation);
   dailyStatsWriteQueue = result.then(() => undefined, () => undefined);
   return result;
+}
+
+function queueFocusSessionsWrite<T>(operation: () => Promise<T>): Promise<T> {
+  const result = focusSessionsWriteQueue.then(operation, operation);
+  focusSessionsWriteQueue = result.then(() => undefined, () => undefined);
+  return result;
+}
+
+export async function recordFocusSession(
+  session: Omit<FocusSession, 'id'>,
+  extendActive = false
+): Promise<FocusSession> {
+  return queueFocusSessionsWrite(async () => {
+    const result = await chrome.storage.local.get(STORAGE_KEYS.FOCUS_SESSIONS);
+    const sessions: FocusSession[] = result[STORAGE_KEYS.FOCUS_SESSIONS] || [];
+
+    if (extendActive) {
+      const active = [...sessions].reverse().find(candidate =>
+        candidate.targetType === session.targetType &&
+        candidate.targetId === session.targetId &&
+        candidate.endTime === undefined &&
+        candidate.plannedEndTime > session.startTime
+      );
+      if (active) {
+        active.plannedEndTime = session.plannedEndTime;
+        active.targetName = session.targetName;
+        await chrome.storage.local.set({ [STORAGE_KEYS.FOCUS_SESSIONS]: sessions });
+        return active;
+      }
+    }
+
+    const created: FocusSession = { ...session, id: crypto.randomUUID() };
+    sessions.push(created);
+    await chrome.storage.local.set({ [STORAGE_KEYS.FOCUS_SESSIONS]: sessions });
+    return created;
+  });
+}
+
+export async function endFocusSession(
+  targetType: FocusSession['targetType'],
+  targetId: string | undefined,
+  endTime: number = Date.now()
+): Promise<void> {
+  await queueFocusSessionsWrite(async () => {
+    const result = await chrome.storage.local.get(STORAGE_KEYS.FOCUS_SESSIONS);
+    const sessions: FocusSession[] = result[STORAGE_KEYS.FOCUS_SESSIONS] || [];
+    const active = [...sessions].reverse().find(candidate =>
+      candidate.targetType === targetType &&
+      candidate.targetId === targetId &&
+      candidate.endTime === undefined &&
+      candidate.plannedEndTime > endTime
+    );
+
+    if (!active) return;
+    active.endTime = Math.min(endTime, active.plannedEndTime);
+    await chrome.storage.local.set({ [STORAGE_KEYS.FOCUS_SESSIONS]: sessions });
+  });
+}
+
+export async function getFocusSessionsForRange(
+  startDate: string,
+  endDate: string
+): Promise<FocusSession[]> {
+  const result = await chrome.storage.local.get(STORAGE_KEYS.FOCUS_SESSIONS);
+  const sessions: FocusSession[] = result[STORAGE_KEYS.FOCUS_SESSIONS] || [];
+  const rangeStart = new Date(`${startDate}T00:00:00`).getTime();
+  const rangeEnd = new Date(`${endDate}T00:00:00`);
+  rangeEnd.setDate(rangeEnd.getDate() + 1);
+
+  return sessions.filter(session => {
+    const effectiveEnd = session.endTime ?? Math.min(session.plannedEndTime, Date.now());
+    return session.startTime < rangeEnd.getTime() && effectiveEnd > rangeStart;
+  });
+}
+
+export async function pruneFocusSessions(cutoffDate: string): Promise<void> {
+  await queueFocusSessionsWrite(async () => {
+    const result = await chrome.storage.local.get(STORAGE_KEYS.FOCUS_SESSIONS);
+    const sessions: FocusSession[] = result[STORAGE_KEYS.FOCUS_SESSIONS] || [];
+    const cutoff = new Date(`${cutoffDate}T00:00:00`).getTime();
+    const retained = sessions.filter(session =>
+      (session.endTime ?? session.plannedEndTime) >= cutoff
+    );
+    await chrome.storage.local.set({ [STORAGE_KEYS.FOCUS_SESSIONS]: retained });
+  });
 }
 
 export async function getBlockedSites(): Promise<BlockedSite[]> {
@@ -182,6 +269,7 @@ export async function getAllDailyStatsSummary(): Promise<Record<string, { date: 
 export async function getSessionsForRange(startDate: string, endDate: string): Promise<{
   sessions: SiteSession[];
   youtubeSessions: YouTubeChannelSession[];
+  focusSessions: FocusSession[];
 }> {
   const result = await chrome.storage.local.get(STORAGE_KEYS.DAILY_STATS);
   const allStats = result[STORAGE_KEYS.DAILY_STATS] || {};
@@ -231,7 +319,8 @@ export async function getSessionsForRange(startDate: string, endDate: string): P
     currentDate.setDate(currentDate.getDate() + 1);
   }
 
-  return { sessions, youtubeSessions };
+  const focusSessions = await getFocusSessionsForRange(startDate, endDate);
+  return { sessions, youtubeSessions, focusSessions };
 }
 
 export async function updateDailyStats(date: string, stats: DailyStats): Promise<void> {

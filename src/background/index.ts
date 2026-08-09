@@ -43,6 +43,9 @@ import {
   getBuiltInCategoryOverrides,
   setBuiltInCategoryName,
   migrateSessionsToCompactFormat,
+  recordFocusSession,
+  endFocusSession,
+  pruneFocusSessions,
 } from '../shared/storage';
 import {
   blockedSiteMutationRequiresAuth,
@@ -462,10 +465,19 @@ async function handleMessage(message: MessageType, sender?: chrome.runtime.Messa
       if (!folder) {
         return { success: false, error: 'Folder not found' };
       }
-      const focusUntil = Date.now() + message.payload.durationMinutes * 60 * 1000;
+      const startTime = Date.now();
+      const wasActive = Boolean(folder.focusUntil && folder.focusUntil > startTime);
+      const focusUntil = startTime + message.payload.durationMinutes * 60 * 1000;
       folder.focusUntil = focusUntil;
       folder.focusDuration = message.payload.durationMinutes;
       await updateBlockedSiteFolder(folder);
+      await recordFocusSession({
+        targetType: 'folder',
+        targetId: folder.id,
+        targetName: folder.name,
+        startTime,
+        plannedEndTime: focusUntil,
+      }, wasActive);
       await updateBlockingRules();
       return { success: true, focusUntil };
     }
@@ -475,6 +487,7 @@ async function handleMessage(message: MessageType, sender?: chrome.runtime.Messa
       if (!folder) {
         return { success: false, error: 'Folder not found' };
       }
+      await endFocusSession('folder', folder.id);
       folder.focusUntil = undefined;
       await updateBlockedSiteFolder(folder);
       await updateBlockingRules();
@@ -498,16 +511,26 @@ async function handleMessage(message: MessageType, sender?: chrome.runtime.Messa
       };
     }
     case 'START_GLOBAL_FOCUS_SESSION': {
-      const focusUntil = Date.now() + message.payload.durationMinutes * 60 * 1000;
+      const settings = await getCachedSettings();
+      const startTime = Date.now();
+      const wasActive = Boolean(settings.globalFocusUntil && settings.globalFocusUntil > startTime);
+      const focusUntil = startTime + message.payload.durationMinutes * 60 * 1000;
       const updatedSettings = await updateSettings({
         globalFocusUntil: focusUntil,
         globalFocusDuration: message.payload.durationMinutes,
       });
+      await recordFocusSession({
+        targetType: 'global',
+        targetName: 'All blocked sites',
+        startTime,
+        plannedEndTime: focusUntil,
+      }, wasActive);
       cachedSettings = updatedSettings;
       await updateBlockingRules();
       return { success: true, focusUntil };
     }
     case 'STOP_GLOBAL_FOCUS_SESSION': {
+      await endFocusSession('global', undefined);
       const updatedSettings = await updateSettings({
         globalFocusUntil: undefined,
       });
@@ -1547,5 +1570,6 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
     const cutoffStr = `${cutoffDate.getFullYear()}-${String(cutoffDate.getMonth() + 1).padStart(2, '0')}-${String(cutoffDate.getDate()).padStart(2, '0')}`;
 
     await pruneDailyStats(cutoffStr);
+    await pruneFocusSessions(cutoffStr);
   }
 });
