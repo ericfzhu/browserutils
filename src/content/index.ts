@@ -1,3 +1,5 @@
+import { getBlockRedirect } from './blockRedirect';
+
 // Content script for accurate time tracking and blocking fallback
 // Sends heartbeats and visibility changes to background
 // Also handles blocking for sites that bypass declarativeNetRequest (e.g., service workers)
@@ -310,20 +312,13 @@ function stopYouTubeBackgroundTracking() {
 // Check if current site is blocked and redirect to the canonical block page.
 // This is a fallback for sites with service workers that bypass declarativeNetRequest
 async function checkIfBlocked(): Promise<boolean> {
-  try {
-    const response = await chrome.runtime.sendMessage({
-      type: 'CHECK_SITE_WITH_REDIRECT',
-      payload: { url: window.location.href },
-    });
-
-    if (response?.blocked && response?.redirectUrl) {
-      window.location.replace(response.redirectUrl);
-      return true;
-    }
-  } catch {
-    // Extension context invalidated
-  }
-  return false;
+  const redirectUrl = await getBlockRedirect(
+    window.location.href,
+    message => chrome.runtime.sendMessage(message)
+  );
+  if (!redirectUrl) return false;
+  window.location.replace(redirectUrl);
+  return true;
 }
 
 // Send message to background
