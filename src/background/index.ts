@@ -22,7 +22,6 @@ import {
   addActiveSession,
   removeActiveSession,
   verifyPassword,
-  matchesPattern,
   buildUrlPatternRegex,
   getDomainCategories,
   setDomainCategory,
@@ -53,8 +52,8 @@ import {
   dailyLimitMutationRequiresAuth,
 } from './lockdownGuards';
 import { ActiveSession, BlockedSite, MessageType, Settings } from '../shared/types';
-import { isTimeWithinScheduleWindow } from '../shared/time';
 import { verifyTotpCode } from '../shared/totp';
+import { findBlockingSite, isSiteRuleActive } from './blockingRules';
 
 // Session state keys for chrome.storage.session
 const SESSION_KEYS = {
@@ -65,6 +64,21 @@ const SESSION_KEYS = {
 // In-memory idle state (restored from session storage on startup)
 let isUserIdle = false;
 let cachedSettings: Settings | null = null;
+
+const OPTIONAL_CONTENT_SCRIPTS = [
+  {
+    id: 'browserutils-force-paste',
+    setting: 'forcePasteEnabled' as const,
+    feature: 'forcePaste',
+    file: 'force-paste.js',
+  },
+  {
+    id: 'browserutils-blob-video-downloader',
+    setting: 'blobVideoDownloaderEnabled' as const,
+    feature: 'blobVideoDownloader',
+    file: 'blob-video-downloader.js',
+  },
+] as const;
 
 // Session freshness: content heartbeats are every 15s, so allow a small buffer
 // before considering a session stale.
@@ -100,6 +114,69 @@ async function getCachedSettings(): Promise<Settings> {
   if (cachedSettings) return cachedSettings;
   cachedSettings = await getSettings();
   return cachedSettings;
+}
+
+async function restrictStorageToExtensionContexts(): Promise<void> {
+  await chrome.storage.local.setAccessLevel({ accessLevel: 'TRUSTED_CONTEXTS' });
+}
+
+async function syncOptionalContentScripts(settings: Settings): Promise<void> {
+  const ids = OPTIONAL_CONTENT_SCRIPTS.map(script => script.id);
+  const registered = await chrome.scripting.getRegisteredContentScripts({ ids });
+  const registeredIds = new Set(registered.map(script => script.id));
+  const removeIds = OPTIONAL_CONTENT_SCRIPTS
+    .filter(script => !settings[script.setting] && registeredIds.has(script.id))
+    .map(script => script.id);
+  if (removeIds.length > 0) {
+    await chrome.scripting.unregisterContentScripts({ ids: removeIds });
+  }
+
+  const additions = OPTIONAL_CONTENT_SCRIPTS
+    .filter(script => settings[script.setting] && !registeredIds.has(script.id))
+    .map(script => ({
+      id: script.id,
+      matches: ['http://*/*', 'https://*/*'],
+      js: [script.file],
+      runAt: 'document_start' as const,
+      allFrames: true,
+      persistAcrossSessions: true,
+    }));
+  if (additions.length > 0) {
+    await chrome.scripting.registerContentScripts(additions);
+  }
+}
+
+async function updateOptionalFeatureInOpenTabs(
+  feature: typeof OPTIONAL_CONTENT_SCRIPTS[number]['feature'],
+  enabled: boolean
+): Promise<void> {
+  const script = OPTIONAL_CONTENT_SCRIPTS.find(candidate => candidate.feature === feature);
+  if (!script) return;
+
+  const tabs = await chrome.tabs.query({ url: ['http://*/*', 'https://*/*'] });
+  await Promise.all(tabs.map(async tab => {
+    if (tab.id === undefined) return;
+    try {
+      if (enabled) {
+        await chrome.scripting.executeScript({
+          target: { tabId: tab.id, allFrames: true },
+          files: [script.file],
+        });
+        return;
+      }
+
+      const frames = await chrome.webNavigation.getAllFrames({ tabId: tab.id });
+      await Promise.all((frames || []).map(frame =>
+        chrome.tabs.sendMessage(tab.id!, {
+          type: 'OPTIONAL_FEATURE_STATE',
+          feature,
+          enabled: false,
+        }, { frameId: frame.frameId }).catch(() => undefined)
+      ));
+    } catch {
+      // Restricted pages and tabs navigating between documents cannot be injected.
+    }
+  }));
 }
 
 function getGlobalFocusStatus(settings: Settings, now: number = Date.now()) {
@@ -247,19 +324,29 @@ async function startFocusedWindowSession(): Promise<void> {
 
 // Initialize extension
 chrome.runtime.onInstalled.addListener(async () => {
-  console.log('BrowserUtils extension installed/updated');
-  await updateBlockingRules();
-  await setupIdleDetection();
-  // Run one-time migration to compact session format
-  await migrateSessionsToCompactFormat();
+  try {
+    console.log('BrowserUtils extension installed/updated');
+    await restrictStorageToExtensionContexts();
+    const settings = await getCachedSettings();
+    await syncOptionalContentScripts(settings);
+    await updateBlockingRules();
+    await setupIdleDetection();
+    await migrateSessionsToCompactFormat();
+  } catch (error) {
+    console.error('[Startup] Failed to install or update extension state', error);
+  }
 });
 
 // Service worker startup - restore state and recover session
 (async () => {
-  await getCachedSettings();
+  await restrictStorageToExtensionContexts();
+  const settings = await getCachedSettings();
+  await syncOptionalContentScripts(settings);
   await setupIdleDetection();
   await recoverSession();
-})();
+})().catch(error => {
+  console.error('[Startup] Failed to initialize extension state', error);
+});
 
 // Set up idle detection based on settings
 async function setupIdleDetection(): Promise<void> {
@@ -312,7 +399,15 @@ chrome.idle.onStateChanged.addListener(async (state) => {
 
 // Handle messages from popup, dashboard, and content scripts
 chrome.runtime.onMessage.addListener((message: MessageType, sender, sendResponse) => {
-  handleMessage(message, sender).then(sendResponse);
+  handleMessage(message, sender)
+    .then(sendResponse)
+    .catch(error => {
+      console.error(`[Message] ${message?.type || 'unknown'} failed`, error);
+      sendResponse({
+        success: false,
+        error: error instanceof Error ? error.message : 'Unexpected extension error',
+      });
+    });
   return true; // Keep channel open for async response
 });
 
@@ -391,8 +486,18 @@ async function handleMessage(message: MessageType, sender?: chrome.runtime.Messa
       return getCachedSettings();
     }
     case 'UPDATE_SETTINGS': {
+      const previousSettings = await getCachedSettings();
       const settings = await updateSettings(message.payload);
       cachedSettings = settings;
+      await syncOptionalContentScripts(settings);
+      for (const script of OPTIONAL_CONTENT_SCRIPTS) {
+        if (
+          message.payload[script.setting] !== undefined &&
+          previousSettings[script.setting] !== settings[script.setting]
+        ) {
+          await updateOptionalFeatureInOpenTabs(script.feature, settings[script.setting]);
+        }
+      }
       await updateBlockingRules();
       // Update idle detection if threshold changed
       if (message.payload.idleThreshold !== undefined) {
@@ -1148,46 +1253,12 @@ async function checkIfBlocked(url: string): Promise<{ blocked: boolean; site?: B
     }
   }
 
-  for (const site of sites) {
-    if (matchesPattern(url, site.pattern)) {
-      if (globalFocus.isActive) {
-        return { blocked: true, site };
-      }
-
-      // Check if site's folder has an active focus session - blocks regardless of site settings
-      if (site.folderId && activeFocusFolders.has(site.folderId)) {
-        return { blocked: true, site };
-      }
-
-      // Skip disabled sites for individual blocking rules
-      if (!site.enabled) continue;
-
-      if (site.unlockedUntil && now < site.unlockedUntil) {
-        return { blocked: false };
-      }
-
-      // Timer sites: only blocked when timer is active
-      if (site.unlockType === 'timer') {
-        if (site.timerBlockedUntil && now < site.timerBlockedUntil) {
-          return { blocked: true, site };
-        }
-        // Timer not active - site is not blocked
-        return { blocked: false };
-      }
-
-      // Check schedule
-      if (site.unlockType === 'schedule' && site.schedule) {
-        if (isTimeWithinScheduleWindow(site.schedule)) {
-          return { blocked: true, site };
-        }
-        return { blocked: false };
-      }
-
-      return { blocked: true, site };
-    }
-  }
-
-  return { blocked: false };
+  const site = findBlockingSite(url, sites, {
+    now,
+    globalFocusActive: globalFocus.isActive,
+    activeFocusFolderIds: activeFocusFolders,
+  });
+  return site ? { blocked: true, site } : { blocked: false };
 }
 
 async function updateBlockingRules(): Promise<void> {
@@ -1197,19 +1268,8 @@ async function updateBlockingRules(): Promise<void> {
   const now = Date.now();
   const globalFocus = getGlobalFocusStatus(settings, now);
 
-  // Remove all existing dynamic rules
   const existingRules = await chrome.declarativeNetRequest.getDynamicRules();
   const ruleIdsToRemove = existingRules.map(r => r.id);
-
-  if (ruleIdsToRemove.length > 0) {
-    await chrome.declarativeNetRequest.updateDynamicRules({
-      removeRuleIds: ruleIdsToRemove,
-    });
-  }
-
-  if (!settings.blockingEnabled) {
-    return;
-  }
 
   // Build a set of folder IDs with active focus sessions
   const activeFocusFolders = new Set<string>();
@@ -1222,33 +1282,12 @@ async function updateBlockingRules(): Promise<void> {
   const rules: chrome.declarativeNetRequest.Rule[] = [];
   let ruleId = 1;
 
-  for (const site of sites) {
-    // Check if site's folder has an active focus session - always block
-    const inFocusSession = globalFocus.isActive || (site.folderId && activeFocusFolders.has(site.folderId));
-
-    if (!inFocusSession) {
-      // Not in focus session - check individual site rules
-      if (!site.enabled) continue;
-
-      if (site.unlockedUntil && now < site.unlockedUntil) {
-        continue;
-      }
-
-      // Timer sites: only create rule if timer is active
-      if (site.unlockType === 'timer') {
-        if (!site.timerBlockedUntil || now >= site.timerBlockedUntil) {
-          // Timer not active - don't block
-          continue;
-        }
-      }
-
-      // Skip if outside scheduled blocking period
-      if (site.unlockType === 'schedule' && site.schedule) {
-        if (!isTimeWithinScheduleWindow(site.schedule)) {
-          continue;
-        }
-      }
-    }
+  for (const site of settings.blockingEnabled ? sites : []) {
+    if (!isSiteRuleActive(site, {
+      now,
+      globalFocusActive: globalFocus.isActive,
+      activeFocusFolderIds: activeFocusFolders,
+    })) continue;
 
     const regexFilter = buildUrlPatternRegex(site.pattern);
     if (!regexFilter) continue;
@@ -1259,7 +1298,7 @@ async function updateBlockingRules(): Promise<void> {
       action: {
         type: chrome.declarativeNetRequest.RuleActionType.REDIRECT,
         redirect: {
-          extensionPath: `/blocked.html?site=${encodeURIComponent(site.id)}`,
+          regexSubstitution: `${chrome.runtime.getURL('blocked.html')}#site=${encodeURIComponent(site.id)}&returnUrl=\\0`,
         },
       },
       condition: {
@@ -1269,11 +1308,10 @@ async function updateBlockingRules(): Promise<void> {
     });
   }
 
-  if (rules.length > 0) {
-    await chrome.declarativeNetRequest.updateDynamicRules({
-      addRules: rules,
-    });
-  }
+  await chrome.declarativeNetRequest.updateDynamicRules({
+    removeRuleIds: ruleIdsToRemove,
+    addRules: rules,
+  });
 }
 
 // Time tracking

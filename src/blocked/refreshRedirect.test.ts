@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getRefreshRedirect } from './refreshRedirect';
+import { getRefreshRedirect, parseBlockedPageParams } from './refreshRedirect';
 
 const currentUrl =
   'chrome-extension://extension-id/blocked.html?site=old-rule&returnUrl=https%3A%2F%2Fexample.com';
@@ -30,5 +30,31 @@ describe('getRefreshRedirect', () => {
 
   it('fails closed when the block check has no response', () => {
     expect(getRefreshRedirect(currentUrl, returnUrl, undefined)).toBeNull();
+  });
+});
+
+describe('parseBlockedPageParams', () => {
+  it('reads existing query-string redirects', () => {
+    expect(parseBlockedPageParams(
+      '?site=site-1&returnUrl=https%3A%2F%2Fexample.com%2Fpath',
+      ''
+    )).toEqual({
+      type: null,
+      siteId: 'site-1',
+      limitId: null,
+      returnUrl: 'https://example.com/path',
+    });
+  });
+
+  it('preserves a complete DNR return URL in the hash', () => {
+    expect(parseBlockedPageParams(
+      '',
+      '#site=site-2&returnUrl=https://example.com/path?first=1&second=2#details'
+    )).toEqual({
+      type: null,
+      siteId: 'site-2',
+      limitId: null,
+      returnUrl: 'https://example.com/path?first=1&second=2#details',
+    });
   });
 });

@@ -18,7 +18,7 @@
     "idle",
     "downloads",
     "declarativeNetRequest",
-    "declarativeNetRequestFeedback"
+    "scripting"
   ],
   "host_permissions": [
     "<all_urls>"
@@ -37,28 +37,6 @@
         "content.js"
       ],
       "run_at": "document_start"
-    },
-    {
-      "matches": [
-        "http://*/*",
-        "https://*/*"
-      ],
-      "js": [
-        "force-paste.js"
-      ],
-      "run_at": "document_start",
-      "all_frames": true
-    },
-    {
-      "matches": [
-        "http://*/*",
-        "https://*/*"
-      ],
-      "js": [
-        "blob-video-downloader.js"
-      ],
-      "run_at": "document_start",
-      "all_frames": true
     }
   ],
   "action": {

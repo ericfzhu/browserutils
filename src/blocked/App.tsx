@@ -14,7 +14,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { BlockedSite, BlockedSiteFolder, DailyLimit, DailyStats } from '../shared/types';
-import { getRefreshRedirect } from './refreshRedirect';
+import { getRefreshRedirect, parseBlockedPageParams } from './refreshRedirect';
 
 function formatTime(seconds: number): string {
   const hours = Math.floor(seconds / 3600);
@@ -54,7 +54,7 @@ function getDateString(date: Date): string {
 }
 
 function getReturnUrl(): string | null {
-  const value = new URLSearchParams(window.location.search).get('returnUrl');
+  const value = parseBlockedPageParams(window.location.search, window.location.hash).returnUrl;
   if (!value) return null;
 
   try {
@@ -175,10 +175,8 @@ export default function App() {
         }
       }
 
-      const params = new URLSearchParams(window.location.search);
-      const type = params.get('type');
-      const siteId = params.get('site');
-      const limitId = params.get('limitId');
+      const params = parseBlockedPageParams(window.location.search, window.location.hash);
+      const { type, siteId, limitId } = params;
 
       if (type === 'limit' && limitId) {
         setBlockType('limit');

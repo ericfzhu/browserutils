@@ -32,25 +32,12 @@ const NON_TEXT_INPUT_TYPES = new Set([
   'submit',
 ]);
 
-let forcePasteEnabled = false;
+let forcePasteEnabled = true;
 
-async function loadForcePasteSetting() {
-  try {
-    const result = await chrome.storage.local.get('settings');
-    forcePasteEnabled = !!result.settings?.forcePasteEnabled;
-  } catch {
-    forcePasteEnabled = false;
+chrome.runtime.onMessage.addListener((message: { type?: string; feature?: string; enabled?: boolean }) => {
+  if (message.type === 'OPTIONAL_FEATURE_STATE' && message.feature === 'forcePaste') {
+    forcePasteEnabled = message.enabled === true;
   }
-}
-
-loadForcePasteSetting();
-
-chrome.storage.onChanged.addListener((changes, areaName) => {
-  if (areaName !== 'local' || !changes.settings) {
-    return;
-  }
-
-  forcePasteEnabled = !!changes.settings.newValue?.forcePasteEnabled;
 });
 
 function isEditableInput(element: HTMLInputElement): boolean {

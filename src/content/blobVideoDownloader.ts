@@ -57,25 +57,14 @@ const pendingFetches = new Set<string>();
 const redditRecords = new Map<string, RedditVideoRecord>();
 const redditFetches = new Set<string>();
 
-let blobVideoDownloaderEnabled = false;
+let blobVideoDownloaderEnabled = true;
 let scanTimer: number | null = null;
 let updateTimer: number | null = null;
 
-async function loadBlobVideoSetting() {
-  try {
-    const result = await chrome.storage.local.get('settings');
-    setBlobVideoDownloaderEnabled(!!result.settings?.blobVideoDownloaderEnabled);
-  } catch {
-    setBlobVideoDownloaderEnabled(false);
+chrome.runtime.onMessage.addListener((message: { type?: string; feature?: string; enabled?: boolean }) => {
+  if (message.type === 'OPTIONAL_FEATURE_STATE' && message.feature === 'blobVideoDownloader') {
+    setBlobVideoDownloaderEnabled(message.enabled === true);
   }
-}
-
-chrome.storage.onChanged.addListener((changes, areaName) => {
-  if (areaName !== 'local' || !changes.settings) {
-    return;
-  }
-
-  setBlobVideoDownloaderEnabled(!!changes.settings.newValue?.blobVideoDownloaderEnabled);
 });
 
 function isBlobVideoMessage(value: unknown): value is BlobVideoMessage {
@@ -696,4 +685,4 @@ function setBlobVideoDownloaderEnabled(enabled: boolean) {
   }
 }
 
-void loadBlobVideoSetting();
+setBlobVideoDownloaderEnabled(true);
