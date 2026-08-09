@@ -10,11 +10,14 @@ import {
   getActiveYouTubeSessions,
   getDailyStats,
   getFocusSessionsForRange,
+  hashPassword,
   matchesPattern,
   mergeIntervals,
   recordFocusSession,
   recordSession,
+  passwordHashNeedsUpgrade,
   setActiveYouTubeSessions,
+  verifyPassword,
 } from './storage';
 
 describe('mergeIntervals', () => {
@@ -239,6 +242,23 @@ describe('computeStatsFromCompactSessions', () => {
     expect(result.sites['example.com']).toBe(100);
     expect(result.sites['other.com']).toBe(100);
     expect(result.totalTime).toBe(150); // Merged: 0-150
+  });
+});
+
+describe('password hashing', () => {
+  it('creates salted PBKDF2 hashes and verifies them', async () => {
+    const first = await hashPassword('1234');
+    const second = await hashPassword('1234');
+    expect(first).not.toBe(second);
+    expect(passwordHashNeedsUpgrade(first)).toBe(false);
+    await expect(verifyPassword('1234', first)).resolves.toBe(true);
+    await expect(verifyPassword('wrong', first)).resolves.toBe(false);
+  });
+
+  it('continues to verify legacy SHA-256 hashes', async () => {
+    const legacy = '03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4';
+    expect(passwordHashNeedsUpgrade(legacy)).toBe(true);
+    await expect(verifyPassword('1234', legacy)).resolves.toBe(true);
   });
 });
 

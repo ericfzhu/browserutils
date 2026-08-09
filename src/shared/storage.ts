@@ -763,18 +763,78 @@ export async function clearActiveSessions(): Promise<void> {
   });
 }
 
-// Password hashing using Web Crypto API
+const PASSWORD_HASH_PREFIX = 'pbkdf2-sha256';
+const PASSWORD_HASH_ITERATIONS = 210_000;
+
+function bytesToBase64(bytes: Uint8Array): string {
+  let binary = '';
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary);
+}
+
+function base64ToBytes(value: string): Uint8Array {
+  const binary = atob(value);
+  return Uint8Array.from(binary, character => character.charCodeAt(0));
+}
+
+function bytesEqual(left: Uint8Array, right: Uint8Array): boolean {
+  if (left.length !== right.length) return false;
+  let difference = 0;
+  for (let index = 0; index < left.length; index++) {
+    difference |= left[index] ^ right[index];
+  }
+  return difference === 0;
+}
+
+async function derivePasswordHash(
+  password: string,
+  salt: Uint8Array,
+  iterations: number
+): Promise<Uint8Array> {
+  const key = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(password),
+    'PBKDF2',
+    false,
+    ['deriveBits']
+  );
+  const bits = await crypto.subtle.deriveBits({
+    name: 'PBKDF2',
+    hash: 'SHA-256',
+    salt: Uint8Array.from(salt).buffer,
+    iterations,
+  }, key, 256);
+  return new Uint8Array(bits);
+}
+
 export async function hashPassword(password: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(password);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const hash = await derivePasswordHash(password, salt, PASSWORD_HASH_ITERATIONS);
+  return `${PASSWORD_HASH_PREFIX}$${PASSWORD_HASH_ITERATIONS}$${bytesToBase64(salt)}$${bytesToBase64(hash)}`;
 }
 
 export async function verifyPassword(password: string, hash: string): Promise<boolean> {
-  const inputHash = await hashPassword(password);
-  return inputHash === hash;
+  if (!hash.startsWith(`${PASSWORD_HASH_PREFIX}$`)) {
+    const data = new TextEncoder().encode(password);
+    const legacyHash = new Uint8Array(await crypto.subtle.digest('SHA-256', data));
+    const expected = Uint8Array.from(hash.match(/.{1,2}/g) || [], byte => Number.parseInt(byte, 16));
+    return /^[a-f0-9]{64}$/i.test(hash) && bytesEqual(legacyHash, expected);
+  }
+
+  const [, iterationsValue, saltValue, expectedValue] = hash.split('$');
+  const iterations = Number.parseInt(iterationsValue, 10);
+  if (!Number.isFinite(iterations) || iterations <= 0 || !saltValue || !expectedValue) return false;
+
+  try {
+    const actual = await derivePasswordHash(password, base64ToBytes(saltValue), iterations);
+    return bytesEqual(actual, base64ToBytes(expectedValue));
+  } catch {
+    return false;
+  }
+}
+
+export function passwordHashNeedsUpgrade(hash: string): boolean {
+  return !hash.startsWith(`${PASSWORD_HASH_PREFIX}$`);
 }
 
 // URL pattern matching

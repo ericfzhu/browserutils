@@ -3,7 +3,18 @@ import { Trash2, AlertTriangle, Sun, Moon, Monitor, Lock, GitBranch, ShieldCheck
 import QRCode from 'react-qr-code';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Settings as SettingsType } from '../../shared/types';
+import { hashPassword } from '../../shared/storage';
+import { isEncryptedBackup } from '../../shared/backup';
 import { applyTheme } from '../../shared/theme';
 import { buildOtpAuthUri, generateTotpSecret, verifyTotpCode } from '../../shared/totp';
 import { assertRuntimeMutationSucceeded } from '../../shared/runtimeMessages';
@@ -19,6 +30,12 @@ export default function SettingsPage() {
   const [totpSecretDraft, setTotpSecretDraft] = useState('');
   const [totpCode, setTotpCode] = useState('');
   const [totpError, setTotpError] = useState('');
+  const [backupAction, setBackupAction] = useState<'export' | 'import' | null>(null);
+  const [backupPassword, setBackupPassword] = useState('');
+  const [confirmBackupPassword, setConfirmBackupPassword] = useState('');
+  const [backupError, setBackupError] = useState('');
+  const [backupBusy, setBackupBusy] = useState(false);
+  const [pendingImport, setPendingImport] = useState<unknown>(null);
 
   useEffect(() => {
     loadSettings();
@@ -57,17 +74,13 @@ export default function SettingsPage() {
       setPasswordError('Passwords do not match');
       return;
     }
-    if (newPassword.length < 4) {
-      setPasswordError('Password must be at least 4 characters');
+    if (!newPassword) {
+      setPasswordError('Enter a password');
       return;
     }
 
     try {
-      const encoder = new TextEncoder();
-      const data = encoder.encode(newPassword);
-      const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-      const hashArray = Array.from(new Uint8Array(hashBuffer));
-      const passwordHash = hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+      const passwordHash = await hashPassword(newPassword);
 
       await withLockdownCheck(async () => {
         await updateSettings({ passwordHash });
@@ -140,42 +153,92 @@ export default function SettingsPage() {
     }
   }
 
+  function beginExport() {
+    setBackupAction('export');
+    setBackupPassword('');
+    setConfirmBackupPassword('');
+    setBackupError('');
+  }
+
   async function exportData() {
+    if (!backupPassword) {
+      setBackupError('Enter a backup password');
+      return;
+    }
+    if (backupPassword !== confirmBackupPassword) {
+      setBackupError('Backup passwords do not match');
+      return;
+    }
+
+    setBackupBusy(true);
+    setBackupError('');
     try {
-      const data = await chrome.storage.local.get(null);
-      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const result = await chrome.runtime.sendMessage({
+        type: 'EXPORT_DATA',
+        payload: { password: backupPassword },
+      });
+      if (!result?.success || !result.backup) {
+        throw new Error(result?.error || 'Failed to create backup');
+      }
+      const blob = new Blob([JSON.stringify(result.backup, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
       const now = new Date();
       const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-      a.download = `browserutils-export-${dateStr}.json`;
+      a.download = `browserutils-backup-${dateStr}.json`;
       a.click();
       URL.revokeObjectURL(url);
+      setBackupAction(null);
     } catch (err) {
       console.error('Failed to export data:', err);
+      setBackupError(err instanceof Error ? err.message : 'Failed to create backup');
+    } finally {
+      setBackupBusy(false);
     }
   }
 
-  async function importData(file: File) {
+  async function prepareImport(file: File) {
     try {
       const text = await file.text();
       const data = JSON.parse(text);
       if (!data || Array.isArray(data) || typeof data !== 'object') {
         throw new Error('Invalid import data');
       }
+      setPendingImport(data);
+      setBackupPassword('');
+      setConfirmBackupPassword('');
+      setBackupError('');
+      setBackupAction('import');
+    } catch (err) {
+      console.error('Failed to read backup:', err);
+      alert('Failed to read backup. Make sure the file is valid JSON.');
+    }
+  }
+
+  async function importData() {
+    if (!pendingImport) return;
+    if (isEncryptedBackup(pendingImport) && !backupPassword) {
+      setBackupError('Enter the backup password');
+      return;
+    }
+
+    setBackupBusy(true);
+    setBackupError('');
+    try {
       await withLockdownCheck(async () => {
         const result = await chrome.runtime.sendMessage({
           type: 'IMPORT_DATA',
-          payload: { data },
+          payload: { backup: pendingImport, password: backupPassword },
         });
         if (!result?.success) throw new Error(result?.error || 'Failed to import data');
-        alert('Data imported successfully!');
         window.location.reload();
       });
     } catch (err) {
       console.error('Failed to import data:', err);
-      alert('Failed to import data. Make sure the file is valid.');
+      setBackupError(err instanceof Error ? err.message : 'Failed to import backup');
+    } finally {
+      setBackupBusy(false);
     }
   }
 
@@ -652,7 +715,7 @@ export default function SettingsPage() {
         <div className="flex flex-col gap-4">
           <div className="flex flex-wrap items-center gap-3">
             <Button
-              onClick={exportData}
+              onClick={beginExport}
               variant="secondary"
             >
               <Download data-icon="inline-start" />
@@ -665,7 +728,11 @@ export default function SettingsPage() {
                 <Input
                   type="file"
                   accept=".json"
-                  onChange={(e) => e.target.files?.[0] && importData(e.target.files[0])}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) void prepareImport(file);
+                    e.target.value = '';
+                  }}
                   className="hidden"
                 />
               </label>
@@ -706,6 +773,68 @@ export default function SettingsPage() {
           View on GitHub
         </a>
       </div>
+
+      <Dialog open={backupAction !== null} onOpenChange={(open) => !open && setBackupAction(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{backupAction === 'export' ? 'Create encrypted backup' : 'Restore backup'}</DialogTitle>
+            <DialogDescription>
+              {backupAction === 'export'
+                ? 'This password encrypts your complete backup, including protected rules and authenticator settings.'
+                : isEncryptedBackup(pendingImport)
+                  ? 'Enter the password used when this backup was created.'
+                  : 'This is a legacy unencrypted export. Review the file source before restoring it.'}
+            </DialogDescription>
+          </DialogHeader>
+
+          {(backupAction === 'export' || isEncryptedBackup(pendingImport)) && (
+            <div className="grid gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="backup-password">Backup password</Label>
+                <Input
+                  id="backup-password"
+                  type="password"
+                  autoFocus
+                  value={backupPassword}
+                  onChange={(event) => setBackupPassword(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' && backupAction === 'import') void importData();
+                  }}
+                />
+              </div>
+              {backupAction === 'export' && (
+                <div className="grid gap-2">
+                  <Label htmlFor="backup-password-confirm">Confirm backup password</Label>
+                  <Input
+                    id="backup-password-confirm"
+                    type="password"
+                    value={confirmBackupPassword}
+                    onChange={(event) => setConfirmBackupPassword(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') void exportData();
+                    }}
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
+          {backupError && <p className="text-sm text-destructive">{backupError}</p>}
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setBackupAction(null)} disabled={backupBusy}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={() => void (backupAction === 'export' ? exportData() : importData())}
+              disabled={backupBusy}
+            >
+              {backupBusy ? 'Working...' : backupAction === 'export' ? 'Download Backup' : 'Restore Backup'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

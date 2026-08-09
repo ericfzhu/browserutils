@@ -22,6 +22,8 @@ import {
   addActiveSession,
   removeActiveSession,
   verifyPassword,
+  hashPassword,
+  passwordHashNeedsUpgrade,
   buildUrlPatternRegex,
   getDomainCategories,
   setDomainCategory,
@@ -54,6 +56,8 @@ import {
 import { ActiveSession, BlockedSite, MessageType, Settings } from '../shared/types';
 import { verifyTotpCode } from '../shared/totp';
 import { findBlockingSite, isSiteRuleActive } from './blockingRules';
+import { decryptBackup, encryptBackup, isEncryptedBackup, validateImportData } from '../shared/backup';
+import { replaceImportedData } from './importData';
 
 // Session state keys for chrome.storage.session
 const SESSION_KEYS = {
@@ -509,8 +513,17 @@ async function handleMessage(message: MessageType, sender?: chrome.runtime.Messa
       await resetAllData();
       return { success: true };
     }
+    case 'EXPORT_DATA': {
+      const data = await chrome.storage.local.get(null);
+      delete data.activeSessions;
+      delete data.activeYouTubeSessions;
+      return { success: true, backup: await encryptBackup(data, message.payload.password) };
+    }
     case 'IMPORT_DATA': {
-      return importAllData(message.payload.data);
+      const data = isEncryptedBackup(message.payload.backup)
+        ? await decryptBackup(message.payload.backup, message.payload.password)
+        : message.payload.backup;
+      return importAllData(data);
     }
     case 'CHECK_SITE': {
       return checkIfBlocked(message.payload.url);
@@ -765,6 +778,10 @@ async function handleMessage(message: MessageType, sender?: chrome.runtime.Messa
           return { success: false, error: 'No master password set' };
         }
         valid = await verifyPassword(message.payload.credential, settings.passwordHash);
+        if (valid && passwordHashNeedsUpgrade(settings.passwordHash)) {
+          settings.passwordHash = await hashPassword(message.payload.credential);
+          cachedSettings = await updateSettings({ passwordHash: settings.passwordHash });
+        }
       }
 
       if (!valid) {
@@ -802,24 +819,27 @@ async function resetAllData(): Promise<void> {
   await resetRuntimeState();
 }
 
-async function importAllData(data: Record<string, unknown>): Promise<{ success: boolean; error?: string }> {
-  if (!data || Array.isArray(data) || typeof data !== 'object') {
-    return { success: false, error: 'Invalid import data' };
-  }
+async function importAllData(data: unknown): Promise<{ success: boolean; error?: string }> {
+  const validationError = validateImportData(data);
+  if (validationError) return { success: false, error: validationError };
 
   await endAllSessions();
   await endAllYouTubeSessions();
-  await chrome.storage.local.clear();
-  await chrome.storage.session.clear();
 
-  const durableData = { ...data };
-  delete durableData.activeSessions;
-  delete durableData.activeYouTubeSessions;
-  await chrome.storage.local.set(durableData);
-
-  cachedSettings = null;
-  await migrateSessionsToCompactFormat();
-  await resetRuntimeState();
+  try {
+    await replaceImportedData(data, async () => {
+      await chrome.storage.session.clear();
+      cachedSettings = null;
+      await migrateSessionsToCompactFormat();
+      await resetRuntimeState();
+    });
+  } catch (error) {
+    cachedSettings = null;
+    await resetRuntimeState().catch(resetError => {
+      console.error('[Import] Failed to restore runtime state after rollback', resetError);
+    });
+    throw error;
+  }
   return { success: true };
 }
 
@@ -1155,6 +1175,10 @@ async function unlockSite(id: string, password?: string): Promise<{ success: boo
     return { success: false, error: 'Invalid password' };
   }
 
+  if (passwordHashNeedsUpgrade(site.passwordHash)) {
+    site.passwordHash = await hashPassword(password);
+  }
+
   site.unlockedUntil = Date.now() + 15 * 60 * 1000;
   await updateBlockedSite(site);
   await updateBlockingRules();
@@ -1223,6 +1247,9 @@ async function bypassDailyLimit(id: string, password?: string): Promise<{ succes
     const valid = await verifyPassword(password, limit.passwordHash);
     if (!valid) {
       return { success: false, error: 'Invalid password' };
+    }
+    if (passwordHashNeedsUpgrade(limit.passwordHash)) {
+      limit.passwordHash = await hashPassword(password);
     }
   }
 
