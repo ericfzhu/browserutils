@@ -15,10 +15,17 @@ const STORAGE_KEYS = {
   FOCUS_SESSIONS: 'focusSessions',
 } as const;
 
+const DAILY_STATS_PREFIX = 'dailyStats:';
+const STORAGE_SCHEMA_VERSION_KEY = 'storageSchemaVersion';
+const DAILY_STATS_SCHEMA_VERSION = 2;
+
 // Service-worker events can interleave at each await. Serialize dailyStats
 // read-modify-write operations so stale snapshots cannot overwrite newer data.
 let dailyStatsWriteQueue: Promise<void> = Promise.resolve();
 let focusSessionsWriteQueue: Promise<void> = Promise.resolve();
+let activeSessionsWriteQueue: Promise<void> = Promise.resolve();
+let activeYouTubeSessionsWriteQueue: Promise<void> = Promise.resolve();
+let dailyStatsMigrationPromise: Promise<void> | null = null;
 
 function queueDailyStatsWrite<T>(operation: () => Promise<T>): Promise<T> {
   const result = dailyStatsWriteQueue.then(operation, operation);
@@ -30,6 +37,105 @@ function queueFocusSessionsWrite<T>(operation: () => Promise<T>): Promise<T> {
   const result = focusSessionsWriteQueue.then(operation, operation);
   focusSessionsWriteQueue = result.then(() => undefined, () => undefined);
   return result;
+}
+
+function queueActiveSessionsWrite<T>(operation: () => Promise<T>): Promise<T> {
+  const result = activeSessionsWriteQueue.then(operation, operation);
+  activeSessionsWriteQueue = result.then(() => undefined, () => undefined);
+  return result;
+}
+
+function queueActiveYouTubeSessionsWrite<T>(operation: () => Promise<T>): Promise<T> {
+  const result = activeYouTubeSessionsWriteQueue.then(operation, operation);
+  activeYouTubeSessionsWriteQueue = result.then(() => undefined, () => undefined);
+  return result;
+}
+
+function dailyStatsKey(date: string): string {
+  return `${DAILY_STATS_PREFIX}${date}`;
+}
+
+function createEmptyDailyStats(date: string): DailyStats {
+  return {
+    date,
+    totalTime: 0,
+    sites: {},
+    visits: 0,
+    blockedAttempts: 0,
+    sessions: {},
+    youtubeSessions: {},
+  };
+}
+
+function normalizeDailyStats(date: string, value: DailyStats): DailyStats {
+  return {
+    ...createEmptyDailyStats(date),
+    ...value,
+    date,
+    sessions: value.sessions && !Array.isArray(value.sessions) ? value.sessions : {},
+    youtubeSessions: value.youtubeSessions && !Array.isArray(value.youtubeSessions)
+      ? value.youtubeSessions
+      : {},
+  };
+}
+
+function datesInRange(startDate: string, endDate: string): string[] {
+  const dates: string[] = [];
+  const current = new Date(`${startDate}T00:00:00`);
+  const end = new Date(`${endDate}T00:00:00`);
+  while (current <= end) {
+    dates.push(getLocalDateString(current));
+    current.setDate(current.getDate() + 1);
+  }
+  return dates;
+}
+
+function dailyStatsFromStorage(result: Record<string, unknown>): Record<string, DailyStats> {
+  const allStats: Record<string, DailyStats> = {};
+  for (const [key, value] of Object.entries(result)) {
+    if (!key.startsWith(DAILY_STATS_PREFIX) || !value) continue;
+    const date = key.slice(DAILY_STATS_PREFIX.length);
+    allStats[date] = normalizeDailyStats(date, value as DailyStats);
+  }
+  return allStats;
+}
+
+async function ensureDailyStatsStorageMigrated(): Promise<void> {
+  if (!dailyStatsMigrationPromise) {
+    dailyStatsMigrationPromise = migrateDailyStatsStorage().finally(() => {
+      dailyStatsMigrationPromise = null;
+    });
+  }
+  await dailyStatsMigrationPromise;
+}
+
+async function migrateDailyStatsStorage(): Promise<void> {
+  const result = await chrome.storage.local.get([
+    STORAGE_SCHEMA_VERSION_KEY,
+    STORAGE_KEYS.DAILY_STATS,
+  ]);
+  const schemaVersion = result[STORAGE_SCHEMA_VERSION_KEY] as number | undefined;
+  if (schemaVersion !== undefined && schemaVersion >= DAILY_STATS_SCHEMA_VERSION) {
+    return;
+  }
+
+  const legacyStats = (result[STORAGE_KEYS.DAILY_STATS] || {}) as Record<string, DailyStats>;
+  const migrated: Record<string, unknown> = {
+    [STORAGE_SCHEMA_VERSION_KEY]: DAILY_STATS_SCHEMA_VERSION,
+  };
+  for (const [date, stats] of Object.entries(legacyStats)) {
+    migrated[dailyStatsKey(date)] = normalizeDailyStats(date, stats);
+  }
+
+  await chrome.storage.local.set(migrated);
+  if (Object.keys(legacyStats).length > 0) {
+    const verification = await chrome.storage.local.get(Object.keys(legacyStats).map(dailyStatsKey));
+    const complete = Object.keys(legacyStats).every(date => verification[dailyStatsKey(date)] !== undefined);
+    if (!complete) {
+      throw new Error('Daily history migration could not be verified');
+    }
+  }
+  await chrome.storage.local.remove(STORAGE_KEYS.DAILY_STATS);
 }
 
 export async function recordFocusSession(
@@ -203,56 +309,38 @@ export async function updateSettings(settings: Partial<Settings>): Promise<Setti
 }
 
 export async function getDailyStats(date?: string): Promise<DailyStats> {
+  await ensureDailyStatsStorageMigrated();
   const targetDate = date || getLocalDateString();
-  const result = await chrome.storage.local.get(STORAGE_KEYS.DAILY_STATS);
-  const allStats = result[STORAGE_KEYS.DAILY_STATS] || {};
-  const stats = allStats[targetDate];
-  if (stats) {
-    // Ensure sessions are in compact format
-    if (!stats.sessions || Array.isArray(stats.sessions)) stats.sessions = {};
-    if (!stats.youtubeSessions || Array.isArray(stats.youtubeSessions)) stats.youtubeSessions = {};
-    return stats;
-  }
-  return {
-    date: targetDate,
-    totalTime: 0,
-    sites: {},
-    visits: 0,
-    blockedAttempts: 0,
-    sessions: {},
-    youtubeSessions: {},
-  };
+  const key = dailyStatsKey(targetDate);
+  const result = await chrome.storage.local.get(key);
+  return result[key]
+    ? normalizeDailyStats(targetDate, result[key] as DailyStats)
+    : createEmptyDailyStats(targetDate);
 }
 
 export async function getAllDailyStats(): Promise<Record<string, DailyStats>> {
-  const result = await chrome.storage.local.get(STORAGE_KEYS.DAILY_STATS);
-  return result[STORAGE_KEYS.DAILY_STATS] || {};
+  await ensureDailyStatsStorageMigrated();
+  return dailyStatsFromStorage(await chrome.storage.local.get(null));
 }
 
 export async function pruneDailyStats(cutoffDate: string): Promise<void> {
   await queueDailyStatsWrite(async () => {
-    const result = await chrome.storage.local.get(STORAGE_KEYS.DAILY_STATS);
-    const allStats = result[STORAGE_KEYS.DAILY_STATS] || {};
-    const retainedStats: Record<string, DailyStats> = {};
-
-    for (const [date, stats] of Object.entries(allStats as Record<string, DailyStats>)) {
-      if (date >= cutoffDate) {
-        retainedStats[date] = stats;
-      }
-    }
-
-    await chrome.storage.local.set({ [STORAGE_KEYS.DAILY_STATS]: retainedStats });
+    await ensureDailyStatsStorageMigrated();
+    const allItems = await chrome.storage.local.get(null);
+    const expiredKeys = Object.keys(allItems).filter(key =>
+      key.startsWith(DAILY_STATS_PREFIX) && key.slice(DAILY_STATS_PREFIX.length) < cutoffDate
+    );
+    if (expiredKeys.length > 0) await chrome.storage.local.remove(expiredKeys);
   });
 }
 
 // Get all stats without session arrays (much faster for aggregate views)
 export async function getAllDailyStatsSummary(): Promise<Record<string, { date: string; totalTime: number; sites: Record<string, number>; visits: number; blockedAttempts: number }>> {
-  const result = await chrome.storage.local.get(STORAGE_KEYS.DAILY_STATS);
-  const allStats = result[STORAGE_KEYS.DAILY_STATS] || {};
+  const allStats = await getAllDailyStats();
 
   // Strip out sessions and youtubeSessions to reduce data size
   const summary: Record<string, { date: string; totalTime: number; sites: Record<string, number>; visits: number; blockedAttempts: number }> = {};
-  for (const [date, stats] of Object.entries(allStats as Record<string, DailyStats>)) {
+  for (const [date, stats] of Object.entries(allStats)) {
     summary[date] = {
       date: stats.date,
       totalTime: stats.totalTime,
@@ -271,19 +359,17 @@ export async function getSessionsForRange(startDate: string, endDate: string): P
   youtubeSessions: YouTubeChannelSession[];
   focusSessions: FocusSession[];
 }> {
-  const result = await chrome.storage.local.get(STORAGE_KEYS.DAILY_STATS);
-  const allStats = result[STORAGE_KEYS.DAILY_STATS] || {};
+  await ensureDailyStatsStorageMigrated();
+  const rangeDates = datesInRange(startDate, endDate);
+  const result = await chrome.storage.local.get(rangeDates.map(dailyStatsKey));
 
   const sessions: SiteSession[] = [];
   const youtubeSessions: YouTubeChannelSession[] = [];
 
   // Iterate through dates in range
-  let currentDate = new Date(startDate + 'T00:00:00');
-  const endDateObj = new Date(endDate + 'T00:00:00');
-
-  while (currentDate <= endDateObj) {
-    const dateStr = getLocalDateString(currentDate);
-    const dayStats = allStats[dateStr];
+  for (const dateStr of rangeDates) {
+    const stored = result[dailyStatsKey(dateStr)] as DailyStats | undefined;
+    const dayStats = stored ? normalizeDailyStats(dateStr, stored) : undefined;
     if (dayStats) {
       // Expand compact sessions to SiteSession[]
       if (dayStats.sessions && typeof dayStats.sessions === 'object' && !Array.isArray(dayStats.sessions)) {
@@ -316,7 +402,6 @@ export async function getSessionsForRange(startDate: string, endDate: string): P
         }
       }
     }
-    currentDate.setDate(currentDate.getDate() + 1);
   }
 
   const focusSessions = await getFocusSessionsForRange(startDate, endDate);
@@ -325,31 +410,23 @@ export async function getSessionsForRange(startDate: string, endDate: string): P
 
 export async function updateDailyStats(date: string, stats: DailyStats): Promise<void> {
   await queueDailyStatsWrite(async () => {
-    const result = await chrome.storage.local.get(STORAGE_KEYS.DAILY_STATS);
-    const allStats = result[STORAGE_KEYS.DAILY_STATS] || {};
-    allStats[date] = stats;
-    await chrome.storage.local.set({ [STORAGE_KEYS.DAILY_STATS]: allStats });
+    await ensureDailyStatsStorageMigrated();
+    await chrome.storage.local.set({ [dailyStatsKey(date)]: normalizeDailyStats(date, stats) });
   });
 }
 
 export async function incrementBlockedAttempt(_domain: string): Promise<void> {
   await queueDailyStatsWrite(async () => {
+    await ensureDailyStatsStorageMigrated();
     const today = getLocalDateString();
-    const result = await chrome.storage.local.get(STORAGE_KEYS.DAILY_STATS);
-    const allStats = result[STORAGE_KEYS.DAILY_STATS] || {};
-    const stats = allStats[today] || {
-      date: today,
-      totalTime: 0,
-      sites: {},
-      visits: 0,
-      blockedAttempts: 0,
-      sessions: {},
-      youtubeSessions: {},
-    };
+    const key = dailyStatsKey(today);
+    const result = await chrome.storage.local.get(key);
+    const stats = result[key]
+      ? normalizeDailyStats(today, result[key] as DailyStats)
+      : createEmptyDailyStats(today);
 
     stats.blockedAttempts++;
-    allStats[today] = stats;
-    await chrome.storage.local.set({ [STORAGE_KEYS.DAILY_STATS]: allStats });
+    await chrome.storage.local.set({ [key]: stats });
   });
 }
 
@@ -435,23 +512,20 @@ export async function recordSession(session: SiteSession, options: { countVisit?
   if (segments.length === 0) return;
 
   await queueDailyStatsWrite(async () => {
-    const result = await chrome.storage.local.get(STORAGE_KEYS.DAILY_STATS);
-    const allStats = result[STORAGE_KEYS.DAILY_STATS] || {};
+    await ensureDailyStatsStorageMigrated();
+    const keys = [...new Set(segments.map(segment => dailyStatsKey(segment.date)))];
+    const result = await chrome.storage.local.get(keys);
+    const updates: Record<string, DailyStats> = {};
 
     const domain = session.domain;
     const countVisit = options.countVisit ?? true;
     let visitCounted = false;
 
     for (const segment of segments) {
-      const stats = allStats[segment.date] || {
-        date: segment.date,
-        totalTime: 0,
-        sites: {},
-        visits: 0,
-        blockedAttempts: 0,
-        sessions: {},
-        youtubeSessions: {},
-      };
+      const key = dailyStatsKey(segment.date);
+      const stats = updates[key] || (result[key]
+        ? normalizeDailyStats(segment.date, result[key] as DailyStats)
+        : createEmptyDailyStats(segment.date));
 
       if (!stats.sessions || Array.isArray(stats.sessions)) {
         stats.sessions = {};
@@ -472,10 +546,10 @@ export async function recordSession(session: SiteSession, options: { countVisit?
       stats.sites = computed.sites;
       if (!stats.youtubeSessions) stats.youtubeSessions = {};
 
-      allStats[segment.date] = stats;
+      updates[key] = stats;
     }
 
-    await chrome.storage.local.set({ [STORAGE_KEYS.DAILY_STATS]: allStats });
+    await chrome.storage.local.set(updates);
   });
 }
 
@@ -556,20 +630,17 @@ export async function recordYouTubeSession(session: YouTubeChannelSession): Prom
   if (segments.length === 0) return;
 
   await queueDailyStatsWrite(async () => {
-    const result = await chrome.storage.local.get(STORAGE_KEYS.DAILY_STATS);
-    const allStats = result[STORAGE_KEYS.DAILY_STATS] || {};
+    await ensureDailyStatsStorageMigrated();
+    const keys = [...new Set(segments.map(segment => dailyStatsKey(segment.date)))];
+    const result = await chrome.storage.local.get(keys);
+    const updates: Record<string, DailyStats> = {};
 
     const channelName = session.channelName;
     for (const segment of segments) {
-      const existingStats = allStats[segment.date] || {
-        date: segment.date,
-        totalTime: 0,
-        sites: {},
-        visits: 0,
-        blockedAttempts: 0,
-        sessions: {},
-        youtubeSessions: {},
-      };
+      const key = dailyStatsKey(segment.date);
+      const existingStats = updates[key] || (result[key]
+        ? normalizeDailyStats(segment.date, result[key] as DailyStats)
+        : createEmptyDailyStats(segment.date));
 
       if (!existingStats.youtubeSessions || Array.isArray(existingStats.youtubeSessions)) {
         existingStats.youtubeSessions = {};
@@ -583,10 +654,10 @@ export async function recordYouTubeSession(session: YouTubeChannelSession): Prom
         existingStats.youtubeSessions[channelName].url = session.channelUrl;
       }
 
-      allStats[segment.date] = existingStats;
+      updates[key] = existingStats;
     }
 
-    await chrome.storage.local.set({ [STORAGE_KEYS.DAILY_STATS]: allStats });
+    await chrome.storage.local.set(updates);
   });
 }
 
@@ -609,28 +680,36 @@ export async function getActiveYouTubeSessions(): Promise<Record<number, ActiveY
 }
 
 export async function setActiveYouTubeSessions(sessions: Record<number, ActiveYouTubeSession>): Promise<void> {
-  await chrome.storage.session.set({ [STORAGE_KEYS.ACTIVE_YOUTUBE_SESSIONS]: sessions });
+  await queueActiveYouTubeSessionsWrite(() =>
+    chrome.storage.session.set({ [STORAGE_KEYS.ACTIVE_YOUTUBE_SESSIONS]: sessions })
+  );
 }
 
 export async function addActiveYouTubeSession(tabId: number, session: ActiveYouTubeSession): Promise<void> {
-  const sessions = await getActiveYouTubeSessions();
-  sessions[tabId] = session;
-  await setActiveYouTubeSessions(sessions);
+  await queueActiveYouTubeSessionsWrite(async () => {
+    const sessions = await getActiveYouTubeSessions();
+    sessions[tabId] = session;
+    await chrome.storage.session.set({ [STORAGE_KEYS.ACTIVE_YOUTUBE_SESSIONS]: sessions });
+  });
 }
 
 export async function removeActiveYouTubeSession(tabId: number): Promise<ActiveYouTubeSession | undefined> {
-  const sessions = await getActiveYouTubeSessions();
-  const session = sessions[tabId];
-  if (session) {
-    delete sessions[tabId];
-    await setActiveYouTubeSessions(sessions);
-  }
-  return session;
+  return queueActiveYouTubeSessionsWrite(async () => {
+    const sessions = await getActiveYouTubeSessions();
+    const session = sessions[tabId];
+    if (session) {
+      delete sessions[tabId];
+      await chrome.storage.session.set({ [STORAGE_KEYS.ACTIVE_YOUTUBE_SESSIONS]: sessions });
+    }
+    return session;
+  });
 }
 
 export async function clearActiveYouTubeSessions(): Promise<void> {
-  await chrome.storage.session.remove(STORAGE_KEYS.ACTIVE_YOUTUBE_SESSIONS);
-  await chrome.storage.local.remove(STORAGE_KEYS.ACTIVE_YOUTUBE_SESSIONS);
+  await queueActiveYouTubeSessionsWrite(async () => {
+    await chrome.storage.session.remove(STORAGE_KEYS.ACTIVE_YOUTUBE_SESSIONS);
+    await chrome.storage.local.remove(STORAGE_KEYS.ACTIVE_YOUTUBE_SESSIONS);
+  });
 }
 
 // Active sessions management (multiple windows)
@@ -652,28 +731,36 @@ export async function getActiveSessions(): Promise<Record<number, ActiveSession>
 }
 
 export async function setActiveSessions(sessions: Record<number, ActiveSession>): Promise<void> {
-  await chrome.storage.session.set({ [STORAGE_KEYS.ACTIVE_SESSIONS]: sessions });
+  await queueActiveSessionsWrite(() =>
+    chrome.storage.session.set({ [STORAGE_KEYS.ACTIVE_SESSIONS]: sessions })
+  );
 }
 
 export async function addActiveSession(tabId: number, session: ActiveSession): Promise<void> {
-  const sessions = await getActiveSessions();
-  sessions[tabId] = session;
-  await setActiveSessions(sessions);
+  await queueActiveSessionsWrite(async () => {
+    const sessions = await getActiveSessions();
+    sessions[tabId] = session;
+    await chrome.storage.session.set({ [STORAGE_KEYS.ACTIVE_SESSIONS]: sessions });
+  });
 }
 
 export async function removeActiveSession(tabId: number): Promise<ActiveSession | undefined> {
-  const sessions = await getActiveSessions();
-  const session = sessions[tabId];
-  if (session) {
-    delete sessions[tabId];
-    await setActiveSessions(sessions);
-  }
-  return session;
+  return queueActiveSessionsWrite(async () => {
+    const sessions = await getActiveSessions();
+    const session = sessions[tabId];
+    if (session) {
+      delete sessions[tabId];
+      await chrome.storage.session.set({ [STORAGE_KEYS.ACTIVE_SESSIONS]: sessions });
+    }
+    return session;
+  });
 }
 
 export async function clearActiveSessions(): Promise<void> {
-  await chrome.storage.session.remove(STORAGE_KEYS.ACTIVE_SESSIONS);
-  await chrome.storage.local.remove(STORAGE_KEYS.ACTIVE_SESSIONS);
+  await queueActiveSessionsWrite(async () => {
+    await chrome.storage.session.remove(STORAGE_KEYS.ACTIVE_SESSIONS);
+    await chrome.storage.local.remove(STORAGE_KEYS.ACTIVE_SESSIONS);
+  });
 }
 
 // Password hashing using Web Crypto API
@@ -943,7 +1030,10 @@ export async function checkDailyLimitForDomain(domain: string, additionalSeconds
 const MIGRATION_KEY = 'sessionFormatMigrated';
 
 export async function migrateSessionsToCompactFormat(): Promise<boolean> {
-  return queueDailyStatsWrite(migrateSessions);
+  return queueDailyStatsWrite(async () => {
+    await ensureDailyStatsStorageMigrated();
+    return migrateSessions();
+  });
 }
 
 async function migrateSessions(): Promise<boolean> {
@@ -954,13 +1044,13 @@ async function migrateSessions(): Promise<boolean> {
   }
 
   console.log('[Migration] Starting session format migration...');
-  const result = await chrome.storage.local.get(STORAGE_KEYS.DAILY_STATS);
-  const allStats = result[STORAGE_KEYS.DAILY_STATS] || {};
+  const result = await chrome.storage.local.get(null);
+  const allStats = dailyStatsFromStorage(result);
 
   let migratedCount = 0;
 
   for (const stats of Object.values(allStats)) {
-    const dayStats = stats as Record<string, unknown>;
+    const dayStats = stats as unknown as Record<string, unknown>;
     let needsUpdate = false;
 
     // Migrate sessions array to compact format
@@ -1011,11 +1101,11 @@ async function migrateSessions(): Promise<boolean> {
     }
   }
 
-  // Save migrated data
-  await chrome.storage.local.set({
-    [STORAGE_KEYS.DAILY_STATS]: allStats,
-    [MIGRATION_KEY]: true,
-  });
+  const updates: Record<string, unknown> = { [MIGRATION_KEY]: true };
+  for (const [date, stats] of Object.entries(allStats)) {
+    updates[dailyStatsKey(date)] = stats;
+  }
+  await chrome.storage.local.set(updates);
 
   console.log(`[Migration] Completed. Migrated ${migratedCount} days of data.`);
   return true;

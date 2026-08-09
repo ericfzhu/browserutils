@@ -5,6 +5,8 @@ import {
   checkDailyLimitForDomain,
   computeStatsFromCompactSessions,
   endFocusSession,
+  addActiveSession,
+  getActiveSessions,
   getActiveYouTubeSessions,
   getDailyStats,
   getFocusSessionsForRange,
@@ -320,6 +322,54 @@ describe('recordSession', () => {
     ]);
   });
 
+  it('migrates legacy history into independently stored day keys', async () => {
+    const date = '2026-06-21';
+    localStore.dailyStats = {
+      [date]: {
+        date,
+        totalTime: 60,
+        sites: { 'example.com': 60 },
+        visits: 1,
+        blockedAttempts: 0,
+        sessions: { 'example.com': [[1, 61]] },
+        youtubeSessions: {},
+      },
+    };
+
+    const stats = await getDailyStats(date);
+
+    expect(stats.totalTime).toBe(60);
+    expect(localStore[`dailyStats:${date}`]).toEqual(stats);
+    expect(localStore.dailyStats).toBeUndefined();
+    expect(localStore.storageSchemaVersion).toBe(2);
+  });
+
+  it('writes a session without rewriting unrelated days', async () => {
+    const oldDate = '2026-06-20';
+    localStore.storageSchemaVersion = 2;
+    localStore[`dailyStats:${oldDate}`] = {
+      date: oldDate,
+      totalTime: 10,
+      sites: { 'old.example': 10 },
+      visits: 1,
+      blockedAttempts: 0,
+      sessions: { 'old.example': [[1, 11]] },
+      youtubeSessions: {},
+    };
+    const oldValue = localStore[`dailyStats:${oldDate}`];
+    const startTime = new Date('2026-06-22T10:00:00').getTime();
+
+    await recordSession({
+      domain: 'new.example',
+      startTime,
+      endTime: startTime + 60_000,
+      windowId: 1,
+    });
+
+    expect(localStore[`dailyStats:${oldDate}`]).toBe(oldValue);
+    expect(localStore[`dailyStats:${getLocalDateString(new Date(startTime))}`]).toBeDefined();
+  });
+
   it('preserves concurrent writes from separate event handlers', async () => {
     const startTime = new Date('2026-06-22T10:00:00').getTime();
 
@@ -353,16 +403,15 @@ describe('recordSession', () => {
       enabled: true,
       bypassType: 'none',
     }];
-    localStore.dailyStats = {
-      [today]: {
-        date: today,
-        totalTime: 90,
-        sites: { 'example.com': 90 },
-        visits: 1,
-        blockedAttempts: 0,
-        sessions: { 'example.com': [[0, 90]] },
-        youtubeSessions: {},
-      },
+    localStore.storageSchemaVersion = 2;
+    localStore[`dailyStats:${today}`] = {
+      date: today,
+      totalTime: 90,
+      sites: { 'example.com': 90 },
+      visits: 1,
+      blockedAttempts: 0,
+      sessions: { 'example.com': [[0, 90]] },
+      youtubeSessions: {},
     };
 
     const result = await checkDailyLimitForDomain('example.com', 30);
@@ -383,6 +432,29 @@ describe('recordSession', () => {
 
     expect(sessionStore.activeYouTubeSessions).toBeDefined();
     expect(localStore.activeYouTubeSessions).toBeUndefined();
+  });
+
+  it('preserves concurrent active sessions from different tabs', async () => {
+    await Promise.all([
+      addActiveSession(1, {
+        domain: 'first.example',
+        startTime: 1000,
+        lastActiveTime: 2000,
+        tabId: 1,
+        windowId: 1,
+      }),
+      addActiveSession(2, {
+        domain: 'second.example',
+        startTime: 1000,
+        lastActiveTime: 2000,
+        tabId: 2,
+        windowId: 1,
+      }),
+    ]);
+
+    const sessions = await getActiveSessions();
+    expect(sessions[1].domain).toBe('first.example');
+    expect(sessions[2].domain).toBe('second.example');
   });
 
   it('records focus sessions and returns sessions overlapping a date range', async () => {
