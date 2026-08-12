@@ -29,10 +29,11 @@ A Chrome extension for tracking website usage and blocking distracting sites.
 
 ## Installation
 
-1. Clone or download this repository
-2. Open Chrome and go to `chrome://extensions`
-3. Enable "Developer mode"
-4. Click "Load unpacked" and select the `dist` folder
+1. Download `browserutils-v1.0.0.zip` from the [latest GitHub Release](https://github.com/ericfzhu/browserutils/releases/latest)
+2. Extract the zip file
+3. Open Chrome and go to `chrome://extensions`
+4. Enable "Developer mode"
+5. Click "Load unpacked" and select the extracted folder
 
 ## Development
 
@@ -45,6 +46,8 @@ yarn install
 # Build for production
 yarn build
 ```
+
+Load the generated `dist` folder from `chrome://extensions` while developing.
 
 ## Tech Stack
 
