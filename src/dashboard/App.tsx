@@ -70,14 +70,14 @@ export default function App() {
       <LockdownModal />
       <div className="flex min-h-screen bg-background text-foreground">
       {/* Sidebar */}
-      <nav className="sticky top-0 flex h-screen w-64 flex-col border-r border-[var(--sidebar-border)] bg-[var(--sidebar)] p-4 text-[var(--sidebar-foreground)]">
+      <nav className="sticky top-0 flex h-screen w-56 flex-col border-r border-[var(--sidebar-border)] bg-[var(--sidebar)] p-4 text-[var(--sidebar-foreground)]">
         <div
-          className="mb-8 flex cursor-default items-center gap-3 rounded-lg p-2"
+          className="mb-8 grid min-h-11 cursor-default grid-cols-[36px_1fr] items-center gap-3"
           onMouseEnter={() => setIsHovered(true)}
           onMouseLeave={() => setIsHovered(false)}
         >
-          <div className="flex size-10 items-center justify-center rounded-md bg-primary shadow-[var(--shadow-border)]">
-            <Shield className="size-6 text-primary-foreground" />
+          <div className="flex size-9 items-center justify-center bg-primary shadow-[var(--shadow-border)]">
+            <Shield className="size-5 text-primary-foreground" />
           </div>
           <div className="min-w-0">
             <h1 className="relative h-6 overflow-hidden font-bold">
@@ -107,14 +107,14 @@ export default function App() {
               to={to}
               className={({ isActive }) =>
                 cn(
-                  'flex min-h-10 items-center gap-3 rounded-md px-3 text-sm font-medium transition-[background-color,color,box-shadow] duration-150 ease-out',
+                  'grid min-h-11 grid-cols-[36px_1fr] items-center gap-3 border-l-2 px-0 text-sm font-medium transition-[background-color,color,box-shadow,border-color] duration-150 ease-out',
                   isActive
-                    ? 'bg-primary text-primary-foreground shadow-[var(--shadow-border)]'
-                    : 'text-muted-foreground hover:bg-[var(--sidebar-accent)] hover:text-[var(--sidebar-accent-foreground)] hover:shadow-[inset_3px_0_0_var(--sidebar-primary)]'
+                    ? 'border-primary bg-primary text-primary-foreground shadow-[var(--shadow-border)]'
+                    : 'border-transparent text-muted-foreground hover:border-[var(--sidebar-primary)] hover:bg-[var(--sidebar-accent)] hover:text-[var(--sidebar-accent-foreground)]'
                 )
               }
             >
-              <Icon className="size-5" />
+              <span className="-ml-0.5 flex size-9 items-center justify-center"><Icon className="size-5" /></span>
               {label}
             </NavLink>
           ))}
@@ -126,28 +126,28 @@ export default function App() {
             to="/changelog"
             className={({ isActive }) =>
               cn(
-                'flex min-h-10 items-center gap-2 rounded-md px-3 text-sm transition-[background-color,color,box-shadow] duration-150 ease-out',
+                'grid min-h-11 grid-cols-[36px_1fr] items-center gap-3 border-l-2 px-0 text-sm transition-[background-color,color,box-shadow,border-color] duration-150 ease-out',
                 isActive
-                  ? 'bg-primary text-primary-foreground shadow-[var(--shadow-border)]'
-                  : 'text-muted-foreground hover:bg-[var(--sidebar-accent)] hover:text-[var(--sidebar-accent-foreground)] hover:shadow-[inset_3px_0_0_var(--sidebar-primary)]'
+                  ? 'border-primary bg-primary text-primary-foreground shadow-[var(--shadow-border)]'
+                  : 'border-transparent text-muted-foreground hover:border-[var(--sidebar-primary)] hover:bg-[var(--sidebar-accent)] hover:text-[var(--sidebar-accent-foreground)]'
               )
             }
           >
-            <Sparkles className="size-4" />
+            <span className="-ml-0.5 flex size-9 items-center justify-center"><Sparkles className="size-4" /></span>
             What's New
           </NavLink>
           <NavLink
             to="/settings"
             className={({ isActive }) =>
               cn(
-                'flex min-h-10 items-center gap-2 rounded-md px-3 text-sm transition-[background-color,color,box-shadow] duration-150 ease-out',
+                'grid min-h-11 grid-cols-[36px_1fr] items-center gap-3 border-l-2 px-0 text-sm transition-[background-color,color,box-shadow,border-color] duration-150 ease-out',
                 isActive
-                  ? 'bg-primary text-primary-foreground shadow-[var(--shadow-border)]'
-                  : 'text-muted-foreground hover:bg-[var(--sidebar-accent)] hover:text-[var(--sidebar-accent-foreground)] hover:shadow-[inset_3px_0_0_var(--sidebar-primary)]'
+                  ? 'border-primary bg-primary text-primary-foreground shadow-[var(--shadow-border)]'
+                  : 'border-transparent text-muted-foreground hover:border-[var(--sidebar-primary)] hover:bg-[var(--sidebar-accent)] hover:text-[var(--sidebar-accent-foreground)]'
               )
             }
           >
-            <Settings className="size-4" />
+            <span className="-ml-0.5 flex size-9 items-center justify-center"><Settings className="size-4" /></span>
             Settings
           </NavLink>
           <p className="text-center text-xs text-muted-foreground tabular-nums">v{CURRENT_VERSION}</p>

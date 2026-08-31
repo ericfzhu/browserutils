@@ -1,0 +1,54 @@
+@import '@fontsource-variable/geist';
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    border-color: theme('colors.line');
+  }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    @apply m-0 bg-canvas font-sans text-ink;
+  }
+
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+
+  p,
+  li {
+    text-wrap: pretty;
+  }
+
+  button,
+  a {
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+@layer components {
+  .site-grid {
+    @apply mx-auto w-full max-w-[1440px] px-5 md:px-8 lg:px-12;
+  }
+
+  .eyebrow {
+    @apply font-mono text-[11px] font-medium uppercase tracking-[0.12em] text-quiet;
+  }
+
+  .hairline-button {
+    @apply inline-flex min-h-10 items-center justify-center gap-2 border border-ink bg-transparent px-4 text-sm font-medium transition-[background-color,color] duration-150 ease-out hover:bg-ink hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink;
+  }
+
+  .solid-button {
+    @apply inline-flex min-h-10 items-center justify-center gap-2 border border-ink bg-ink px-4 text-sm font-medium text-white transition-[background-color,color] duration-150 ease-out hover:bg-signal focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink;
+  }
+}

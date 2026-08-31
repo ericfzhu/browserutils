@@ -1,11 +1,11 @@
 export const analyticsPanelClass =
-  'rounded-lg border border-border bg-card p-6 text-card-foreground shadow-[var(--shadow-card)]';
+  'border border-border bg-card p-6 text-card-foreground shadow-[var(--shadow-card)]';
 
 export const analyticsStatCardClass =
-  'rounded-lg border border-border bg-card p-6 text-card-foreground shadow-[var(--shadow-card)]';
+  'border border-border bg-card p-5 text-card-foreground shadow-[var(--shadow-card)]';
 
 export const analyticsBarTrackClass =
-  'h-2 overflow-hidden rounded-full bg-muted';
+  'h-2 overflow-hidden bg-muted';
 
 export const analyticsEmptyStateClass =
   'py-8 text-center text-sm text-muted-foreground';

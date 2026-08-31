@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Clock, Globe, Shield, TrendingUp, Layers, Video } from 'lucide-react';
-import { DailyStats, BlockedSite, SiteSession, DailyLimit, Settings, ActiveYouTubeSession, CompactSessions, CompactYouTubeSessions, CustomCategory } from '../../shared/types';
+import { Clock, Shield, Focus, Layers, Video } from 'lucide-react';
+import { DailyStats, BlockedSite, SiteSession, DailyLimit, Settings, ActiveYouTubeSession, CompactSessions, CompactYouTubeSessions, CustomCategory, FocusSession } from '../../shared/types';
 import { getCategoryForDomain, getCategoryInfoWithOverrides, getCategoryOptions } from '../../shared/categories';
 import { computeYouTubeStatsWithUrls } from '../../shared/storage';
 import {
@@ -36,6 +36,18 @@ function formatTime(seconds: number): string {
     return `${hours}h ${minutes}m`;
   }
   return `${minutes}m`;
+}
+
+function formatCountdown(seconds: number): string {
+  const safeSeconds = Math.max(0, Math.floor(seconds));
+  const hours = Math.floor(safeSeconds / 3600);
+  const minutes = Math.floor((safeSeconds % 3600) / 60);
+  const remainingSeconds = safeSeconds % 60;
+
+  if (hours > 0) {
+    return `${hours}:${String(minutes).padStart(2, '0')}:${String(remainingSeconds).padStart(2, '0')}`;
+  }
+  return `${String(minutes).padStart(2, '0')}:${String(remainingSeconds).padStart(2, '0')}`;
 }
 
 function formatTimeOfDay(timestamp: number): string {
@@ -205,7 +217,7 @@ function TimelinePreview({ sessions, sites }: TimelinePreviewProps) {
                 <span className="text-xs text-muted-foreground tabular-nums">{formatTime(totalTime)}</span>
               </div>
 
-              <div className="relative h-5 flex-1 overflow-hidden rounded-lg bg-muted shadow-[inset_0_0_0_1px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.06)]">
+              <div className="relative h-5 flex-1 overflow-hidden bg-muted shadow-[inset_0_0_0_1px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.06)]">
                 {hourMarkers.map(marker => (
                   <div
                     key={marker.hour}
@@ -222,7 +234,7 @@ function TimelinePreview({ sessions, sites }: TimelinePreviewProps) {
                   return (
                     <div
                       key={idx}
-                      className={`absolute bottom-0.5 top-0.5 ${color} rounded-md opacity-80`}
+                      className={`absolute bottom-0.5 top-0.5 ${color} opacity-80`}
                       style={{ left: `${startPos}%`, width: `${width}%` }}
                       title={`${formatTimeOfDay(interval.start)} - ${formatTimeOfDay(interval.end)}`}
                     />
@@ -257,6 +269,8 @@ export default function Overview() {
   const [builtInOverrides, setBuiltInOverrides] = useState<Record<string, string>>({});
   const [settings, setSettings] = useState<Settings | null>(null);
   const [activeYoutubeSessions, setActiveYoutubeSessions] = useState<Record<number, ActiveYouTubeSession>>({});
+  const [focusSessions, setFocusSessions] = useState<FocusSession[]>([]);
+  const [currentTime, setCurrentTime] = useState(() => Date.now());
   const [loading, setLoading] = useState(true);
 
   const today = getDateString(new Date());
@@ -265,9 +279,14 @@ export default function Overview() {
     loadData();
   }, []);
 
+  useEffect(() => {
+    const interval = window.setInterval(() => setCurrentTime(Date.now()), 1_000);
+    return () => window.clearInterval(interval);
+  }, []);
+
   async function loadData() {
     try {
-      const [stats, sites, limits, categories, custom, overrides, settingsResult, activeYt] = await Promise.all([
+      const [stats, sites, limits, categories, custom, overrides, settingsResult, activeYt, sessionData] = await Promise.all([
         chrome.runtime.sendMessage({ type: 'GET_STATS', payload: { date: today } }),
         chrome.runtime.sendMessage({ type: 'GET_BLOCKED_SITES' }),
         chrome.runtime.sendMessage({ type: 'GET_DAILY_LIMITS' }),
@@ -276,6 +295,7 @@ export default function Overview() {
         chrome.runtime.sendMessage({ type: 'GET_BUILTIN_CATEGORY_OVERRIDES' }),
         chrome.runtime.sendMessage({ type: 'GET_SETTINGS' }),
         chrome.runtime.sendMessage({ type: 'GET_ACTIVE_YOUTUBE_SESSIONS' }),
+        chrome.runtime.sendMessage({ type: 'GET_SESSIONS_FOR_RANGE', payload: { startDate: today, endDate: today } }),
       ]);
       setTodayStats(stats);
       setBlockedSites(sites);
@@ -285,6 +305,7 @@ export default function Overview() {
       setBuiltInOverrides(overrides || {});
       setSettings(settingsResult);
       setActiveYoutubeSessions(activeYt || {});
+      setFocusSessions(sessionData?.focusSessions || []);
     } catch (err) {
       console.error('Failed to load data:', err);
     } finally {
@@ -358,57 +379,139 @@ export default function Overview() {
         .slice(0, 5)
     : [];
 
+  const dayStart = new Date(`${today}T00:00:00`).getTime();
+  const dayEnd = dayStart + 24 * 60 * 60 * 1000;
+  const getFocusSessionEnd = (session: FocusSession) =>
+    session.endTime ?? Math.min(session.plannedEndTime, currentTime);
+  const getFocusSessionDuration = (session: FocusSession) =>
+    Math.max(
+      0,
+      Math.round((
+        Math.min(getFocusSessionEnd(session), dayEnd) -
+        Math.max(session.startTime, dayStart)
+      ) / 1000)
+    );
+  const totalFocusTime = focusSessions.reduce(
+    (sum, session) => sum + getFocusSessionDuration(session),
+    0
+  );
+  const activeFocus = focusSessions
+    .filter(session => session.endTime === undefined && session.plannedEndTime > currentTime)
+    .sort((a, b) => b.startTime - a.startTime)[0];
+  const todayLabel = new Date().toLocaleDateString('en-US', {
+    weekday: 'long',
+    month: 'short',
+    day: 'numeric',
+  });
+
   return (
     <div>
-      <h1 className="mb-6 text-2xl font-bold text-foreground">Overview</h1>
+      <div className="mb-6 flex items-end justify-between border-b border-foreground pb-4">
+        <div>
+          <p className="mb-1 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground">Dashboard</p>
+          <h1 className="text-2xl font-bold text-foreground">Overview</h1>
+        </div>
+        <span className="text-sm text-muted-foreground">{todayLabel}</span>
+      </div>
 
       {/* Stats Cards */}
-      <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="mb-6 grid gap-4 md:grid-cols-3">
         <div className={analyticsStatCardClass}>
-          <div className="flex items-center gap-3 mb-2">
-            <div className="rounded-md bg-blue-100 p-2 dark:bg-blue-900/50">
-              <Clock className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-            </div>
-            <span className="text-sm text-muted-foreground">Time today</span>
+          <div className="flex items-center justify-between text-sm text-muted-foreground">
+            <span>Tracked today</span>
+            <Clock className="size-4" />
           </div>
-          <p className="text-2xl font-bold tabular-nums">{formatTime(todayStats?.totalTime || 0)}</p>
+          <p className="mt-5 text-3xl font-bold tabular-nums">{formatTime(todayStats?.totalTime || 0)}</p>
         </div>
 
         <div className={analyticsStatCardClass}>
-          <div className="flex items-center gap-3 mb-2">
-            <div className="rounded-md bg-green-100 p-2 dark:bg-green-900/50">
-              <Globe className="h-5 w-5 text-green-600 dark:text-green-400" />
-            </div>
-            <span className="text-sm text-muted-foreground">Sites visited</span>
+          <div className="flex items-center justify-between text-sm text-muted-foreground">
+            <span>Sites blocked</span>
+            <Shield className="size-4" />
           </div>
-          <p className="text-2xl font-bold tabular-nums">{Object.keys(todayStats?.sites || {}).length}</p>
+          <p className="mt-5 text-3xl font-bold tabular-nums">{todayStats?.blockedAttempts || 0}</p>
         </div>
 
         <div className={analyticsStatCardClass}>
-          <div className="flex items-center gap-3 mb-2">
-            <div className="rounded-md bg-red-100 p-2 dark:bg-red-900/50">
-              <Shield className="h-5 w-5 text-red-600 dark:text-red-400" />
-            </div>
-            <span className="text-sm text-muted-foreground">Blocks today</span>
+          <div className="flex items-center justify-between text-sm text-muted-foreground">
+            <span>Focus time</span>
+            <Focus className="size-4" />
           </div>
-          <p className="text-2xl font-bold tabular-nums">{todayStats?.blockedAttempts || 0}</p>
+          <p className="mt-5 text-3xl font-bold tabular-nums">{formatTime(totalFocusTime)}</p>
+        </div>
+      </div>
+
+      <div className="mb-6 grid gap-4 lg:grid-cols-3">
+        {/* Today */}
+        <div className={`${analyticsPanelClass} lg:col-span-2`}>
+          <div className="mb-7 flex items-center justify-between">
+            <h2 className="text-lg font-semibold">Today</h2>
+            <span className="text-xs text-muted-foreground">Activity</span>
+          </div>
+          {topSites.length > 0 ? (
+            <div className="space-y-4">
+              {(() => {
+                const maxSiteTime = topSites[0]?.[1] || 1;
+                return topSites.map(([domain, time]) => {
+                  const color = getDomainColor(domain);
+                  return (
+                    <div key={domain} className="grid grid-cols-[minmax(0,120px)_1fr_auto] items-center gap-4">
+                      <div className="min-w-0">
+                        <a
+                          href={`https://${domain}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="truncate text-sm font-medium transition-colors duration-150 ease-out hover:text-primary hover:underline"
+                        >
+                          {domain}
+                        </a>
+                      </div>
+                      <div className={analyticsBarTrackClass}>
+                        <div
+                          className={`h-full ${color}`}
+                          style={{ width: `${(time / maxSiteTime) * 100}%` }}
+                        />
+                      </div>
+                      <span className="w-12 text-right text-xs text-muted-foreground tabular-nums">{formatTime(time)}</span>
+                    </div>
+                  );
+                });
+              })()}
+            </div>
+          ) : (
+            <p className={analyticsEmptyStateClass}>No activity recorded yet</p>
+          )}
         </div>
 
-        <div className={analyticsStatCardClass}>
-          <div className="flex items-center gap-3 mb-2">
-            <div className="rounded-md bg-purple-100 p-2 dark:bg-purple-900/50">
-              <TrendingUp className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-            </div>
-            <span className="text-sm text-muted-foreground">Active blocks</span>
+        {/* Current Focus */}
+        <div className={analyticsPanelClass}>
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold">Current focus</h2>
+            <Focus className="size-4 text-muted-foreground" />
           </div>
-          <p className="text-2xl font-bold tabular-nums">{blockedSites.filter(s => s.enabled).length}</p>
+          <div className="flex min-h-40 flex-col justify-end">
+            {activeFocus ? (
+              <>
+                <p className="text-4xl font-bold tabular-nums">
+                  {formatCountdown((activeFocus.plannedEndTime - currentTime) / 1000)}
+                </p>
+                <p className="mt-2 truncate text-sm font-medium">{activeFocus.targetName}</p>
+                <p className="mt-1 text-xs text-muted-foreground">Session in progress</p>
+              </>
+            ) : (
+              <>
+                <p className="text-lg font-semibold">No active session</p>
+                <Link to="/blocked" className={`${analyticsLinkClass} mt-2 w-fit`}>Start from blocked sites</Link>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
       {/* Activity Timeline Preview */}
       <div className={`${analyticsPanelClass} mb-6`}>
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold">Today's activity</h2>
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Browsing timeline</h2>
           <Link to="/metrics#activity-timeline" className={analyticsLinkClass}>
             View all
           </Link>
@@ -419,83 +522,40 @@ export default function Overview() {
         />
       </div>
 
-      <div className="mb-6 grid gap-6 lg:grid-cols-2">
-        {/* Top Sites Today */}
-        <div className={analyticsPanelClass}>
-          <h2 className="text-lg font-semibold mb-4">Top sites today</h2>
-          {topSites.length > 0 ? (
+      <div className={`${analyticsPanelClass} mb-6`}>
+        <h2 className="mb-4 text-lg font-semibold">By category</h2>
+        {(() => {
+          const categoryBreakdown = getCategoryBreakdown();
+          if (categoryBreakdown.length === 0) {
+            return <p className={analyticsEmptyStateClass}>No activity recorded yet</p>;
+          }
+          const maxCategoryTime = categoryBreakdown[0]?.time || 1;
+          return (
             <div className="space-y-3">
-              {(() => {
-                const maxSiteTime = topSites[0]?.[1] || 1;
-                return topSites.map(([domain, time], index) => (
-                  <div key={domain} className="flex items-center gap-3">
-                    <span className="w-4 text-sm text-muted-foreground tabular-nums">{index + 1}</span>
+              {categoryBreakdown.slice(0, 5).map(({ category, time }) => {
+                const info = getCategoryInfoWithOverrides(category, customCategories, builtInOverrides);
+                const barWidth = (time / maxCategoryTime) * 100;
+                return (
+                  <div key={category} className="flex items-center gap-3">
+                    <div className={`size-3 shrink-0 ${info.color}`} />
                     <div className="flex-1">
-                      <div className="flex items-center justify-between mb-1">
-                        <a
-                          href={`https://${domain}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="truncate text-sm font-medium transition-colors duration-150 ease-out hover:text-primary hover:underline"
-                        >
-                          {domain}
-                        </a>
+                      <div className="mb-1 flex items-center justify-between">
+                        <span className="text-sm font-medium">{info.name}</span>
                         <span className="text-sm text-muted-foreground tabular-nums">{formatTime(time)}</span>
                       </div>
                       <div className={analyticsBarTrackClass}>
                         <div
-                          className="h-full rounded-full bg-primary"
-                          style={{
-                            width: `${(time / maxSiteTime) * 100}%`,
-                          }}
+                          className={`h-full ${info.color} transition-[width] duration-300 ease-out`}
+                          style={{ width: `${barWidth}%` }}
                         />
                       </div>
                     </div>
                   </div>
-                ));
-              })()}
+                );
+              })}
             </div>
-          ) : (
-            <p className={analyticsEmptyStateClass}>No activity recorded yet</p>
-          )}
-        </div>
-
-        {/* By Category Today */}
-        <div className={analyticsPanelClass}>
-          <h2 className="text-lg font-semibold mb-4">By category</h2>
-          {(() => {
-            const categoryBreakdown = getCategoryBreakdown();
-            if (categoryBreakdown.length === 0) {
-              return <p className={analyticsEmptyStateClass}>No activity recorded yet</p>;
-            }
-            const maxCategoryTime = categoryBreakdown[0]?.time || 1;
-            return (
-              <div className="space-y-3">
-                {categoryBreakdown.slice(0, 5).map(({ category, time }) => {
-                  const info = getCategoryInfoWithOverrides(category, customCategories, builtInOverrides);
-                  const barWidth = (time / maxCategoryTime) * 100;
-                  return (
-                    <div key={category} className="flex items-center gap-3">
-                      <div className={`w-3 h-3 rounded-full ${info.color}`} />
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-sm font-medium">{info.name}</span>
-                          <span className="text-sm text-muted-foreground tabular-nums">{formatTime(time)}</span>
-                        </div>
-                        <div className={analyticsBarTrackClass}>
-                          <div
-                            className={`h-full ${info.color} transition-[width] duration-300 ease-out`}
-                            style={{ width: `${barWidth}%` }}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            );
-          })()}
-        </div>
+          );
+        })()}
       </div>
 
       {/* Limits Exceeded Warning */}
@@ -605,14 +665,14 @@ export default function Overview() {
             const maxChannelTime = sortedChannels[0]?.[1].time || 1;
 
             return (
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {sortedChannels.map(([channel, stats]) => {
                   const barWidth = (stats.time / maxChannelTime) * 100;
                   // Use URL from recorded sessions, or fall back to active session URL
                   const channelUrl = stats.url || activeUrls[channel];
                   return (
-                    <div key={channel}>
-                      <div className="flex justify-between text-sm mb-1">
+                    <div key={channel} className="grid grid-cols-[minmax(0,140px)_1fr_auto] items-center gap-4">
+                      <div className="min-w-0 text-sm">
                         {channelUrl ? (
                           <a
                             href={channelUrl}
@@ -625,14 +685,14 @@ export default function Overview() {
                         ) : (
                           <span className="font-medium truncate">{channel}</span>
                         )}
-                        <span className="text-muted-foreground tabular-nums">{formatTime(stats.time)}</span>
                       </div>
                       <div className={analyticsBarTrackClass}>
                         <div
-                          className="h-full rounded-full bg-red-500 transition-[width] duration-300 ease-out"
+                          className="h-full bg-red-500 transition-[width] duration-300 ease-out"
                           style={{ width: `${barWidth}%` }}
                         />
                       </div>
+                      <span className="w-12 text-right text-xs text-muted-foreground tabular-nums">{formatTime(stats.time)}</span>
                     </div>
                   );
                 })}

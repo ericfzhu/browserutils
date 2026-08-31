@@ -4,8 +4,14 @@
     "private": true,
     "type": "module",
     "packageManager": "yarn@4.0.2",
+    "workspaces": [
+        "site"
+    ],
     "scripts": {
         "dev": "vite build --watch",
+        "site:dev": "yarn workspace browserutils-site dev",
+        "site:build": "yarn workspace browserutils-site build",
+        "site:preview": "yarn workspace browserutils-site preview",
         "prebuild": "node scripts/generate-changelog.js && node scripts/generate-icons.js",
         "build": "yarn prebuild && tsc && vite build",
         "preview": "vite preview",
