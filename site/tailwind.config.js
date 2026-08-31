@@ -9,7 +9,7 @@ export default {
         line: '#c9c9c5',
         quiet: '#6d6d69',
         panel: '#ffffff',
-        signal: '#ff5a1f',
+        signal: '#2563eb',
       },
       fontFamily: {
         sans: ['Geist Variable', 'sans-serif'],

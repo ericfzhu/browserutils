@@ -1,9 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ArrowDown,
-  ArrowRight,
   BarChart3,
-  Check,
   ChevronRight,
   Clock3,
   Code2,
@@ -12,6 +10,9 @@ import {
   Focus,
   LayoutDashboard,
   Menu,
+  Pause,
+  Play,
+  RotateCcw,
   Shield,
   Timer,
   X,
@@ -26,11 +27,44 @@ const previewTabs = [
 
 type PreviewTab = (typeof previewTabs)[number]['id'];
 
-const capabilityRows = [
-  { number: '01', title: 'Observe', note: 'Usage tracking and daily activity structure.' },
-  { number: '02', title: 'Interrupt', note: 'Blocked pages, schedules, and protected access.' },
-  { number: '03', title: 'Limit', note: 'Daily allowances and deliberate overrides.' },
-  { number: '04', title: 'Review', note: 'Metrics, focus sessions, and longer-term patterns.' },
+const installationSteps = [
+  {
+    number: '01',
+    title: 'get the release.',
+    detail: <>Download <code className="font-mono text-white">browserutils-v1.0.0.zip</code> from GitHub.</>,
+  },
+  {
+    number: '02',
+    title: 'unpack it.',
+    detail: <>Unzip the download and keep the folder somewhere permanent.</>,
+  },
+  {
+    number: '03',
+    title: 'open extensions.',
+    detail: <>Enter <code className="font-mono text-white">chrome://extensions</code> and turn on Developer mode.</>,
+  },
+  {
+    number: '04',
+    title: 'load BrowserUtils.',
+    detail: <>Click <strong className="font-medium text-white">Load unpacked</strong> and select the extracted folder.</>,
+  },
+];
+
+const technicalDetails = [
+  ['tracking', 'active tab time'],
+  ['records', 'one key per day'],
+  ['storage', 'Chrome local storage'],
+  ['backup', 'complete encrypted export'],
+  ['account', 'none'],
+  ['subscription', 'none'],
+];
+
+const activitySegments = [
+  { site: 'github.com', duration: '34m', width: '17%', color: '#2563eb' },
+  { site: 'youtube.com', duration: '52m', width: '26%', color: '#e33d32' },
+  { site: 'docs.google.com', duration: '41m', width: '21%', color: '#16a36a' },
+  { site: 'reddit.com', duration: '19m', width: '10%', color: '#f08a24' },
+  { site: 'figma.com', duration: '32m', width: '16%', color: '#8b5cf6' },
 ];
 
 function Mark() {
@@ -53,11 +87,11 @@ function Header() {
         </a>
 
         <nav className="hidden items-center gap-8 text-sm md:flex" aria-label="Main navigation">
-          <a className="min-h-10 py-2.5 text-quiet transition-colors duration-150 hover:text-ink" href="#product">Product</a>
-          <a className="min-h-10 py-2.5 text-quiet transition-colors duration-150 hover:text-ink" href="#capabilities">Capabilities</a>
-          <a className="min-h-10 py-2.5 text-quiet transition-colors duration-150 hover:text-ink" href="#install">Install</a>
+          <a className="min-h-10 py-2.5 text-quiet transition-colors duration-150 hover:text-ink" href="#product">product</a>
+          <a className="min-h-10 py-2.5 text-quiet transition-colors duration-150 hover:text-ink" href="#details">details</a>
+          <a className="min-h-10 py-2.5 text-quiet transition-colors duration-150 hover:text-ink" href="#install">install</a>
           <a className="hairline-button" href="https://github.com/ericfzhu/browserutils">
-            <Code2 className="size-4" /> Source
+            <Code2 className="size-4" /> source
           </a>
         </nav>
 
@@ -74,7 +108,7 @@ function Header() {
 
       {menuOpen && (
         <nav className="site-grid flex flex-col border-t py-3 md:hidden" aria-label="Mobile navigation">
-          {['Product', 'Capabilities', 'Install'].map((item) => (
+          {['product', 'details', 'install'].map((item) => (
             <a
               key={item}
               className="flex min-h-11 items-center justify-between border-b text-sm"
@@ -92,30 +126,21 @@ function Header() {
 
 function Hero() {
   return (
-    <section id="top" className="site-grid flex min-h-[calc(100svh-4rem)] flex-col justify-between py-10 md:py-14">
-      <div className="flex items-start justify-between border-t border-ink pt-3">
-        <span className="eyebrow">Chrome extension / v1.0.0</span>
-        <span className="eyebrow hidden sm:block">Local-first tools for attention</span>
-      </div>
-
-      <div className="max-w-5xl py-16 md:py-24">
+    <section id="top" className="site-grid flex min-h-[calc(100svh-4rem)] items-center py-16 md:py-24">
+      <div className="w-full max-w-5xl">
         <h1 className="text-[clamp(4rem,12vw,10.5rem)] font-semibold leading-[0.78] tracking-[-0.055em]">
           Browser<br />Utils<span className="text-signal">.</span>
         </h1>
         <div className="mt-10 grid gap-8 border-t pt-6 md:grid-cols-[1fr_1fr] md:items-end">
           <p className="max-w-xl text-xl leading-snug md:text-2xl">
-            A working space for the primary product statement and a short description.
+            <span className="block">the internet. useful until it isn’t.</span>
+            <span className="block">BrowserUtils adds a few brakes.</span>
           </p>
           <div className="flex flex-wrap gap-3 md:justify-end">
-            <a className="solid-button" href="#install"><Download className="size-4" /> Download</a>
-            <a className="hairline-button" href="#product">Explore structure <ArrowDown className="size-4" /></a>
+            <a className="solid-button" href="#install"><Download className="size-4" /> get BrowserUtils</a>
+            <a className="hairline-button" href="#product">see it work <ArrowDown className="size-4" /></a>
           </div>
         </div>
-      </div>
-
-      <div className="flex items-end justify-between border-b border-ink pb-3">
-        <span className="eyebrow">Block / Track / Focus</span>
-        <span className="font-mono text-xs tabular-nums">Scroll 01—04</span>
       </div>
     </section>
   );
@@ -211,11 +236,11 @@ function ProductPreview() {
       <div className="site-grid">
         <div className="grid gap-8 lg:grid-cols-[0.75fr_1.25fr]">
           <div>
-            <p className="eyebrow">Product demonstration</p>
-            <h2 className="mt-5 max-w-xl text-4xl font-semibold leading-tight md:text-6xl">The extension should explain itself.</h2>
+            <p className="eyebrow">the control panel</p>
+            <h2 className="mt-5 max-w-xl text-balance text-4xl font-semibold leading-tight md:text-6xl">everything, in one place.</h2>
           </div>
-          <p className="max-w-xl self-end text-lg text-quiet lg:justify-self-end">
-            This area holds the eventual product narrative. For now, use the controls below to test the basic showcase structure.
+          <p className="max-w-xl self-end text-pretty text-lg text-quiet lg:justify-self-end">
+            blocks, limits, browsing time and focus sessions live in the same dashboard. nothing leaves Chrome.
           </p>
         </div>
 
@@ -259,20 +284,170 @@ function ProductPreview() {
   );
 }
 
-function Capabilities() {
+function FocusTheatre() {
+  const initialSeconds = 24 * 60 + 16;
+  const [remainingSeconds, setRemainingSeconds] = useState(initialSeconds);
+  const [running, setRunning] = useState(true);
+
+  useEffect(() => {
+    if (!running) return;
+
+    const interval = window.setInterval(() => {
+      setRemainingSeconds((seconds) => {
+        if (seconds <= 1) {
+          setRunning(false);
+          return 0;
+        }
+        return seconds - 1;
+      });
+    }, 1000);
+
+    return () => window.clearInterval(interval);
+  }, [running]);
+
+  const minutes = Math.floor(remainingSeconds / 60).toString().padStart(2, '0');
+  const seconds = (remainingSeconds % 60).toString().padStart(2, '0');
+
   return (
-    <section id="capabilities" className="site-grid py-20 md:py-28">
-      <div className="grid gap-10 lg:grid-cols-[1fr_2fr]">
-        <div><p className="eyebrow">Page sequence</p><h2 className="mt-5 text-4xl font-semibold md:text-5xl">Four product moments.</h2></div>
-        <div className="border-t border-ink">
-          {capabilityRows.map(({ number, title, note }) => (
-            <div key={number} className="group grid min-h-32 grid-cols-[48px_1fr_auto] items-center gap-4 border-b border-ink transition-colors duration-150 hover:bg-white md:grid-cols-[80px_1fr_1fr_auto]">
-              <span className="pl-3 font-mono text-xs tabular-nums text-quiet md:pl-5">{number}</span>
-              <h3 className="text-2xl font-semibold md:text-3xl">{title}</h3>
-              <p className="hidden max-w-sm text-sm text-quiet md:block">{note}</p>
-              <ArrowRight className="mr-3 size-5 transition-transform duration-150 group-hover:translate-x-1 md:mr-5" />
+    <section className="border-b border-ink bg-signal text-white">
+      <div className="site-grid grid min-h-[680px] gap-14 py-20 md:py-28 lg:grid-cols-[0.75fr_1.25fr] lg:items-center">
+        <div>
+          <p className="font-mono text-[11px] uppercase tracking-[0.12em] text-white/65">03 / focus</p>
+          <h2 className="mt-5 max-w-lg text-balance text-5xl font-semibold leading-[0.95] md:text-7xl">focus. now in minutes.</h2>
+          <p className="mt-7 max-w-md text-pretty text-lg text-white/70">
+            choose what gets blocked, set the clock and get on with it.
+          </p>
+        </div>
+
+        <div className="border-y border-white/45 py-8 sm:py-12 lg:border-l lg:border-y-0 lg:py-0 lg:pl-14">
+          <div className="flex items-start justify-between gap-6">
+            <div>
+              <p className="font-mono text-[11px] uppercase tracking-[0.12em] text-white/60">current focus</p>
+              <p className="mt-3 text-sm text-white/75">all distracting sites</p>
             </div>
-          ))}
+            <span className="border border-white/45 px-2 py-1 font-mono text-[10px] uppercase">{running ? 'running' : 'paused'}</span>
+          </div>
+          <p className="my-14 font-mono text-[clamp(5rem,15vw,10rem)] font-semibold leading-none tabular-nums">
+            {minutes}:{seconds}
+          </p>
+          <div className="flex items-center justify-between border-t border-white/45 pt-5">
+            <span className="text-sm text-white/65">25 minute session</span>
+            <div className="flex gap-2">
+              <button
+                className="flex size-11 items-center justify-center border border-white/50 transition-[background-color,color] duration-150 hover:bg-white hover:text-signal"
+                type="button"
+                aria-label={running ? 'Pause focus timer' : 'Resume focus timer'}
+                title={running ? 'Pause' : 'Resume'}
+                onClick={() => setRunning((value) => !value)}
+              >
+                {running ? <Pause className="size-4" /> : <Play className="size-4" />}
+              </button>
+              <button
+                className="flex size-11 items-center justify-center border border-white/50 transition-[background-color,color] duration-150 hover:bg-white hover:text-signal"
+                type="button"
+                aria-label="Reset focus timer"
+                title="Reset"
+                onClick={() => {
+                  setRemainingSeconds(initialSeconds);
+                  setRunning(true);
+                }}
+              >
+                <RotateCcw className="size-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function ProductTheatre() {
+  return (
+    <div aria-label="BrowserUtils feature demonstrations">
+      <section className="border-b border-ink bg-canvas">
+        <div className="site-grid grid min-h-[640px] gap-14 py-20 md:py-28 lg:grid-cols-[0.7fr_1.3fr] lg:items-center">
+          <div>
+            <p className="eyebrow">01 / daily limits</p>
+            <h2 className="mt-5 max-w-lg text-balance text-5xl font-semibold leading-[0.95] md:text-7xl">enough youtube.</h2>
+            <p className="mt-7 max-w-md text-pretty text-lg text-quiet">
+              set the number. BrowserUtils watches the clock. when the time is gone, the page is too.
+            </p>
+          </div>
+
+          <div className="border-y border-ink py-8 sm:py-12 lg:border-l lg:border-y-0 lg:py-4 lg:pl-14">
+            <div className="flex items-center justify-between border-b pb-5">
+              <div className="flex items-center gap-3">
+                <span className="size-3 bg-[#e33d32]" />
+                <span className="text-sm font-semibold">youtube.com</span>
+              </div>
+              <span className="font-mono text-[10px] uppercase text-quiet">limit reached</span>
+            </div>
+            <p className="my-12 font-mono text-[clamp(5rem,14vw,9rem)] font-semibold leading-none tabular-nums">2h 00m</p>
+            <div className="h-4 bg-[#dededa]"><div className="h-full w-full bg-[#e33d32]" /></div>
+            <div className="mt-4 flex justify-between font-mono text-xs tabular-nums text-quiet">
+              <span>used today</span><span>daily limit / 2h</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="border-b border-ink bg-white">
+        <div className="site-grid py-20 md:py-28">
+          <div className="grid gap-8 lg:grid-cols-[0.8fr_1.2fr]">
+            <div>
+              <p className="eyebrow">02 / activity</p>
+              <h2 className="mt-5 text-balance text-5xl font-semibold leading-[0.95] md:text-7xl">the day, measured.</h2>
+            </div>
+            <p className="max-w-lg self-end text-pretty text-lg text-quiet lg:justify-self-end">
+              active tabs become a timeline. every main URL keeps its own color. the numbers stay in the browser.
+            </p>
+          </div>
+
+          <div className="mt-16 border-y border-ink py-8">
+            <div className="flex items-end justify-between gap-6">
+              <div><span className="eyebrow">today</span><p className="mt-2 text-4xl font-semibold tabular-nums">3h 42m</p></div>
+              <span className="font-mono text-xs text-quiet">09:00—17:00</span>
+            </div>
+            <div className="mt-10 flex h-16 w-full gap-1 bg-[#efefec] p-1">
+              {activitySegments.map(({ site, width, color }) => (
+                <div key={site} className="h-full min-w-2" style={{ width, backgroundColor: color }} title={site} />
+              ))}
+            </div>
+            <div className="mt-8 grid gap-x-8 gap-y-4 sm:grid-cols-2 lg:grid-cols-5">
+              {activitySegments.map(({ site, duration, color }) => (
+                <div key={site} className="flex items-center justify-between gap-4 border-b pb-3 text-xs">
+                  <span className="flex min-w-0 items-center gap-2"><span className="size-2 shrink-0" style={{ backgroundColor: color }} /><span className="truncate">{site}</span></span>
+                  <span className="font-mono tabular-nums text-quiet">{duration}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <FocusTheatre />
+    </div>
+  );
+}
+
+function TechnicalDetails() {
+  return (
+    <section id="details" className="border-b border-ink bg-canvas">
+      <div className="site-grid py-20 md:py-28">
+        <div className="grid gap-10 lg:grid-cols-[0.65fr_1.35fr]">
+          <div>
+            <p className="eyebrow">under the panel</p>
+            <h2 className="mt-5 max-w-lg text-balance text-4xl font-semibold leading-tight md:text-6xl">what it does. where it keeps it.</h2>
+          </div>
+          <dl className="border-t border-ink">
+            {technicalDetails.map(([term, detail]) => (
+              <div key={term} className="grid grid-cols-[120px_1fr] gap-5 border-b border-ink py-5 sm:grid-cols-[180px_1fr]">
+                <dt className="font-mono text-xs text-quiet">{term}</dt>
+                <dd className="text-sm font-medium">{detail}</dd>
+              </div>
+            ))}
+          </dl>
         </div>
       </div>
     </section>
@@ -282,23 +457,24 @@ function Capabilities() {
 function Install() {
   return (
     <section id="install" className="border-t border-ink bg-ink text-white">
-      <div className="site-grid grid min-h-[520px] gap-12 py-20 lg:grid-cols-2 lg:items-center">
+      <div className="site-grid grid gap-14 py-20 md:py-28 lg:grid-cols-[0.8fr_1.2fr] lg:gap-20">
         <div>
-          <p className="font-mono text-[11px] uppercase tracking-[0.12em] text-white/55">Release and installation</p>
-          <h2 className="mt-5 max-w-xl text-5xl font-semibold leading-[0.95] md:text-7xl">A clear final action belongs here.</h2>
+          <p className="font-mono text-[11px] uppercase tracking-[0.12em] text-white/55">install</p>
+          <h2 className="mt-5 max-w-xl text-balance text-5xl font-semibold leading-[0.95] md:text-7xl">not in the store. still easy.</h2>
+          <p className="mt-7 max-w-lg text-pretty text-base leading-relaxed text-white/65">
+            download the release, unzip it and load the folder from Chrome’s extensions page. no account required.
+          </p>
           <div className="mt-10 flex flex-wrap gap-3">
-            <a className="inline-flex min-h-11 items-center gap-2 border border-white bg-white px-4 text-sm font-medium text-ink transition-colors duration-150 hover:bg-signal hover:text-white" href="https://github.com/ericfzhu/browserutils/releases/latest"><Download className="size-4" /> Latest release</a>
-            <a className="inline-flex min-h-11 items-center gap-2 border border-white/50 px-4 text-sm font-medium transition-colors duration-150 hover:border-white hover:bg-white hover:text-ink" href="https://github.com/ericfzhu/browserutils"><Code2 className="size-4" /> View source</a>
+            <a className="inline-flex min-h-11 items-center gap-2 border border-white bg-white px-4 text-sm font-medium text-ink transition-colors duration-150 hover:bg-signal hover:text-white" href="https://github.com/ericfzhu/browserutils/releases/latest"><Download className="size-4" /> latest release</a>
+            <a className="inline-flex min-h-11 items-center gap-2 border border-white/50 px-4 text-sm font-medium transition-colors duration-150 hover:border-white hover:bg-white hover:text-ink" href="https://github.com/ericfzhu/browserutils"><Code2 className="size-4" /> view source</a>
           </div>
         </div>
-        <div className="border border-white/35">
-          {[
-            ['01', 'Download the release'],
-            ['02', 'Load the extension'],
-            ['03', 'Keep data in your browser'],
-          ].map(([number, label]) => (
-            <div key={number} className="grid min-h-20 grid-cols-[52px_1fr_auto] items-center border-b border-white/35 px-4 last:border-b-0">
-              <span className="font-mono text-xs text-white/55">{number}</span><span className="text-sm">{label}</span><Check className="size-4 text-white/55" />
+        <div className="border-t border-white/50">
+          {installationSteps.map(({ number, title, detail }) => (
+            <div key={number} className="grid gap-3 border-b border-white/35 py-6 sm:grid-cols-[48px_180px_1fr] sm:gap-5">
+              <span className="font-mono text-xs tabular-nums text-white/45">{number}</span>
+              <h3 className="text-sm font-semibold text-white">{title}</h3>
+              <p className="max-w-md text-pretty text-sm leading-relaxed text-white/60">{detail}</p>
             </div>
           ))}
         </div>
@@ -313,9 +489,9 @@ function Footer() {
       <div className="site-grid flex flex-col gap-6 py-8 text-sm sm:flex-row sm:items-center sm:justify-between">
         <span>BrowserUtils / 2026</span>
         <div className="flex flex-wrap gap-6 text-white/65">
-          <a className="transition-colors duration-150 hover:text-white" href="https://ericfzhu.com/works">Back to Works</a>
-          <a className="inline-flex items-center gap-1 transition-colors duration-150 hover:text-white" href="https://github.com/ericfzhu/browserutils">GitHub <ExternalLink className="size-3" /></a>
-          <a className="transition-colors duration-150 hover:text-white" href="#top">Top</a>
+          <a className="transition-colors duration-150 hover:text-white" href="https://ericfzhu.com/works">back to works</a>
+          <a className="inline-flex items-center gap-1 transition-colors duration-150 hover:text-white" href="https://github.com/ericfzhu/browserutils">github <ExternalLink className="size-3" /></a>
+          <a className="transition-colors duration-150 hover:text-white" href="#top">top</a>
         </div>
       </div>
     </footer>
@@ -329,7 +505,8 @@ export default function App() {
       <main>
         <Hero />
         <ProductPreview />
-        <Capabilities />
+        <ProductTheatre />
+        <TechnicalDetails />
         <Install />
       </main>
       <Footer />

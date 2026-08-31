@@ -4,7 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "predev": "node ../scripts/generate-icons.js",
     "dev": "vite",
+    "prebuild": "node ../scripts/generate-icons.js",
     "build": "tsc -b && vite build",
     "preview": "vite preview"
   },
