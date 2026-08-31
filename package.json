@@ -12,6 +12,8 @@
         "site:dev": "yarn workspace browserutils-site dev",
         "site:build": "yarn workspace browserutils-site build",
         "site:preview": "yarn workspace browserutils-site preview",
+        "site:worker:dev": "yarn site:build && wrangler dev",
+        "site:deploy": "yarn site:build && wrangler deploy",
         "prebuild": "node scripts/generate-changelog.js && node scripts/generate-icons.js",
         "build": "yarn prebuild && tsc && vite build",
         "preview": "vite preview",
@@ -46,6 +48,7 @@
         "tailwindcss": "^3.3.6",
         "typescript": "^5.3.3",
         "vite": "^5.0.8",
-        "vitest": "^4.0.17"
+        "vitest": "^4.0.17",
+        "wrangler": "^4.127.1"
     }
 }
