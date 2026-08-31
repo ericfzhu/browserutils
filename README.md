@@ -49,6 +49,24 @@ yarn build
 
 Load the generated `dist` folder from `chrome://extensions` while developing.
 
+### Showcase website
+
+Run the website locally with:
+
+```bash
+yarn site:dev
+```
+
+The website is deployed as Cloudflare Workers Static Assets through a connected GitHub repository. Configure Workers Builds from the repository root with:
+
+```text
+Build command:          yarn site:build
+Deploy command:         yarn wrangler deploy
+Preview deploy command: yarn wrangler versions upload
+```
+
+The Worker name, compatibility date, SPA routing, and `site/dist` asset directory are defined in `wrangler.jsonc`.
+
 ## Tech Stack
 
 - React + TypeScript

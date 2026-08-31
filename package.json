@@ -13,7 +13,6 @@
         "site:build": "yarn workspace browserutils-site build",
         "site:preview": "yarn workspace browserutils-site preview",
         "site:worker:dev": "yarn site:build && wrangler dev",
-        "site:deploy": "yarn site:build && wrangler deploy",
         "prebuild": "node scripts/generate-changelog.js && node scripts/generate-icons.js",
         "build": "yarn prebuild && tsc && vite build",
         "preview": "vite preview",
