@@ -69,9 +69,7 @@ const activitySegments = [
 
 function Mark() {
   return (
-    <span className="flex size-9 items-center justify-center bg-ink text-white" aria-hidden="true">
-      <Shield className="size-[18px]" strokeWidth={2.25} />
-    </span>
+    <img className="size-9 object-contain p-1" src="/favicon.svg" alt="" aria-hidden="true" />
   );
 }
 
@@ -127,9 +125,10 @@ function Header() {
 function Hero() {
   return (
     <section id="top" className="site-grid flex min-h-[calc(100svh-4rem)] items-center py-16 md:py-24">
-      <div className="w-full max-w-5xl">
-        <h1 className="text-[clamp(4rem,12vw,10.5rem)] font-semibold leading-[0.78] tracking-[-0.055em]">
-          Browser<br />Utils<span className="text-signal">.</span>
+      <div className="w-full">
+        <h1 className="text-[4rem] font-semibold leading-[0.78] sm:text-[6rem] md:text-[8rem] xl:text-[10.5rem] min-[1400px]:text-[12rem]">
+          <span className="xl:hidden">Browser<br />Utils<span className="text-signal">.</span></span>
+          <span className="hidden whitespace-nowrap xl:inline">BrowserUtils<span className="text-signal">.</span></span>
         </h1>
         <div className="mt-10 grid gap-8 border-t pt-6 md:grid-cols-[1fr_1fr] md:items-end">
           <p className="max-w-xl text-xl leading-snug md:text-2xl">
@@ -312,7 +311,7 @@ function FocusTheatre() {
     <section className="border-b border-ink bg-signal text-white">
       <div className="site-grid grid min-h-[680px] gap-14 py-20 md:py-28 lg:grid-cols-[0.75fr_1.25fr] lg:items-center">
         <div>
-          <p className="font-mono text-[11px] uppercase tracking-[0.12em] text-white/65">03 / focus</p>
+          <p className="font-mono text-[11px] uppercase text-white/65">03 / focus</p>
           <h2 className="mt-5 max-w-lg text-balance text-5xl font-semibold leading-[0.95] md:text-7xl">focus. now in minutes.</h2>
           <p className="mt-7 max-w-md text-pretty text-lg text-white/70">
             choose what gets blocked, set the clock and get on with it.
@@ -322,7 +321,7 @@ function FocusTheatre() {
         <div className="border-y border-white/45 py-8 sm:py-12 lg:border-l lg:border-y-0 lg:py-0 lg:pl-14">
           <div className="flex items-start justify-between gap-6">
             <div>
-              <p className="font-mono text-[11px] uppercase tracking-[0.12em] text-white/60">current focus</p>
+              <p className="font-mono text-[11px] uppercase text-white/60">current focus</p>
               <p className="mt-3 text-sm text-white/75">all distracting sites</p>
             </div>
             <span className="border border-white/45 px-2 py-1 font-mono text-[10px] uppercase">{running ? 'running' : 'paused'}</span>
@@ -459,7 +458,7 @@ function Install() {
     <section id="install" className="border-t border-ink bg-ink text-white">
       <div className="site-grid grid gap-14 py-20 md:py-28 lg:grid-cols-[0.8fr_1.2fr] lg:gap-20">
         <div>
-          <p className="font-mono text-[11px] uppercase tracking-[0.12em] text-white/55">install</p>
+          <p className="font-mono text-[11px] uppercase text-white/55">install</p>
           <h2 className="mt-5 max-w-xl text-balance text-5xl font-semibold leading-[0.95] md:text-7xl">not in the store. still easy.</h2>
           <p className="mt-7 max-w-lg text-pretty text-base leading-relaxed text-white/65">
             download the release, unzip it and load the folder from Chrome’s extensions page. no account required.
