@@ -1,63 +1,92 @@
-# BrowserUtils
+<img src="site/public/favicon.svg" width="48" height="48" alt="BrowserUtils blue shield">
 
-A Chrome extension for tracking website usage and blocking distracting sites.
+# BrowserUtils.
 
-## Features
+the internet. useful until it isn't.<br>
+BrowserUtils adds a few brakes.
 
-### Time Tracking
-- Tracks time spent on each website with per-domain breakdown
-- Accurate tracking using content script heartbeats (15-second intervals)
-- Tracks only the active tab in the focused Chrome window and pauses when Chrome loses focus
-- Continues tracking during media playback (e.g., YouTube videos)
-- Daily, weekly, and monthly statistics with visual breakdowns
+[download the latest release](https://github.com/ericfzhu/browserutils/releases/latest) / [read the changelog](CHANGELOG.md)
 
-### Site Blocking
-- Block access to distracting websites by domain pattern
-- Supports wildcards (e.g., `*.reddit.com`)
-- Multiple unlock methods:
-  - Password protection
-  - Timer-based unlock (temporary access)
-  - Schedule-based blocking (block during specific hours/days)
+## enough youtube.
 
-### Dashboard
-- Overview of daily activity
-- Detailed metrics with charts
-- Manage blocked sites
-- Configure settings (tracking, blocking, data retention)
-- Create and restore password-encrypted backups
-- Set master password for protected sites
+Set a daily limit for a site. BrowserUtils watches active browsing time and blocks the page when the time is gone. Limits reset with the next local day.
 
-## Installation
+## the day, measured.
 
-1. Download `browserutils-v1.0.1.zip` from the [latest GitHub Release](https://github.com/ericfzhu/browserutils/releases/latest)
-2. Extract the zip file
-3. Open Chrome and go to `chrome://extensions`
-4. Enable "Developer mode"
-5. Click "Load unpacked" and select the extracted folder
+BrowserUtils records the active tab in the focused Chrome window. Overview shows today. Metrics keeps the longer view: sites, categories, browsing sessions, blocks, and focus history.
 
-## Development
+Background tabs do not quietly collect time. Chrome losing focus pauses general tracking. Media playback can continue to count while it is genuinely active.
 
-If you want to modify the extension:
+## focus. now in minutes.
+
+Start a focus session for one blocked-site folder or every blocked site at once. Pick a duration, close the dashboard, and get on with it.
+
+## blocked means blocked.
+
+Rules can cover a domain, subdomain, or path. A block can be always on, scheduled, protected by a password, or run for a fixed amount of time.
+
+Lockdown Mode protects changes with a master password or authenticator app. Overlapping rules are all evaluated, so an inactive rule cannot hide an active one.
+
+## small extras.
+
+- Paste Anyway restores pasting on sites that interfere with it.
+- Video download tools handle supported Blob-backed and Reddit media.
+- Complete encrypted backups preserve settings, protected rules, authenticator setup, and usage history.
+
+These features stay dormant until enabled.
+
+## under the panel.
+
+| | |
+| --- | --- |
+| platform | Chrome Extension Manifest V3 |
+| interface | React, TypeScript, Tailwind CSS |
+| tracking | focused-window active tab time |
+| records | one local storage key per day |
+| storage | `chrome.storage.local` |
+| live state | `chrome.storage.session` |
+| backups | complete password-encrypted export |
+| account | none |
+| subscription | none |
+
+## install.
+
+1. Download `browserutils-v1.0.1.zip` from the [latest GitHub release](https://github.com/ericfzhu/browserutils/releases/latest).
+2. Extract the archive somewhere permanent.
+3. Open `chrome://extensions`.
+4. Turn on **Developer mode**.
+5. Choose **Load unpacked** and select the extracted folder.
+
+Chrome keeps the extension ID stable because the manifest includes the public key used by BrowserUtils releases.
+
+## build it.
+
+Requires Yarn 4.
 
 ```bash
-# Install dependencies
 yarn install
-
-# Build for production
 yarn build
+yarn test:run
 ```
 
-Load the generated `dist` folder from `chrome://extensions` while developing.
+The extension build is written to `dist/`. Load that directory from `chrome://extensions` while developing.
 
-### Showcase website
+For watch mode:
 
-Run the website locally with:
+```bash
+yarn dev
+```
+
+## the public face.
+
+The interactive showcase lives in `site/`.
 
 ```bash
 yarn site:dev
+yarn site:build
 ```
 
-The website is deployed as Cloudflare Workers Static Assets through a connected GitHub repository. Configure Workers Builds from the repository root with:
+It is configured as Cloudflare Workers Static Assets in `wrangler.jsonc`. Production deploys are triggered from the connected GitHub repository with:
 
 ```text
 Build command:          yarn site:build
@@ -65,15 +94,16 @@ Deploy command:         yarn wrangler deploy
 Preview deploy command: yarn wrangler versions upload
 ```
 
-The Worker name, compatibility date, SPA routing, and `site/dist` asset directory are defined in `wrangler.jsonc`.
+Run the production Worker locally with:
 
-## Tech Stack
+```bash
+yarn site:worker:dev
+```
 
-- React + TypeScript
-- Vite
-- Tailwind CSS
-- Chrome Extension Manifest V3
+## privacy.
 
-## Privacy
+Browsing records, settings, password hashes, and authenticator secrets stay in browser storage. Backup files are only created when you explicitly export them. BrowserUtils has no account system and sends no usage data to an external service.
 
-All data is stored locally in your browser using `chrome.storage.local`. No data is sent to external servers.
+## release.
+
+Installable builds are published as versioned ZIP files under [GitHub Releases](https://github.com/ericfzhu/browserutils/releases). Build output stays out of Git history.
