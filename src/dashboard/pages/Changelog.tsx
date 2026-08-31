@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { Tag, Plus, Wrench, Bug, ArrowLeft, Minus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import DashboardPageHeader from '../components/DashboardPageHeader';
 
 // Changelog data - update this when releasing new versions
 const CURRENT_VERSION = '1.0.0';
@@ -589,29 +590,29 @@ export default function Changelog() {
 
   return (
     <div>
-      <div className="flex items-center gap-4 mb-6">
-        <button
-          onClick={() => navigate(-1)}
-          className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-        >
-          <ArrowLeft className="w-5 h-5" />
-        </button>
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Changelog</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400">What's new in BrowserUtils</p>
-        </div>
-      </div>
+      <DashboardPageHeader
+        label="Release notes"
+        title="Changelog"
+        meta="What's new in BrowserUtils"
+        actions={(
+          <button
+            onClick={() => navigate(-1)}
+            className="flex min-h-10 items-center gap-2 border px-3 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            <ArrowLeft className="size-4" />
+            Back
+          </button>
+        )}
+      />
 
       <div className="space-y-6">
         {changelog.map((entry, index) => (
           <div
             key={entry.version}
-            className="bg-white dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-600 p-6"
+            className="border border-border bg-card p-6 shadow-[var(--shadow-card)]"
           >
             <div className="flex items-center gap-3 mb-4">
-              <div className={`p-2 rounded-md ${index === 0 ? 'bg-primary/10' : 'bg-gray-100 dark:bg-gray-700'}`}>
-                <Tag className={`w-5 h-5 ${index === 0 ? 'text-primary' : 'text-gray-500 dark:text-gray-400'}`} />
-              </div>
+              <Tag className="size-5 text-muted-foreground" />
               <div>
                 <div className="flex items-center gap-2">
                   <h2 className="text-lg font-semibold">v{entry.version}</h2>

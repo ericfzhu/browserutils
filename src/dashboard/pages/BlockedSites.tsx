@@ -857,14 +857,14 @@ export default function BlockedSites() {
               isTimerActive ? (
                 <button
                   onClick={() => clearTimerBlock(site.id)}
-                  className="text-xs py-1 rounded-full bg-red-100 dark:bg-red-700/80 text-red-700 dark:text-red-200 hover:bg-red-200 dark:hover:bg-red-700 transition-colors w-[72px]"
+                  className="w-[72px] border border-red-300 bg-red-100 py-1 text-xs text-red-700 transition-colors hover:bg-red-200 dark:border-red-700 dark:bg-red-700/80 dark:text-red-200 dark:hover:bg-red-700"
                 >
                   Stop
                 </button>
               ) : (
                 <button
                   onClick={() => startTimerBlock(site.id)}
-                  className="text-xs py-1 rounded-full bg-gray-100 dark:bg-gray-600/80 text-gray-500 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors w-[72px]"
+                  className="w-[72px] border bg-muted py-1 text-xs text-muted-foreground transition-colors hover:bg-accent"
                 >
                   Disabled
                 </button>
@@ -873,7 +873,7 @@ export default function BlockedSites() {
               /* Standard toggle for non-timer sites */
               <button
                 onClick={() => toggleSite(site)}
-                className={`text-xs py-1 rounded-full transition-colors w-[72px] ${
+                className={`w-[72px] border py-1 text-xs transition-colors ${
                   site.enabled
                     ? 'bg-red-100 dark:bg-red-700/80 text-red-700 dark:text-red-200 hover:bg-red-200 dark:hover:bg-red-700'
                     : 'bg-gray-100 dark:bg-gray-600/80 text-gray-500 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
@@ -882,10 +882,10 @@ export default function BlockedSites() {
                 {site.enabled ? 'Blocking' : 'Disabled'}
               </button>
             )}
-            <button onClick={() => openEditModal(site)} className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded">
+            <button onClick={() => openEditModal(site)} className="p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-200">
               <Edit2 className="w-4 h-4" />
             </button>
-            <button onClick={() => deleteSite(site.id)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded">
+            <button onClick={() => deleteSite(site.id)} className="p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/30">
               <Trash2 className="w-4 h-4" />
             </button>
           </div>
@@ -906,7 +906,7 @@ export default function BlockedSites() {
     const isFocusActive = focusStatus?.isActive;
 
     const content = (dragHandleProps?: React.HTMLAttributes<HTMLDivElement>) => (
-      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-600 overflow-hidden">
+      <div className="overflow-hidden border border-border bg-card shadow-[var(--shadow-card)]">
         <div className={`flex items-center gap-2 px-4 py-3 bg-gray-100 dark:bg-gray-700 ${isCollapsed ? '' : 'border-b border-gray-200 dark:border-gray-600'}`}>
           {folder && (
             <div {...dragHandleProps} className="text-gray-300 dark:text-gray-600 hover:text-gray-500 dark:hover:text-gray-400 cursor-grab">
@@ -930,19 +930,19 @@ export default function BlockedSites() {
           {folder && folderSites.length > 0 && (
             isFocusActive && focusStatus ? (
               <div className="flex items-center gap-2">
-                <span className="text-xs text-purple-600 dark:text-purple-400 font-medium">
+                <span className="text-xs font-medium text-foreground tabular-nums">
                   {formatTimerRemaining(focusStatus.remainingMs)}
                 </span>
                 <button
                   onClick={() => openEditFocusModal(folder.id, focusStatus.remainingMs)}
-                  className="text-xs py-1 rounded bg-white dark:bg-gray-800 text-purple-700 dark:text-purple-200 border border-purple-200 dark:border-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/30 transition-colors w-[72px] flex items-center justify-center gap-1"
+                  className="flex w-[72px] items-center justify-center gap-1 border bg-card py-1 text-xs text-foreground transition-colors hover:bg-muted"
                 >
                   <Focus className="w-3 h-3" />
                   Extend
                 </button>
                 <button
                   onClick={() => stopFocusSession(folder.id)}
-                  className="text-xs py-1 rounded bg-purple-100 dark:bg-purple-700/80 text-purple-700 dark:text-purple-200 hover:bg-purple-200 dark:hover:bg-purple-700 transition-colors w-[72px] flex items-center justify-center gap-1"
+                  className="flex w-[72px] items-center justify-center gap-1 border border-foreground bg-foreground py-1 text-xs text-background transition-opacity hover:opacity-80"
                 >
                   <Focus className="w-3 h-3" />
                   Stop
@@ -951,7 +951,7 @@ export default function BlockedSites() {
             ) : (
               <button
                 onClick={() => openFocusModal(folder.id)}
-                className="text-xs py-1 rounded bg-purple-100 dark:bg-purple-700/80 text-purple-700 dark:text-purple-200 hover:bg-purple-200 dark:hover:bg-purple-700 transition-colors w-[72px] flex items-center justify-center gap-1"
+                className="flex w-[72px] items-center justify-center gap-1 border bg-card py-1 text-xs text-foreground transition-colors hover:bg-muted"
               >
                 <Focus className="w-3 h-3" />
                 Focus
@@ -961,7 +961,7 @@ export default function BlockedSites() {
           {folderSites.length > 0 && (
             <button
               onClick={() => toggleFolderSitesEnabled(folderId, !allEnabled)}
-              className={`text-xs py-1 rounded transition-colors w-[82px] ${
+              className={`w-[82px] border py-1 text-xs transition-colors ${
                 allEnabled ? 'bg-red-100 dark:bg-red-700/80 text-red-700 dark:text-red-200 hover:bg-red-200 dark:hover:bg-red-700' :
                 someEnabled ? 'bg-yellow-100 dark:bg-yellow-600/80 text-yellow-700 dark:text-yellow-200 hover:bg-yellow-200 dark:hover:bg-yellow-600' :
                 'bg-gray-100 dark:bg-gray-600/80 text-gray-500 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
@@ -972,10 +972,10 @@ export default function BlockedSites() {
           )}
           {folder && (
             <>
-              <button onClick={() => openEditFolderModal(folder)} className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded">
+              <button onClick={() => openEditFolderModal(folder)} className="p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-200">
                 <Edit2 className="w-4 h-4" />
               </button>
-              <button onClick={() => deleteFolder(folder.id)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded">
+              <button onClick={() => deleteFolder(folder.id)} className="p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/30">
                 <Trash2 className="w-4 h-4" />
               </button>
             </>
@@ -1023,8 +1023,11 @@ export default function BlockedSites() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Blocked Sites</h1>
+      <div className="mb-6 flex flex-col gap-4 border-b border-foreground pb-4 xl:flex-row xl:items-end xl:justify-between">
+        <div>
+          <p className="mb-1 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground">Controls</p>
+          <h1 className="text-2xl font-bold text-foreground">Blocked Sites</h1>
+        </div>
         <div className="flex items-center gap-2">
           {sites.length > 0 && (
             globalFocusStatus?.isActive ? (
@@ -1034,14 +1037,14 @@ export default function BlockedSites() {
                 </span>
                 <button
                   onClick={() => openEditGlobalFocusModal(globalFocusStatus.remainingMs)}
-                  className="flex items-center gap-2 bg-white dark:bg-gray-800 border border-purple-200 dark:border-purple-600 hover:bg-purple-50 dark:hover:bg-purple-900/30 text-purple-700 dark:text-purple-200 px-4 py-2 rounded-lg transition-colors"
+                  className="flex min-h-10 items-center gap-2 border bg-card px-4 text-foreground transition-colors hover:bg-muted"
                 >
                   <Focus className="w-5 h-5" />
                   Extend Focus
                 </button>
                 <button
                   onClick={stopGlobalFocusSession}
-                  className="flex items-center gap-2 bg-purple-100 dark:bg-purple-700/80 hover:bg-purple-200 dark:hover:bg-purple-700 text-purple-700 dark:text-purple-200 px-4 py-2 rounded-lg transition-colors"
+                  className="flex min-h-10 items-center gap-2 border border-foreground bg-foreground px-4 text-background transition-opacity hover:opacity-80"
                 >
                   <Focus className="w-5 h-5" />
                   Stop Focus
@@ -1050,7 +1053,7 @@ export default function BlockedSites() {
             ) : (
               <button
                 onClick={openGlobalFocusModal}
-                className="flex items-center gap-2 bg-purple-100 dark:bg-purple-700/80 hover:bg-purple-200 dark:hover:bg-purple-700 text-purple-700 dark:text-purple-200 px-4 py-2 rounded-lg transition-colors"
+                className="flex min-h-10 items-center gap-2 border bg-card px-4 text-foreground transition-colors hover:bg-muted"
               >
                 <Focus className="w-5 h-5" />
                 Focus All
@@ -1059,7 +1062,7 @@ export default function BlockedSites() {
           )}
           <button
             onClick={openAddFolderModal}
-            className="flex items-center gap-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 px-4 py-2 rounded-lg transition-colors"
+            className="flex min-h-10 items-center gap-2 border bg-card px-4 text-foreground transition-colors hover:bg-muted"
           >
             <FolderPlus className="w-5 h-5" />
             Add Folder
@@ -1088,7 +1091,7 @@ export default function BlockedSites() {
       </DragDropContext>
 
       {sites.length === 0 && folders.length === 0 && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-600 p-12 text-center mt-4">
+        <div className="mt-4 border border-border bg-card p-12 text-center shadow-[var(--shadow-card)]">
           <Shield className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">No blocked sites</h3>
           <p className="text-gray-500 dark:text-gray-400 mb-4">Add sites you want to block to help stay focused.</p>
@@ -1386,10 +1389,10 @@ export default function BlockedSites() {
       {/* Focus Session Modal */}
       {showFocusModal && focusTarget && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-300 shadow-[var(--shadow-card)] dark:border-gray-600 w-full max-w-sm mx-4 overflow-hidden">
+          <div className="mx-4 w-full max-w-sm overflow-hidden border border-border bg-card shadow-[var(--shadow-card)]">
             <div className="flex items-center justify-between px-6 py-4 border-b dark:border-gray-700">
               <h2 className="text-lg font-semibold flex items-center gap-2">
-                <Focus className="w-5 h-5 text-purple-600" />
+                <Focus className="size-5 text-foreground" />
                 {focusModalMode === 'edit' ? 'Extend Focus Session' : 'Start Focus Session'}
               </h2>
               <button
@@ -1440,7 +1443,7 @@ export default function BlockedSites() {
                       }
                     }}
                     min={minimumFocusDuration}
-                    className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                    className="flex-1 border border-input bg-background px-3 py-2 focus:border-ring focus:ring-2 focus:ring-ring/45"
                     autoFocus
                   />
                   <button
@@ -1455,7 +1458,7 @@ export default function BlockedSites() {
                   Use 30-minute steps or enter any positive number for a custom duration.
                 </p>
                 {focusModalMode === 'edit' && (
-                  <p className="text-xs text-purple-600 dark:text-purple-300 mt-1">
+                  <p className="mt-1 text-xs text-muted-foreground">
                     Minimum allowed: {minimumFocusDuration} minutes remaining.
                   </p>
                 )}
@@ -1468,9 +1471,9 @@ export default function BlockedSites() {
                     type="button"
                     onClick={() => setFocusDuration(mins)}
                     disabled={mins < minimumFocusDuration}
-                    className={`flex-1 py-1.5 text-sm rounded-lg transition-colors ${
+                    className={`flex-1 border py-1.5 text-sm transition-colors ${
                       focusDuration === mins
-                        ? 'bg-purple-600 text-white'
+                        ? 'border-foreground bg-foreground text-background'
                         : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                     } disabled:opacity-50 disabled:cursor-not-allowed`}
                   >
@@ -1495,7 +1498,7 @@ export default function BlockedSites() {
                 <button
                   onClick={startFocusSession}
                   disabled={focusDuration < minimumFocusDuration}
-                  className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors"
+                  className="border border-foreground bg-foreground px-4 py-2 text-background transition-opacity hover:opacity-80"
                 >
                   {focusModalMode === 'edit' ? 'Update Focus' : 'Start Focus'}
                 </button>

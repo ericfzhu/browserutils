@@ -18,6 +18,7 @@ import { isEncryptedBackup } from '../../shared/backup';
 import { applyTheme } from '../../shared/theme';
 import { buildOtpAuthUri, generateTotpSecret, verifyTotpCode } from '../../shared/totp';
 import { assertRuntimeMutationSucceeded } from '../../shared/runtimeMessages';
+import DashboardPageHeader from '../components/DashboardPageHeader';
 import { useLockdown } from '../hooks/useLockdown';
 
 export default function SettingsPage() {
@@ -273,11 +274,11 @@ export default function SettingsPage() {
   const otpauthUri = totpSecretDraft ? buildOtpAuthUri(totpSecretDraft, 'BrowserUtils', 'Lockdown') : '';
 
   return (
-    <div className="max-w-2xl">
-      <h1 className="text-2xl font-bold text-foreground mb-6">Settings</h1>
+    <div className="max-w-4xl">
+      <DashboardPageHeader label="Configuration" title="Settings" meta="BrowserUtils preferences" />
 
       {/* Appearance */}
-      <div className="rounded-lg border bg-card p-6 mb-6">
+      <div className="mb-6 border bg-card p-6 shadow-[var(--shadow-card)]">
         <h2 className="text-lg font-semibold mb-4">Appearance</h2>
         <div className="flex flex-col gap-4">
           <div>
@@ -331,7 +332,7 @@ export default function SettingsPage() {
                     }}
                     className="justify-start"
                   >
-                    <span className={`size-3 rounded-full ${swatch}`} />
+                    <span className={`size-3 ${swatch}`} />
                     {label}
                   </Button>
                 );
@@ -342,7 +343,7 @@ export default function SettingsPage() {
       </div>
 
       {/* General Settings */}
-      <div className="rounded-lg border bg-card p-6 mb-6">
+      <div className="mb-6 border bg-card p-6 shadow-[var(--shadow-card)]">
         <h2 className="text-lg font-semibold mb-4">General</h2>
         <div className="flex flex-col gap-4">
           <label className="flex items-center justify-between">
@@ -354,7 +355,7 @@ export default function SettingsPage() {
               type="checkbox"
               checked={settings.trackingEnabled}
               onChange={(e) => void updateSettings({ trackingEnabled: e.target.checked })}
-              className="w-5 h-5 rounded border-gray-300 text-primary focus:ring-ring"
+              className="size-5 border-gray-300 text-primary focus:ring-ring"
             />
           </label>
 
@@ -375,7 +376,7 @@ export default function SettingsPage() {
                   await withLockdownCheck(applyChange);
                 }
               }}
-              className="w-5 h-5 rounded border-gray-300 text-primary focus:ring-ring"
+              className="size-5 border-gray-300 text-primary focus:ring-ring"
             />
           </label>
 
@@ -388,7 +389,7 @@ export default function SettingsPage() {
               type="checkbox"
               checked={settings.youtubeTrackingEnabled}
               onChange={(e) => void updateSettings({ youtubeTrackingEnabled: e.target.checked })}
-              className="w-5 h-5 rounded border-gray-300 text-primary focus:ring-ring"
+              className="size-5 border-gray-300 text-primary focus:ring-ring"
             />
           </label>
 
@@ -446,7 +447,7 @@ export default function SettingsPage() {
                     key={val}
                     type="button"
                     onClick={() => void updateSettings({ idleThreshold: val })}
-                    className={`px-2 py-1 text-xs rounded ${
+                    className={`px-2 py-1 text-xs ${
                       settings.idleThreshold === val
                         ? 'bg-primary text-primary-foreground'
                         : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
@@ -466,7 +467,7 @@ export default function SettingsPage() {
       </div>
 
       {/* Browser Utilities */}
-      <div className="rounded-lg border bg-card p-6 mb-6">
+      <div className="mb-6 border bg-card p-6 shadow-[var(--shadow-card)]">
         <div className="flex flex-col gap-4">
           <label className="flex items-center justify-between gap-4">
             <div>
@@ -479,7 +480,7 @@ export default function SettingsPage() {
               type="checkbox"
               checked={settings.forcePasteEnabled}
               onChange={(e) => void updateSettings({ forcePasteEnabled: e.target.checked })}
-              className="w-5 h-5 shrink-0 rounded border-gray-300 text-primary focus:ring-ring"
+              className="size-5 shrink-0 border-gray-300 text-primary focus:ring-ring"
             />
           </label>
 
@@ -494,14 +495,14 @@ export default function SettingsPage() {
               type="checkbox"
               checked={settings.blobVideoDownloaderEnabled}
               onChange={(e) => void updateSettings({ blobVideoDownloaderEnabled: e.target.checked })}
-              className="w-5 h-5 shrink-0 rounded border-gray-300 text-primary focus:ring-ring"
+              className="size-5 shrink-0 border-gray-300 text-primary focus:ring-ring"
             />
           </label>
         </div>
       </div>
 
       {/* Master Password */}
-      <div className="rounded-lg border bg-card p-6 mb-6">
+      <div className="mb-6 border bg-card p-6 shadow-[var(--shadow-card)]">
         <h2 className="text-lg font-semibold mb-4">Master Password</h2>
         <p className="text-sm text-muted-foreground mb-4">
           Set a master password for unlocking password-protected blocked sites.
@@ -620,13 +621,13 @@ export default function SettingsPage() {
                 }
               }}
               disabled={!hasLockdownMethod}
-              className="w-5 h-5 rounded border-gray-300 text-primary focus:ring-ring disabled:cursor-not-allowed"
+              className="size-5 border-gray-300 text-primary focus:ring-ring disabled:cursor-not-allowed"
             />
           </label>
         </div>
       </div>
 
-      <div className="rounded-lg border bg-card p-6 mb-6">
+      <div className="mb-6 border bg-card p-6 shadow-[var(--shadow-card)]">
         <h2 className="text-lg font-semibold mb-4">Authenticator App</h2>
         <p className="text-sm text-muted-foreground mb-4">
           Set up a TOTP authenticator app as an alternative Lockdown authentication method.
@@ -721,7 +722,7 @@ export default function SettingsPage() {
       </div>
 
       {/* Data Management */}
-      <div className="rounded-lg border bg-card p-6 mb-6">
+      <div className="mb-6 border bg-card p-6 shadow-[var(--shadow-card)]">
         <h2 className="text-lg font-semibold mb-4">Data Management</h2>
 
         <div className="flex flex-col gap-4">
@@ -773,7 +774,7 @@ export default function SettingsPage() {
       </div>
 
       {/* About */}
-      <div className="rounded-lg border bg-card p-6">
+      <div className="border bg-card p-6 shadow-[var(--shadow-card)]">
         <h2 className="text-lg font-semibold mb-4">About</h2>
         <a
           href="https://github.com/ericfzhu/browserutils"

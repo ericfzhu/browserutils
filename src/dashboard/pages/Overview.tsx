@@ -11,6 +11,7 @@ import {
   analyticsPanelClass,
   analyticsStatCardClass,
 } from '../components/analyticsStyles';
+import DashboardPageHeader from '../components/DashboardPageHeader';
 
 // Expand compact sessions to SiteSession[] for UI components
 function expandCompactSessions(sessions: CompactSessions | undefined): SiteSession[] {
@@ -406,13 +407,7 @@ export default function Overview() {
 
   return (
     <div>
-      <div className="mb-6 flex items-end justify-between border-b border-foreground pb-4">
-        <div>
-          <p className="mb-1 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground">Dashboard</p>
-          <h1 className="text-2xl font-bold text-foreground">Overview</h1>
-        </div>
-        <span className="text-sm text-muted-foreground">{todayLabel}</span>
-      </div>
+      <DashboardPageHeader label="Dashboard" title="Overview" meta={todayLabel} />
 
       {/* Stats Cards */}
       <div className="mb-6 grid gap-4 md:grid-cols-3">

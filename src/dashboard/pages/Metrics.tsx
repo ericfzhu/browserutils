@@ -10,6 +10,7 @@ import {
   analyticsPanelClass,
   analyticsStatCardClass,
 } from '../components/analyticsStyles';
+import DashboardPageHeader from '../components/DashboardPageHeader';
 
 function formatTime(seconds: number): string {
   const hours = Math.floor(seconds / 3600);
@@ -465,7 +466,7 @@ function Timeline({ sessions, sites, startDate, endDate, animationDirection }: T
                 <span className="text-xs text-muted-foreground tabular-nums">{formatTime(totalTime)}</span>
               </div>
 
-              <div className="relative h-5 flex-1 overflow-hidden rounded-lg bg-muted shadow-[inset_0_0_0_1px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.06)]">
+              <div className="relative h-5 flex-1 overflow-hidden bg-muted shadow-[inset_0_0_0_1px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.06)]">
                 {timeMarkers.map((marker, idx) => (
                   <div
                     key={idx}
@@ -482,7 +483,7 @@ function Timeline({ sessions, sites, startDate, endDate, animationDirection }: T
                   return (
                     <div
                       key={idx}
-                      className={`absolute bottom-0.5 top-0.5 ${color} cursor-default rounded-md opacity-80 transition-opacity duration-150 ease-out hover:opacity-100`}
+                      className={`absolute bottom-0.5 top-0.5 ${color} cursor-default opacity-80 transition-opacity duration-150 ease-out hover:opacity-100`}
                       style={{ left: `${startPos}%`, width: `${width}%` }}
                       title={isMultiDay
                         ? `${new Date(interval.start).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} ${formatTimeOfDay(interval.start)} - ${formatTimeOfDay(interval.end)}`
@@ -772,50 +773,32 @@ export default function Metrics() {
 
   return (
     <div>
-      <div className="mb-6 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-        <h1 className="text-2xl font-bold text-foreground">Metrics</h1>
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
-          {/* Date range display (non-clickable) */}
-          <span className="text-sm text-muted-foreground tabular-nums">
-            {getDateRangeDisplay()}
-          </span>
-
-          {/* Period selector with sliding indicator */}
-          <div className="relative flex w-fit rounded-lg border border-border bg-muted p-1">
-            {/* Animated sliding background */}
-            <div
-              className="absolute bottom-1 top-1 rounded-lg bg-background shadow-[var(--shadow-border)] transition-transform duration-300 ease-out"
-              style={{
-                width: 'calc(25% - 2px)',
-                left: '4px',
-                transform: `translateX(${
-                  selectedPeriod === 'day' ? '0%' :
-                  selectedPeriod === 'week' ? '100%' :
-                  selectedPeriod === 'month' ? '200%' :
-                  '300%'
-                })`,
-              }}
-            />
+      <DashboardPageHeader
+        label="Analytics"
+        title="Metrics"
+        meta={getDateRangeDisplay()}
+        actions={(
+          <div className="relative flex w-fit divide-x divide-border border border-border bg-card">
             <button
               onClick={() => setPreset('day')}
-              className={`relative z-10 min-h-10 w-16 rounded-lg text-center text-sm font-medium transition-colors duration-150 ease-out ${
-                selectedPeriod === 'day' ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
+              className={`min-h-10 w-16 text-center text-sm font-medium transition-colors duration-150 ease-out ${
+                selectedPeriod === 'day' ? 'bg-foreground text-background' : 'text-muted-foreground hover:bg-muted hover:text-foreground'
               }`}
             >
               Day
             </button>
             <button
               onClick={() => setPreset('week')}
-              className={`relative z-10 min-h-10 w-16 rounded-lg text-center text-sm font-medium transition-colors duration-150 ease-out ${
-                selectedPeriod === 'week' ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
+              className={`min-h-10 w-16 text-center text-sm font-medium transition-colors duration-150 ease-out ${
+                selectedPeriod === 'week' ? 'bg-foreground text-background' : 'text-muted-foreground hover:bg-muted hover:text-foreground'
               }`}
             >
               Week
             </button>
             <button
               onClick={() => setPreset('month')}
-              className={`relative z-10 min-h-10 w-16 rounded-lg text-center text-sm font-medium transition-colors duration-150 ease-out ${
-                selectedPeriod === 'month' ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
+              className={`min-h-10 w-16 text-center text-sm font-medium transition-colors duration-150 ease-out ${
+                selectedPeriod === 'month' ? 'bg-foreground text-background' : 'text-muted-foreground hover:bg-muted hover:text-foreground'
               }`}
             >
               Month
@@ -823,8 +806,8 @@ export default function Metrics() {
             <div className="relative">
               <button
                 onClick={() => setShowDateRangePicker(!showDateRangePicker)}
-                className={`relative z-10 min-h-10 w-16 rounded-lg text-center text-sm font-medium transition-colors duration-150 ease-out ${
-                  selectedPeriod === 'custom' ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
+                className={`min-h-10 w-16 text-center text-sm font-medium transition-colors duration-150 ease-out ${
+                  selectedPeriod === 'custom' ? 'bg-foreground text-background' : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                 }`}
               >
                 Custom
@@ -842,19 +825,17 @@ export default function Metrics() {
               )}
             </div>
           </div>
-        </div>
-      </div>
+        )}
+      />
 
       {/* Summary Cards */}
       <div className="mb-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <div className={analyticsStatCardClass}>
-          <div className="mb-2 flex items-center gap-3">
-            <div className="rounded-md bg-blue-100 p-2 dark:bg-blue-900/50">
-              <Clock className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-            </div>
-            <span className="text-sm text-muted-foreground">Total time</span>
+          <div className="flex items-center justify-between text-sm text-muted-foreground">
+            <span>Total time</span>
+            <Clock className="size-4" />
           </div>
-          <p className="text-2xl font-bold tabular-nums">{formatTime(totalTime)}</p>
+          <p className="mt-5 text-3xl font-bold tabular-nums">{formatTime(totalTime)}</p>
           <div className="mt-1 flex items-center gap-1">
             {timeChange > 0 ? (
               <TrendingUp className="w-4 h-4 text-red-500" />
@@ -868,35 +849,29 @@ export default function Metrics() {
         </div>
 
         <div className={analyticsStatCardClass}>
-          <div className="mb-2 flex items-center gap-3">
-            <div className="rounded-md bg-green-100 p-2 dark:bg-green-900/50">
-              <Calendar className="h-5 w-5 text-green-600 dark:text-green-400" />
-            </div>
-            <span className="text-sm text-muted-foreground">Daily average</span>
+          <div className="flex items-center justify-between text-sm text-muted-foreground">
+            <span>Daily average</span>
+            <Calendar className="size-4" />
           </div>
-          <p className="text-2xl font-bold tabular-nums">{formatTime(avgDailyTime)}</p>
+          <p className="mt-5 text-3xl font-bold tabular-nums">{formatTime(avgDailyTime)}</p>
           <p className="mt-1 text-sm text-muted-foreground">per day</p>
         </div>
 
         <div className={analyticsStatCardClass}>
-          <div className="mb-2 flex items-center gap-3">
-            <div className="rounded-md bg-red-100 p-2 dark:bg-red-900/50">
-              <Shield className="h-5 w-5 text-red-600 dark:text-red-400" />
-            </div>
-            <span className="text-sm text-muted-foreground">Sites blocked</span>
+          <div className="flex items-center justify-between text-sm text-muted-foreground">
+            <span>Sites blocked</span>
+            <Shield className="size-4" />
           </div>
-          <p className="text-2xl font-bold tabular-nums">{totalBlocks}</p>
+          <p className="mt-5 text-3xl font-bold tabular-nums">{totalBlocks}</p>
           <p className="mt-1 text-sm text-muted-foreground">distractions avoided</p>
         </div>
 
         <div className={analyticsStatCardClass}>
-          <div className="mb-2 flex items-center gap-3">
-            <div className="rounded-md bg-violet-100 p-2 dark:bg-violet-900/50">
-              <Focus className="h-5 w-5 text-violet-600 dark:text-violet-400" />
-            </div>
-            <span className="text-sm text-muted-foreground">Focus time</span>
+          <div className="flex items-center justify-between text-sm text-muted-foreground">
+            <span>Focus time</span>
+            <Focus className="size-4" />
           </div>
-          <p className="text-2xl font-bold tabular-nums">{formatTime(totalFocusTime)}</p>
+          <p className="mt-5 text-3xl font-bold tabular-nums">{formatTime(totalFocusTime)}</p>
           <p className="mt-1 text-sm text-muted-foreground tabular-nums">
             {focusSessions.length} session{focusSessions.length === 1 ? '' : 's'}
           </p>
@@ -994,31 +969,26 @@ export default function Metrics() {
         <div className={analyticsPanelClass}>
           <h2 className="text-lg font-semibold mb-4">Top sites</h2>
           {topSites.length > 0 ? (
-            <div className="space-y-3">
-              {topSites.slice(0, 8).map(([domain, time], index) => {
+            <div className="space-y-4">
+              {topSites.slice(0, 8).map(([domain, time]) => {
                 const maxSiteTime = topSites[0]?.[1] || 1;
                 return (
-                  <div key={domain} className="flex items-center gap-3">
-                    <span className="w-4 text-sm text-muted-foreground tabular-nums">{index + 1}</span>
-                    <div className="min-w-0 flex-1">
-                      <div className="mb-1 flex items-center justify-between">
-                        <a
-                          href={`https://${domain}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="truncate text-sm font-medium transition-colors duration-150 ease-out hover:text-primary hover:underline"
-                        >
-                          {domain}
-                        </a>
-                        <span className="ml-2 text-sm text-muted-foreground tabular-nums">{formatTime(time)}</span>
-                      </div>
-                      <div className={analyticsBarTrackClass}>
-                        <div
-                          className="h-full rounded-full bg-primary"
-                          style={{ width: `${(time / maxSiteTime) * 100}%` }}
-                        />
-                      </div>
+                  <div key={domain} className="grid grid-cols-[minmax(0,120px)_1fr_auto] items-center gap-4">
+                    <a
+                      href={`https://${domain}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="truncate text-sm font-medium transition-colors duration-150 ease-out hover:text-primary hover:underline"
+                    >
+                      {domain}
+                    </a>
+                    <div className={analyticsBarTrackClass}>
+                      <div
+                        className={`h-full ${getDomainColor(domain)}`}
+                        style={{ width: `${(time / maxSiteTime) * 100}%` }}
+                      />
                     </div>
+                    <span className="w-12 text-right text-xs text-muted-foreground tabular-nums">{formatTime(time)}</span>
                   </div>
                 );
               })}
@@ -1042,7 +1012,7 @@ export default function Metrics() {
                   const info = getCategoryInfoWithOverrides(category, customCategories, builtInOverrides);
                   return (
                     <div key={category} className="flex items-center gap-3">
-                      <div className={`w-3 h-3 rounded-full ${info.color}`} />
+                      <div className={`size-3 shrink-0 ${info.color}`} />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between mb-1">
                           <span className="text-sm font-medium">{info.name}</span>
@@ -1070,8 +1040,8 @@ export default function Metrics() {
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold">Daily breakdown</h2>
           {hoveredSegment && (
-            <div className="flex animate-fade-in items-center gap-2 rounded-lg bg-foreground px-3 py-1.5 text-xs text-background shadow-[var(--shadow-border)]">
-              <div className={`h-2 w-2 rounded-full ${DOMAIN_COLORS[topSites.findIndex(([d]) => d === hoveredSegment.domain) % DOMAIN_COLORS.length] || 'bg-muted-foreground'}`} />
+            <div className="flex animate-fade-in items-center gap-2 bg-foreground px-3 py-1.5 text-xs text-background shadow-[var(--shadow-border)]">
+              <div className={`size-2 ${DOMAIN_COLORS[topSites.findIndex(([d]) => d === hoveredSegment.domain) % DOMAIN_COLORS.length] || 'bg-muted-foreground'}`} />
               <span className="font-medium">{hoveredSegment.domain}</span>
               <span className="text-background/60">•</span>
               <span className="tabular-nums">{formatTime(hoveredSegment.time)}</span>
@@ -1089,7 +1059,7 @@ export default function Metrics() {
             return (
               <div key={stats.date} className="flex items-center gap-3">
                 <span className="w-20 text-xs text-muted-foreground">{formatDate(stats.date)}</span>
-                <div className="flex h-8 flex-1 overflow-hidden rounded-lg bg-muted shadow-[inset_0_0_0_1px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.06)]">
+                <div className="flex h-8 flex-1 overflow-hidden bg-muted shadow-[inset_0_0_0_1px_rgba(0,0,0,0.04)] dark:shadow-[inset_0_0_0_1px_rgba(255,255,255,0.06)]">
                   {stats.totalTime > 0 ? (
                     sortedSites.map(([domain, time]) => {
                       const colorIndex = topDomainIndices.get(domain) ?? 9;
@@ -1173,16 +1143,14 @@ export default function Metrics() {
                   <span className="tabular-nums">Total: {formatTime(totalYouTubeTime)}</span>
                 </div>
                 <div className={`space-y-4 max-h-[420px] transition-[max-height] duration-300 overflow-hidden ${youtubeExpanded ? 'overflow-y-auto' : ''}`}>
-                {sortedChannels.map(([channel, stats], idx) => {
+                {sortedChannels.map(([channel, stats]) => {
                   const percent = totalYouTubeTime > 0 ? (stats.time / totalYouTubeTime) * 100 : 0;
                   const barWidth = maxChannelTime > 0 ? (stats.time / maxChannelTime) * 100 : 0;
                   const channelUrl = stats.url || activeUrls[channel];
 
                   return (
-                    <div key={channel}>
-                      <div className="flex justify-between text-sm mb-1">
-                        <span className="font-medium truncate flex items-center gap-2">
-                          <span className="text-muted-foreground tabular-nums">{idx + 1}.</span>
+                    <div key={channel} className="grid grid-cols-[minmax(0,140px)_1fr_auto] items-center gap-4">
+                      <span className="min-w-0 truncate text-sm font-medium">
                           {channelUrl ? (
                             <a
                               href={channelUrl}
@@ -1195,18 +1163,16 @@ export default function Metrics() {
                           ) : (
                             channel
                           )}
-                        </span>
-                        <span className="flex items-center gap-2 text-muted-foreground tabular-nums">
-                          {formatTime(stats.time)}
-                          <span className="text-xs text-muted-foreground/75">({percent.toFixed(1)}%)</span>
-                        </span>
-                      </div>
+                      </span>
                       <div className={analyticsBarTrackClass}>
                         <div
-                          className="h-full bg-red-500 rounded-full transition-[width] duration-300 ease-out"
+                          className="h-full bg-red-500 transition-[width] duration-300 ease-out"
                           style={{ width: `${barWidth}%` }}
                         />
                       </div>
+                      <span className="w-24 text-right text-xs text-muted-foreground tabular-nums">
+                        {formatTime(stats.time)} · {percent.toFixed(1)}%
+                      </span>
                     </div>
                   );
                 })}

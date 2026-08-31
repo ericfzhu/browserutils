@@ -18,6 +18,7 @@ import { DailyLimit, DailyStats } from '../../shared/types';
 import { hashPassword } from '../../shared/storage';
 import { assertRuntimeMutationSucceeded } from '../../shared/runtimeMessages';
 import { useLockdown } from '../hooks/useLockdown';
+import DashboardPageHeader from '../components/DashboardPageHeader';
 
 function formatTime(seconds: number): string {
   const hours = Math.floor(seconds / 3600);
@@ -233,22 +234,21 @@ export default function Limits() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold">Daily Limits</h1>
-          <p className="text-sm text-muted-foreground">Set maximum daily time for specific sites</p>
-        </div>
-        <Button
-          onClick={openAddModal}
-        >
-          <Plus data-icon="inline-start" />
-          Add Limit
-        </Button>
-      </div>
+      <DashboardPageHeader
+        label="Controls"
+        title="Daily Limits"
+        meta="Maximum daily time by site"
+        actions={(
+          <Button onClick={openAddModal}>
+            <Plus data-icon="inline-start" />
+            Add Limit
+          </Button>
+        )}
+      />
 
       {limits.length === 0 ? (
         <Card className="p-12 text-center">
-          <div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-full bg-muted">
+          <div className="mx-auto mb-4 flex size-16 items-center justify-center border bg-muted">
             <Plus className="size-8 text-muted-foreground" />
           </div>
           <h3 className="mb-2 text-lg font-medium">No limits configured</h3>
@@ -297,7 +297,7 @@ export default function Limits() {
                       type="button"
                       onClick={() => toggleEnabled(limit)}
                       aria-label={limit.enabled ? `Disable limit for ${limit.pattern}` : `Enable limit for ${limit.pattern}`}
-                      className={`w-[72px] rounded-full py-1 text-xs transition-colors ${
+                      className={`w-[72px] border py-1 text-xs transition-colors ${
                         limit.enabled
                           ? 'bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-700/80 dark:text-red-200 dark:hover:bg-red-700'
                           : 'bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-gray-600/80 dark:text-gray-300 dark:hover:bg-gray-600'

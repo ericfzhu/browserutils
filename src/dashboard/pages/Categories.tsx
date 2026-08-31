@@ -142,7 +142,7 @@ function CategoryModal({ isOpen, onClose, onSave, pendingDomain, editingCategory
                     key={c}
                     type="button"
                     onClick={() => setColor(c)}
-                    className={`w-7 h-7 rounded-full ${c} transition-transform ${
+                    className={`size-7 ${c} transition-transform ${
                       color === c ? 'ring-2 ring-primary ring-offset-2 scale-110' : 'hover:scale-105'
                     }`}
                   />
@@ -554,8 +554,11 @@ export default function Categories() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Categories</h1>
+      <div className="mb-6 flex flex-col gap-4 border-b border-foreground pb-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="mb-1 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground">Organization</p>
+          <h1 className="text-2xl font-bold text-foreground">Categories</h1>
+        </div>
         <div className="flex items-center gap-2">
           {(() => {
             const allCollapsed = categoryOrder.length > 0 && [...categoryOrder, 'other'].every(id => collapsedCategories.has(id));
@@ -649,7 +652,7 @@ export default function Categories() {
                 const isCollapsed = collapsedCategories.has(categoryId);
 
                 const categoryContent = (dragHandleProps?: React.HTMLAttributes<HTMLDivElement>, isDraggingOver?: boolean) => (
-                  <div className={`bg-white dark:bg-gray-800 rounded-lg border overflow-hidden transition-colors ${
+                  <div className={`overflow-hidden border bg-card shadow-[var(--shadow-card)] transition-colors ${
                     isDraggingOver && isCollapsed
                       ? 'border-primary ring-2 ring-primary/40'
                       : 'border-gray-200 dark:border-gray-700'
@@ -672,10 +675,10 @@ export default function Categories() {
                         <span className="text-gray-500 dark:text-gray-400">
                           <ChevronRight className={`w-5 h-5 transition-transform duration-200 ${isCollapsed ? '' : 'rotate-90'}`} />
                         </span>
-                        <div className={`w-3 h-3 rounded-full ${info.color}`} />
+                        <div className={`size-3 ${info.color}`} />
                         <span className="font-medium text-gray-900 dark:text-gray-100">{info.name}</span>
                         {!isCustom && (
-                          <span className="text-xs text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-gray-600 px-1.5 py-0.5 rounded">
+                          <span className="bg-gray-100 px-1.5 py-0.5 text-xs text-gray-400 dark:bg-gray-600 dark:text-gray-500">
                             default
                           </span>
                         )}
@@ -690,13 +693,13 @@ export default function Categories() {
                               e.stopPropagation();
                               toggleSelectAll(sites);
                             }}
-                            className="rounded p-1.5 text-primary transition-colors hover:bg-primary/10"
+                            className="p-1.5 text-primary transition-colors hover:bg-primary/10"
                             title={sites.every(s => selectedSites.has(s.domain)) ? "Deselect all in category" : "Select all in category"}
                           >
                             {sites.every(s => selectedSites.has(s.domain)) ? (
                               <CheckSquare className="w-4 h-4" />
                             ) : sites.some(s => selectedSites.has(s.domain)) ? (
-                              <div className="w-4 h-4 border-2 border-current rounded flex items-center justify-center">
+                              <div className="flex size-4 items-center justify-center border-2 border-current">
                                 <div className="w-2 h-0.5 bg-current" />
                               </div>
                             ) : (
@@ -724,7 +727,7 @@ export default function Categories() {
                                   setShowModal(true);
                                 }
                               }}
-                              className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
+                              className="p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300"
                               title={isCustom ? "Edit category" : "Rename category"}
                             >
                               <Pencil className="w-4 h-4" />
@@ -735,7 +738,7 @@ export default function Categories() {
                                   e.stopPropagation();
                                   handleDeleteCategory(categoryId);
                                 }}
-                                className="p-1.5 text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
+                                className="p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-red-600 dark:hover:bg-gray-700 dark:hover:text-red-400"
                                 title="Delete category"
                               >
                                 <Trash2 className="w-4 h-4" />
@@ -773,7 +776,7 @@ export default function Categories() {
                                         {...provided.draggableProps}
                                         {...(selectMode ? {} : provided.dragHandleProps)}
                                         onClick={selectMode ? () => toggleSiteSelection(site.domain) : undefined}
-                                        className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors group ${
+                                        className={`group flex items-center gap-3 px-3 py-2 transition-colors ${
                                           selectMode ? 'cursor-pointer' : 'cursor-grab'
                                         } ${
                                           snapshot.isDragging
@@ -857,7 +860,7 @@ export default function Categories() {
             <div
               ref={provided.innerRef}
               {...provided.droppableProps}
-              className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors mt-4 ${
+              className={`mt-4 border-2 border-dashed p-6 text-center transition-colors ${
                 snapshot.isDraggingOver
                   ? 'border-primary bg-primary/10'
                   : 'border-gray-300 dark:border-gray-600'
