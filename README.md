@@ -29,7 +29,7 @@ A Chrome extension for tracking website usage and blocking distracting sites.
 
 ## Installation
 
-1. Download `browserutils-v1.0.0.zip` from the [latest GitHub Release](https://github.com/ericfzhu/browserutils/releases/latest)
+1. Download `browserutils-v1.0.1.zip` from the [latest GitHub Release](https://github.com/ericfzhu/browserutils/releases/latest)
 2. Extract the zip file
 3. Open Chrome and go to `chrome://extensions`
 4. Enable "Developer mode"

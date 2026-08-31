@@ -4,6 +4,17 @@ This file tracks notable BrowserUtils changes.
 
 It follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and semantic versioning.
 
+## [1.0.1] - 2026-08-31
+
+### Added
+- A public interactive showcase demonstrates daily limits, browsing activity, focus sessions, local storage, and installation
+
+### Changed
+- The dashboard uses a sharper visual system with consistent page headers, bordered surfaces, controls, and navigation states
+- Overview emphasizes today's activity and current focus, while Metrics presents browsing and focus history with the same visual language
+- Blocked Sites, Daily Limits, Categories, Settings, and What's New use the same spacing, typography, and interaction patterns
+- BrowserUtils uses its blue shield identity across extension pages, generated icons, and the public showcase
+
 ## [1.0.0] - 2026-08-09
 
 ### Added

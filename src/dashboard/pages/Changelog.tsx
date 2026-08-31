@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import DashboardPageHeader from '../components/DashboardPageHeader';
 
 // Changelog data - update this when releasing new versions
-const CURRENT_VERSION = '1.0.0';
+const CURRENT_VERSION = '1.0.1';
 
 interface ChangelogEntry {
   version: string;
@@ -16,6 +16,19 @@ interface ChangelogEntry {
 }
 
 const changelog: ChangelogEntry[] = [
+  {
+    version: '1.0.1',
+    date: '2026-08-31',
+    added: [
+      'A public interactive showcase demonstrates daily limits, browsing activity, focus sessions, local storage, and installation',
+    ],
+    changed: [
+      'The dashboard uses a sharper visual system with consistent page headers, bordered surfaces, controls, and navigation states',
+      'Overview emphasizes today\'s activity and current focus, while Metrics presents browsing and focus history with the same visual language',
+      'Blocked Sites, Daily Limits, Categories, Settings, and What\'s New use the same spacing, typography, and interaction patterns',
+      'BrowserUtils uses its blue shield identity across extension pages, generated icons, and the public showcase',
+    ],
+  },
   {
     version: '1.0.0',
     date: '2026-08-09',

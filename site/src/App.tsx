@@ -31,7 +31,7 @@ const installationSteps = [
   {
     number: '01',
     title: 'get the release.',
-    detail: <>Download <code className="font-mono text-white">browserutils-v1.0.0.zip</code> from GitHub.</>,
+    detail: <>Download <code className="font-mono text-white">browserutils-v1.0.1.zip</code> from GitHub.</>,
   },
   {
     number: '02',
