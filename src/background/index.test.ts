@@ -366,6 +366,26 @@ describe('background service worker integration', () => {
     expect(history()).toEqual([]);
   });
 
+  it('finishes summary cache creation before clearing history', async () => {
+    let release!: () => void;
+    let started!: () => void;
+    const waiting = new Promise<void>(resolve => { started = resolve; });
+    const gate = new Promise<void>(resolve => { release = resolve; });
+    const set = chrome.storage.local.set;
+    vi.mocked(chrome.storage.local.set).mockImplementationOnce(async items => {
+      started();
+      await gate;
+      return set(items);
+    });
+    const summary = send({ type: 'GET_STATS_SUMMARY' });
+    await waiting;
+    const clearing = send({ type: 'CLEAR_ALL_DATA' });
+    await new Promise(resolve => setTimeout(resolve, 0));
+    release();
+    await Promise.all([summary, clearing]);
+    expect(localStore.dailyStatsSummaryDates).toBeUndefined();
+  });
+
   it('counts one visit when two checkpoint alarms overlap', async () => {
     const { now } = seedTracking();
     const gate = holdSessionRead();

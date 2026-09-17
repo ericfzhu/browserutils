@@ -1,5 +1,5 @@
 {
-  "sourceSha256": "1fdf894b905e6fe3706b4aaa5e633809e6f9e48fa90c8a3f44982e1ed01b42bb",
+  "sourceSha256": "40dfa753490e8eea669a2bdeaaee474d9d280f3e0f6bac65cdfa2b1150eb96a5",
   "simulatedSeconds": 3600,
   "methodology": "Actual worker bundle in VM, mocked Chrome APIs, 60 save alarms after startup/install. Counts include the whole alarm handler. No CPU or battery measurement.",
   "results": [

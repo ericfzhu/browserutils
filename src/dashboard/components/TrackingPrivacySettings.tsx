@@ -31,16 +31,16 @@ export default function TrackingPrivacySettings({ settings, onSave }: {
     finally { setBusy(false); }
   }
   async function deleteHistory() {
-    setBusy(true); setError(''); setFeedback('');
-    try {
-      await withLockdownCheck(async () => {
+    await withLockdownCheck(async () => {
+      setBusy(true); setError(''); setFeedback('');
+      try {
         const result = await chrome.runtime.sendMessage({ type: 'DELETE_HISTORY_RANGE', payload: { startDate, endDate } });
         assertRuntimeMutationSucceeded(result, 'Could not delete history.');
         setFeedback(`Deleted browsing and YouTube history for ${result.deletedDays} recorded day(s).`);
         setConfirm(false);
-      });
-    } catch (err) { setError(err instanceof Error ? err.message : 'Could not delete history.'); }
-    finally { setBusy(false); }
+      } catch (err) { setError(err instanceof Error ? err.message : 'Could not delete history.'); }
+      finally { setBusy(false); }
+    });
   }
   return <section className="mb-6 space-y-5 rounded-lg border border-border bg-card p-6">
     <div><h2 className="text-lg font-semibold">Tracking privacy</h2><p className="mt-1 text-sm text-muted-foreground">Pause all browsing tracking with the tracking toggle above, or exclude specific websites here.</p></div>

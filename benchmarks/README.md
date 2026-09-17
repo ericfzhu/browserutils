@@ -38,3 +38,4 @@ These are deterministic operation counts, not measurements of real CPU, energy, 
 ## Subsequent changes
 
 - [Blocking rule synchronization](blocking.md): measured separately on 18 September 2026; eliminates unchanged native rule submissions and repeated definition reads.
+- [History summaries](history.md): measured cold and warm reads plus the additional checkpoint cost.

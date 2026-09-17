@@ -50,4 +50,12 @@ Preference-gated content tracking is now implemented, along with cancellable You
 
 Blocking synchronization now lives in its own module, caches compiled definitions, reevaluates timed state without rereading storage, and only updates Chrome when effective rules change. Startup reconciles persisted native rules; failed updates are retried on the next check. Minute checks and existing unlock alarms retain their timing. [Before/after measurements](../benchmarks/blocking.md) show 60 → 0 native updates per simulated hour for unchanged rules, and 60 → 1 for the timer-expiry scenario. The suite now has 143 passing tests.
 
-Remaining roadmap areas: efficient history-summary reads; further separation of the background worker; real-Chrome lifecycle coverage; excluded domains and selective history deletion. Broader YouTube extraction robustness and real CPU/power measurements are also still outstanding.
+## Follow-up: summaries, module boundaries and privacy
+
+Daily summary queries now use a derived per-day cache, updated alongside authoritative history writes. Measured warm annual summary payloads fall from 5.59 MB to 196 KB, with an additional date-index read per checkpoint and a small larger write. The [measurement report](../benchmarks/history.md) records both gains and costs. Summary creation participates in the lifecycle queue so clearing/importing data cannot race cache creation.
+
+Playback session handling, session freshness and optional content-script registration now have separate background modules. The entry point retains event routing and orchestration.
+
+Settings now includes domain exclusions (including subdomains) and confirmed date-range deletion. Exclusions stop future browsing/playback recording without changing blocking definitions. Deletion removes selected browsing/playback/blocked-attempt days, invalidates summaries and resumes enabled tracking from now; it keeps focus-session history and settings. Deleting today's history resets recorded usage toward daily limits, stated in the confirmation. Lockdown authorization applies to deletion.
+
+The initial improvement sequence is implemented. Broader YouTube extraction resilience, domain-specific deletion, natural worker-suspension profiling and controlled CPU/power measurements remain separate future investigations, not measured benefits of this work.

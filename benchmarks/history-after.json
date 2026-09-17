@@ -1,5 +1,5 @@
 {
-  "sourceSha256": "976ce4a15c0b5da46f93bcbd4c0752160322b57006e3afb51d115ae462cb80cd",
+  "sourceSha256": "e8d5bcaa815e3dc49b96e88f0a0cd31f045bd041f9e3c3aeec17d0f28e58f7fe",
   "methodology": "Actual storage module with synthetic history (20 domains × 30 intervals per day). Counts JSON payload bytes crossing mocked local storage, not real Chrome CPU/latency or stored byte quotas.",
   "results": [
     {
