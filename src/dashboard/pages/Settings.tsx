@@ -275,8 +275,8 @@ export default function SettingsPage() {
   const otpauthUri = totpSecretDraft ? buildOtpAuthUri(totpSecretDraft, 'BrowserUtils', 'Lockdown') : '';
 
   return (
-    <div className="max-w-4xl">
-      <DashboardPageHeader label="Configuration" title="Settings" meta="BrowserUtils preferences" />
+    <div>
+      <DashboardPageHeader title="Settings" meta="BrowserUtils preferences" />
 
       {/* Appearance */}
       <div className="mb-6 border bg-card p-6 shadow-[var(--shadow-card)]">
@@ -284,7 +284,7 @@ export default function SettingsPage() {
         <div className="flex flex-col gap-4">
           <div>
             <label className="block font-medium mb-2">Theme</label>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               {[
                 { value: 'light', label: 'Light', icon: Sun },
                 { value: 'dark', label: 'Dark', icon: Moon },
@@ -297,11 +297,8 @@ export default function SettingsPage() {
                     applyTheme(theme, settings.colorTheme || 'monochrome');
                     void updateSettings({ theme });
                   }}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-colors ${
-                    settings?.theme === value
-                      ? 'border-primary bg-primary/10 text-primary'
-                      : 'border-border hover:bg-muted '
-                  }`}
+                  variant={settings.theme === value ? 'default' : 'outline'}
+                  aria-pressed={settings.theme === value}
                 >
                   <Icon className="w-4 h-4" />
                   {label}
@@ -315,7 +312,7 @@ export default function SettingsPage() {
             <p className="mb-2 text-sm text-muted-foreground">
               Choose the extension accent palette.
             </p>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               {[
                 { value: 'monochrome', label: 'Monochrome', swatch: 'bg-zinc-900 dark:bg-zinc-100' },
                 { value: 'blue', label: 'Classic Blue', swatch: 'bg-blue-600' },
@@ -327,6 +324,7 @@ export default function SettingsPage() {
                     key={value}
                     type="button"
                     variant={selected ? 'default' : 'outline'}
+                    aria-pressed={selected}
                     onClick={() => {
                       applyTheme(settings.theme, colorTheme);
                       void updateSettings({ colorTheme });
@@ -347,7 +345,7 @@ export default function SettingsPage() {
       <div className="mb-6 border bg-card p-6 shadow-[var(--shadow-card)]">
         <h2 className="text-lg font-semibold mb-4">General</h2>
         <div className="flex flex-col gap-4">
-          <label className="flex items-center justify-between">
+          <label className="flex items-center justify-between gap-4">
             <div>
               <span className="font-medium">Enable Tracking</span>
               <p className="text-sm text-muted-foreground">Record time spent on websites</p>
@@ -360,7 +358,7 @@ export default function SettingsPage() {
             />
           </label>
 
-          <label className="flex items-center justify-between">
+          <label className="flex items-center justify-between gap-4">
             <div>
               <span className="font-medium">Enable Blocking</span>
               <p className="text-sm text-muted-foreground">Block access to configured sites</p>
@@ -381,7 +379,7 @@ export default function SettingsPage() {
             />
           </label>
 
-          <label className="flex items-center justify-between">
+          <label className="flex items-center justify-between gap-4">
             <div>
               <span className="font-medium">YouTube Channel Tracking</span>
               <p className="text-sm text-muted-foreground">Track which YouTube channels you watch</p>
@@ -431,7 +429,7 @@ export default function SettingsPage() {
             <p className="text-sm text-muted-foreground mb-2">
               Stop tracking after this many seconds of inactivity. Set to 0 to disable.
             </p>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               <Input
                 type="number"
                 value={settings.idleThreshold}
@@ -442,7 +440,7 @@ export default function SettingsPage() {
                 className="w-32 rounded-md border border-input bg-background px-3 py-2 focus:border-ring focus:ring-2 focus:ring-ring/45"
               />
               <span className="text-sm text-muted-foreground">seconds</span>
-              <div className="flex gap-2 ml-auto">
+              <div className="ml-auto flex flex-wrap gap-2">
                 {[30, 60, 120, 300].map((val) => (
                   <Button
                     key={val}
@@ -553,7 +551,7 @@ export default function SettingsPage() {
             <p className="text-sm text-muted-foreground mt-1">
               Choose the one method Lockdown Mode should require for protected actions.
             </p>
-            <div className="mt-3 grid grid-cols-2 gap-2">
+            <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
               <Button
                 type="button"
                 disabled={!settings.passwordHash}
@@ -640,7 +638,7 @@ export default function SettingsPage() {
         </p>
 
         {!totpSecretDraft ? (
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <Button
               onClick={beginTotpSetup}
               className="bg-muted hover:bg-accent text-foreground px-4 py-2 rounded-lg transition-colors"
@@ -702,7 +700,7 @@ export default function SettingsPage() {
               <p className="text-sm text-danger">{totpError}</p>
             )}
 
-            <div className="flex gap-3">
+            <div className="flex flex-wrap gap-3">
               <Button
                 onClick={confirmTotpSetup}
                 className="rounded-md bg-primary px-4 py-2 text-primary-foreground transition-colors hover:bg-primary/85"

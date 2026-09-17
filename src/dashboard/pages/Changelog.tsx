@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { Button } from '@/components/ui/button';
 import { Tag, Plus, Wrench, Bug, ArrowLeft, Minus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import DashboardPageHeader from '../components/DashboardPageHeader';
@@ -598,24 +598,20 @@ export { CURRENT_VERSION };
 export default function Changelog() {
   const navigate = useNavigate();
 
-  useEffect(() => {
-    window.scrollTo(0, 0);
-  }, []);
 
   return (
     <div>
       <DashboardPageHeader
-        label="Release notes"
-        title="Changelog"
+        title="What’s New"
         meta="What's new in BrowserUtils"
         actions={(
-          <button
+          <Button
+            variant="outline"
             onClick={() => navigate(-1)}
-            className="flex min-h-10 items-center gap-2 border px-3 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
             <ArrowLeft className="size-4" />
             Back
-          </button>
+          </Button>
         )}
       />
 

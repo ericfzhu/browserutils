@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Routes, Route, NavLink } from 'react-router-dom';
+import { useState, useEffect, useLayoutEffect, useRef } from 'react';
+import { Routes, Route, NavLink, useLocation } from 'react-router-dom';
 import { BarChart3, Shield, Settings, LayoutDashboard, Sparkles, Timer, Tag } from 'lucide-react';
 import Overview from './pages/Overview';
 import BlockedSites from './pages/BlockedSites';
@@ -64,23 +64,28 @@ function LockdownModal() {
 
 export default function App() {
   const [isHovered, setIsHovered] = useState(false);
+  const { pathname } = useLocation();
+  const mainRef = useRef<HTMLElement>(null);
+  useLayoutEffect(() => {
+    mainRef.current?.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  }, [pathname]);
 
   return (
     <LockdownProvider>
       <LockdownModal />
-      <div className="flex min-h-screen bg-background text-foreground">
+      <div className="flex h-screen overflow-hidden bg-background text-foreground">
       {/* Sidebar */}
-      <nav className="sticky top-0 flex h-screen w-56 flex-col border-r border-[var(--sidebar-border)] bg-[var(--sidebar)] p-4 text-[var(--sidebar-foreground)]">
+      <nav className="flex h-full w-16 shrink-0 flex-col overflow-y-auto sm:w-56 border-r border-[var(--sidebar-border)] bg-[var(--sidebar)] p-2 sm:p-4 text-[var(--sidebar-foreground)]">
         <div
-          className="mb-8 grid min-h-11 cursor-default grid-cols-[36px_1fr] items-center gap-3"
+          className="mb-8 grid min-h-11 cursor-default grid-cols-[36px] sm:grid-cols-[36px_1fr] items-center gap-3"
           onMouseEnter={() => setIsHovered(true)}
           onMouseLeave={() => setIsHovered(false)}
         >
           <div className="flex size-9 items-center justify-center bg-primary shadow-[var(--shadow-border)]">
             <Shield className="size-5 text-primary-foreground" />
           </div>
-          <div className="min-w-0">
-            <h1 className="relative h-6 overflow-hidden font-bold">
+          <div className="hidden min-w-0 sm:block">
+            <div className="relative h-6 overflow-hidden font-bold">
               <span
                 className={`inline-block transition-[transform,opacity] duration-300 ease-out ${
                   isHovered ? 'opacity-0 -translate-y-full' : 'opacity-100 translate-y-0'
@@ -95,7 +100,7 @@ export default function App() {
               >
                 Boyoung😘Utils
               </span>
-            </h1>
+            </div>
             <p className="text-xs text-muted-foreground">Focus & Productivity</p>
           </div>
         </div>
@@ -105,9 +110,11 @@ export default function App() {
             <NavLink
               key={to}
               to={to}
+              aria-label={label}
+              title={label}
               className={({ isActive }) =>
                 cn(
-                  'grid min-h-11 grid-cols-[36px_1fr] items-center gap-3 border-l-2 px-0 text-sm font-medium transition-[background-color,color,box-shadow,border-color] duration-150 ease-out',
+                  'grid min-h-11 grid-cols-[36px] sm:grid-cols-[36px_1fr] items-center gap-3 border-l-2 px-0 text-sm font-medium transition-[background-color,color,box-shadow,border-color] duration-150 ease-out',
                   isActive
                     ? 'border-primary bg-primary text-primary-foreground shadow-[var(--shadow-border)]'
                     : 'border-transparent text-muted-foreground hover:border-[var(--sidebar-primary)] hover:bg-[var(--sidebar-accent)] hover:text-[var(--sidebar-accent-foreground)]'
@@ -115,7 +122,7 @@ export default function App() {
               }
             >
               <span className="-ml-0.5 flex size-9 items-center justify-center"><Icon className="size-5" /></span>
-              {label}
+              <span className="hidden sm:inline">{label}</span>
             </NavLink>
           ))}
         </div>
@@ -124,9 +131,11 @@ export default function App() {
           <Separator />
           <NavLink
             to="/changelog"
+            aria-label="What’s New"
+            title="What’s New"
             className={({ isActive }) =>
               cn(
-                'grid min-h-11 grid-cols-[36px_1fr] items-center gap-3 border-l-2 px-0 text-sm transition-[background-color,color,box-shadow,border-color] duration-150 ease-out',
+                'grid min-h-11 grid-cols-[36px] sm:grid-cols-[36px_1fr] items-center gap-3 border-l-2 px-0 text-sm transition-[background-color,color,box-shadow,border-color] duration-150 ease-out',
                 isActive
                   ? 'border-primary bg-primary text-primary-foreground shadow-[var(--shadow-border)]'
                   : 'border-transparent text-muted-foreground hover:border-[var(--sidebar-primary)] hover:bg-[var(--sidebar-accent)] hover:text-[var(--sidebar-accent-foreground)]'
@@ -134,13 +143,15 @@ export default function App() {
             }
           >
             <span className="-ml-0.5 flex size-9 items-center justify-center"><Sparkles className="size-4" /></span>
-            What's New
+            <span className="hidden sm:inline">What’s New</span>
           </NavLink>
           <NavLink
             to="/settings"
+            aria-label="Settings"
+            title="Settings"
             className={({ isActive }) =>
               cn(
-                'grid min-h-11 grid-cols-[36px_1fr] items-center gap-3 border-l-2 px-0 text-sm transition-[background-color,color,box-shadow,border-color] duration-150 ease-out',
+                'grid min-h-11 grid-cols-[36px] sm:grid-cols-[36px_1fr] items-center gap-3 border-l-2 px-0 text-sm transition-[background-color,color,box-shadow,border-color] duration-150 ease-out',
                 isActive
                   ? 'border-primary bg-primary text-primary-foreground shadow-[var(--shadow-border)]'
                   : 'border-transparent text-muted-foreground hover:border-[var(--sidebar-primary)] hover:bg-[var(--sidebar-accent)] hover:text-[var(--sidebar-accent-foreground)]'
@@ -148,14 +159,14 @@ export default function App() {
             }
           >
             <span className="-ml-0.5 flex size-9 items-center justify-center"><Settings className="size-4" /></span>
-            Settings
+            <span className="hidden sm:inline">Settings</span>
           </NavLink>
-          <p className="text-center text-xs text-muted-foreground tabular-nums">v{CURRENT_VERSION}</p>
+          <p className="hidden text-center text-xs sm:block text-muted-foreground tabular-nums">v{CURRENT_VERSION}</p>
         </div>
       </nav>
 
       {/* Main content */}
-      <main className="flex-1 overflow-auto p-8">
+      <main ref={mainRef} className="min-w-0 flex-1 overflow-auto p-4 md:p-8">
         <div className="mx-auto max-w-6xl">
         <Routes>
           <Route path="/" element={<Overview />} />

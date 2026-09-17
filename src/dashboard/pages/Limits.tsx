@@ -7,6 +7,7 @@ import { Card } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -235,7 +236,6 @@ export default function Limits() {
   return (
     <div>
       <DashboardPageHeader
-        label="Controls"
         title="Daily Limits"
         meta="Maximum daily time by site"
         actions={(
@@ -269,10 +269,10 @@ export default function Limits() {
 
             return (
               <div key={limit.id} className="p-4">
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="font-medium">{limit.pattern}</span>
+                <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1 basis-full sm:basis-0">
+                    <div className="mb-1 flex flex-wrap items-center gap-2">
+                      <span className="break-all font-medium">{limit.pattern}</span>
                       {exceeded && limit.enabled && (
                         <Badge variant="destructive">Exceeded</Badge>
                       )}
@@ -280,7 +280,7 @@ export default function Limits() {
                         <Badge variant="outline">Approaching</Badge>
                       )}
                     </div>
-                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                    <div className="flex flex-wrap items-center gap-x-4 text-sm text-muted-foreground">
                       <span>Limit: {formatTime(limit.limitSeconds)}/day</span>
                       <span>
                         Bypass:{' '}
@@ -306,6 +306,7 @@ export default function Limits() {
                       {limit.enabled ? 'Limiting' : 'Disabled'}
                     </button>
                     <Button
+                      aria-label={`Edit limit for ${limit.pattern}`}
                       onClick={() => openEditModal(limit)}
                       variant="ghost"
                       size="icon"
@@ -313,6 +314,7 @@ export default function Limits() {
                       <Edit2 />
                     </Button>
                     <Button
+                      aria-label={`Delete limit for ${limit.pattern}`}
                       onClick={() => handleDelete(limit.id)}
                       variant="ghost"
                       size="icon"
@@ -324,7 +326,7 @@ export default function Limits() {
 
                 {/* Progress bar */}
                 <div className="flex items-center gap-3">
-                  <Progress value={Math.min(100, percent)} className="flex-1" />
+                  <Progress value={Math.min(100, percent)} className="min-w-0 flex-1 basis-full sm:basis-0" />
                   <span className="w-24 text-right text-sm text-muted-foreground">
                     {formatTime(timeSpent)} / {formatTime(limit.limitSeconds)}
                   </span>
@@ -340,13 +342,15 @@ export default function Limits() {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>{editingLimit ? 'Edit Limit' : 'Add Daily Limit'}</DialogTitle>
+            <DialogDescription>Choose a website, its daily allowance, and what happens when time runs out.</DialogDescription>
           </DialogHeader>
 
             <div className="flex flex-col gap-4">
               {/* Domain */}
               <div className="flex flex-col gap-1">
-                <Label>Domain</Label>
+                <Label htmlFor="limit-domain">Domain</Label>
                 <Input
+                  id="limit-domain"
                   type="text"
                   value={formData.pattern}
                   onChange={(e) => setFormData({ ...formData, pattern: e.target.value })}
@@ -354,7 +358,7 @@ export default function Limits() {
                   placeholder="e.g., youtube.com"
                 />
                 <p className="text-xs text-muted-foreground">
-                  Full URLs are reduced to a domain, for example `https://www.youtube.com/watch?v=123` becomes `youtube.com`.
+                  Enter a domain such as youtube.com. You can also paste a full website address.
                 </p>
               </div>
 

@@ -407,7 +407,7 @@ export default function Overview() {
 
   return (
     <div>
-      <DashboardPageHeader label="Dashboard" title="Overview" meta={todayLabel} />
+      <DashboardPageHeader title="Overview" meta={todayLabel} />
 
       {/* Stats Cards */}
       <div className="mb-6 grid gap-4 md:grid-cols-3">
@@ -715,9 +715,9 @@ export default function Overview() {
             {blockedSites.slice(0, 6).map((site) => (
               <div
                 key={site.id}
-                className="flex items-center justify-between rounded-md border border-border bg-muted px-3 py-2"
+                className="flex min-w-0 items-center justify-between gap-2 rounded-md border border-border bg-muted px-3 py-2"
               >
-                <span className="text-sm font-medium truncate">{site.pattern}</span>
+                <span className="min-w-0 truncate text-sm font-medium">{site.pattern}</span>
                 <span
                   className={`text-xs px-2 py-1 rounded-full flex-shrink-0 ${
                     site.enabled

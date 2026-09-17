@@ -1,3 +1,4 @@
+import DashboardPageHeader from '../components/DashboardPageHeader';
 import { useEffect, useState } from 'react';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import { Plus, Pencil, Trash2, GripVertical, ChevronRight, CheckSquare, Square } from 'lucide-react';
@@ -554,12 +555,8 @@ export default function Categories() {
 
   return (
     <div>
-      <div className="mb-6 flex flex-col gap-4 border-b border-foreground pb-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="mb-1 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground">Organization</p>
-          <h1 className="text-2xl font-bold text-foreground">Categories</h1>
-        </div>
-        <div className="flex items-center gap-2">
+      <DashboardPageHeader title="Categories" actions={(
+        <div className="flex flex-wrap items-center justify-end gap-2">
           {(() => {
             const allCollapsed = categoryOrder.length > 0 && [...categoryOrder, 'other'].every(id => collapsedCategories.has(id));
             return (
@@ -630,7 +627,7 @@ export default function Categories() {
             Add category
           </Button>
         </div>
-      </div>
+      )} />
 
       <p className="text-sm text-muted-foreground mb-6">
         {selectMode
@@ -668,24 +665,20 @@ export default function Categories() {
                           <GripVertical className="w-4 h-4" />
                         </div>
                       )}
-                      <div
-                        className="flex items-center gap-3 flex-1 cursor-pointer"
+                      <button
+                        type="button"
+                        className="grid min-w-0 flex-1 grid-cols-[20px_12px_minmax(0,1fr)] items-center gap-x-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
                         onClick={() => toggleCollapse(categoryId)}
+                        aria-expanded={!isCollapsed}
+                        aria-label={`${info.name}: ${sites.length} sites`}
                       >
-                        <span className="text-muted-foreground ">
-                          <ChevronRight className={`w-5 h-5 transition-transform duration-200 ${isCollapsed ? '' : 'rotate-90'}`} />
-                        </span>
-                        <div className={`size-3 ${info.color}`} />
-                        <span className="font-medium text-foreground ">{info.name}</span>
-                        {!isCustom && (
-                          <span className="bg-muted px-1.5 py-0.5 text-xs text-muted-foreground ">
-                            default
-                          </span>
-                        )}
-                        <span className="text-sm text-muted-foreground ">
+                        <ChevronRight className={`size-5 text-muted-foreground transition-transform duration-200 ${isCollapsed ? '' : 'rotate-90'}`} />
+                        <span className={`size-3 ${info.color}`} />
+                        <span className="break-words font-medium text-foreground">{info.name}</span>
+                        <span className="col-start-3 text-sm text-muted-foreground">
                           {sites.length} site{sites.length !== 1 ? 's' : ''} · {formatTime(totalTime)}
                         </span>
-                      </div>
+                      </button>
                       <div className="flex items-center gap-1">
                         {selectMode && sites.length > 0 && (
                           <button

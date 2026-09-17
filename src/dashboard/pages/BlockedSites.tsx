@@ -1,3 +1,5 @@
+import { Button } from '@/components/ui/button';
+import DashboardPageHeader from '../components/DashboardPageHeader';
 import { useEffect, useRef, useState } from 'react';
 import { Plus, Trash2, Edit2, X, Shield, Clock, Calendar, Lock, FolderPlus, ChevronRight, GripVertical, Focus } from 'lucide-react';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
@@ -928,13 +930,13 @@ export default function BlockedSites() {
           <div
             ref={provided.innerRef}
             {...provided.draggableProps}
-            className="flex items-center gap-3 px-4 py-3 bg-card border-b border-border last:border-b-0 hover:bg-muted "
+            className="flex flex-wrap items-center gap-3 px-4 py-3 bg-card border-b border-border last:border-b-0 hover:bg-muted "
           >
             <div {...provided.dragHandleProps} className="text-muted-foreground hover:text-muted-foreground cursor-grab">
               <GripVertical className="w-4 h-4" />
             </div>
-            <div className="flex-1 min-w-0">
-              <span className="font-medium text-foreground ">{site.pattern}</span>
+            <div className="min-w-0 flex-1 basis-[calc(100%-2rem)] sm:basis-0">
+              <span className="break-all font-medium text-foreground">{site.pattern}</span>
             </div>
             {/* Show time remaining before the label when timer is active */}
             {isTimerActive && timerStatus && (
@@ -976,10 +978,10 @@ export default function BlockedSites() {
                 {site.enabled ? 'Blocking' : 'Disabled'}
               </button>
             )}
-            <button onClick={() => openEditModal(site)} className="p-1.5 text-muted-foreground hover:bg-muted hover:text-muted-foreground ">
+            <button aria-label={`Edit ${site.pattern}`} title="Edit site" onClick={() => openEditModal(site)} className="p-1.5 text-muted-foreground hover:bg-muted hover:text-muted-foreground ">
               <Edit2 className="w-4 h-4" />
             </button>
-            <button onClick={() => deleteSite(site.id)} className="p-1.5 text-muted-foreground hover:bg-danger-subtle hover:text-danger ">
+            <button aria-label={`Delete ${site.pattern}`} title="Delete site" onClick={() => deleteSite(site.id)} className="p-1.5 text-muted-foreground hover:bg-danger-subtle hover:text-danger ">
               <Trash2 className="w-4 h-4" />
             </button>
           </div>
@@ -1066,10 +1068,10 @@ export default function BlockedSites() {
           )}
           {folder && (
             <>
-              <button onClick={() => openEditFolderModal(folder)} className="p-1.5 text-muted-foreground hover:bg-muted hover:text-muted-foreground ">
+              <button aria-label={`Edit ${folder.name}`} title="Edit folder" onClick={() => openEditFolderModal(folder)} className="p-1.5 text-muted-foreground hover:bg-muted hover:text-muted-foreground ">
                 <Edit2 className="w-4 h-4" />
               </button>
-              <button onClick={() => deleteFolder(folder.id)} className="p-1.5 text-muted-foreground hover:bg-danger-subtle hover:text-danger ">
+              <button aria-label={`Delete ${folder.name}`} title="Delete folder" onClick={() => deleteFolder(folder.id)} className="p-1.5 text-muted-foreground hover:bg-danger-subtle hover:text-danger ">
                 <Trash2 className="w-4 h-4" />
               </button>
             </>
@@ -1117,59 +1119,54 @@ export default function BlockedSites() {
 
   return (
     <div>
-      <div className="mb-6 flex flex-col gap-4 border-b border-foreground pb-4 xl:flex-row xl:items-end xl:justify-between">
-        <div>
-          <p className="mb-1 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground">Controls</p>
-          <h1 className="text-2xl font-bold text-foreground">Blocked Sites</h1>
-        </div>
-        <div className="flex items-center gap-2">
+      <DashboardPageHeader title="Blocked Sites" actions={(
+        <div className="flex flex-wrap items-center justify-end gap-2">
           {sites.length > 0 && (
             globalFocusStatus?.isActive ? (
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <span className="text-xs text-info font-medium">
                   {formatTimerRemaining(globalFocusStatus.remainingMs)}
                 </span>
-                <button
+                <Button
                   onClick={() => openEditGlobalFocusModal(globalFocusStatus.remainingMs)}
-                  className="flex min-h-10 items-center gap-2 border bg-card px-4 text-foreground transition-colors hover:bg-muted"
+                  variant="outline"
                 >
                   <Focus className="w-5 h-5" />
                   Extend Focus
-                </button>
-                <button
+                </Button>
+                <Button
                   onClick={stopGlobalFocusSession}
-                  className="flex min-h-10 items-center gap-2 border border-foreground bg-foreground px-4 text-background transition-opacity hover:opacity-80"
+                  variant="secondary"
                 >
                   <Focus className="w-5 h-5" />
                   Stop Focus
-                </button>
+                </Button>
               </div>
             ) : (
-              <button
+              <Button
                 onClick={openGlobalFocusModal}
-                className="flex min-h-10 items-center gap-2 border bg-card px-4 text-foreground transition-colors hover:bg-muted"
+                variant="outline"
               >
                 <Focus className="w-5 h-5" />
                 Focus All
-              </button>
+              </Button>
             )
           )}
-          <button
+          <Button
             onClick={openAddFolderModal}
-            className="flex min-h-10 items-center gap-2 border bg-card px-4 text-foreground transition-colors hover:bg-muted"
+            variant="outline"
           >
             <FolderPlus className="w-5 h-5" />
             Add Folder
-          </button>
-          <button
+          </Button>
+          <Button
             onClick={openAddModal}
-            className="flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-primary-foreground transition-colors hover:bg-primary/85"
           >
             <Plus className="w-5 h-5" />
             Add Site
-          </button>
+          </Button>
         </div>
-      </div>
+      )} />
 
       {/* Grouped Sites */}
       <DragDropContext onDragEnd={handleDragEnd}>

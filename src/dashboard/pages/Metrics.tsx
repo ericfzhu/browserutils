@@ -1,3 +1,4 @@
+import { Popover } from 'radix-ui';
 import { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Calendar, Clock, TrendingDown, TrendingUp, ChevronLeft, ChevronRight, ChevronDown, Focus, Layers, Shield, Video } from 'lucide-react';
@@ -174,7 +175,7 @@ function DateRangePicker({ startDate, endDate, onSelectRange, onClose }: DateRan
   };
 
   return (
-    <div className="absolute right-0 top-full z-50 mt-2 w-80 max-w-[calc(100vw-2rem)] rounded-lg border border-border bg-popover p-4 text-popover-foreground shadow-[var(--shadow-card-hover)]">
+    <div>
       {/* Selection indicator */}
       <div className="flex items-center justify-between mb-3 text-sm">
         <button
@@ -774,14 +775,14 @@ export default function Metrics() {
   return (
     <div>
       <DashboardPageHeader
-        label="Analytics"
         title="Metrics"
         meta={getDateRangeDisplay()}
         actions={(
           <div className="relative flex w-fit divide-x divide-border border border-border bg-card">
             <button
               onClick={() => setPreset('day')}
-              className={`min-h-10 w-16 text-center text-sm font-medium transition-colors duration-150 ease-out ${
+              aria-pressed={selectedPeriod === 'day'}
+              className={`h-9 w-16 text-center text-sm font-medium transition-colors duration-150 ease-out ${
                 selectedPeriod === 'day' ? 'bg-foreground text-background' : 'text-muted-foreground hover:bg-muted hover:text-foreground'
               }`}
             >
@@ -789,7 +790,8 @@ export default function Metrics() {
             </button>
             <button
               onClick={() => setPreset('week')}
-              className={`min-h-10 w-16 text-center text-sm font-medium transition-colors duration-150 ease-out ${
+              aria-pressed={selectedPeriod === 'week'}
+              className={`h-9 w-16 text-center text-sm font-medium transition-colors duration-150 ease-out ${
                 selectedPeriod === 'week' ? 'bg-foreground text-background' : 'text-muted-foreground hover:bg-muted hover:text-foreground'
               }`}
             >
@@ -797,33 +799,38 @@ export default function Metrics() {
             </button>
             <button
               onClick={() => setPreset('month')}
-              className={`min-h-10 w-16 text-center text-sm font-medium transition-colors duration-150 ease-out ${
+              aria-pressed={selectedPeriod === 'month'}
+              className={`h-9 w-16 text-center text-sm font-medium transition-colors duration-150 ease-out ${
                 selectedPeriod === 'month' ? 'bg-foreground text-background' : 'text-muted-foreground hover:bg-muted hover:text-foreground'
               }`}
             >
               Month
             </button>
-            <div className="relative">
-              <button
-                onClick={() => setShowDateRangePicker(!showDateRangePicker)}
-                className={`min-h-10 w-16 text-center text-sm font-medium transition-colors duration-150 ease-out ${
-                  selectedPeriod === 'custom' ? 'bg-foreground text-background' : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                }`}
-              >
-                Custom
-              </button>
-              {showDateRangePicker && (
-                <DateRangePicker
-                  startDate={dateRangeStart}
-                  endDate={dateRangeEnd}
-                  onSelectRange={(start, end) => {
-                    setDateRangeStart(start);
-                    setDateRangeEnd(end);
-                  }}
-                  onClose={() => setShowDateRangePicker(false)}
-                />
-              )}
-            </div>
+            <Popover.Root open={showDateRangePicker} onOpenChange={setShowDateRangePicker}>
+              <Popover.Trigger asChild>
+                <button
+                  aria-pressed={selectedPeriod === 'custom'}
+                  className={`h-9 w-16 text-center text-sm font-medium transition-colors duration-150 ease-out ${
+                    selectedPeriod === 'custom' ? 'bg-foreground text-background' : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                  }`}
+                >
+                  Custom
+                </button>
+              </Popover.Trigger>
+              <Popover.Portal>
+                <Popover.Content className="z-50 max-h-[var(--radix-popover-content-available-height)] w-80 max-w-[calc(100vw-2rem)] overflow-y-auto outline-none rounded-lg border border-border bg-popover p-4 text-popover-foreground shadow-[var(--shadow-card-hover)]" align="end" sideOffset={8} collisionPadding={16} aria-label="Custom date range">
+                  <DateRangePicker
+                    startDate={dateRangeStart}
+                    endDate={dateRangeEnd}
+                    onSelectRange={(start, end) => {
+                      setDateRangeStart(start);
+                      setDateRangeEnd(end);
+                    }}
+                    onClose={() => setShowDateRangePicker(false)}
+                  />
+                </Popover.Content>
+              </Popover.Portal>
+            </Popover.Root>
           </div>
         )}
       />

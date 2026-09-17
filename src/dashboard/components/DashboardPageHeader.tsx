@@ -1,32 +1,19 @@
 import { ReactNode } from 'react';
 
 interface DashboardPageHeaderProps {
-  label: string;
   title: string;
   meta?: ReactNode;
   actions?: ReactNode;
 }
 
-export default function DashboardPageHeader({
-  label,
-  title,
-  meta,
-  actions,
-}: DashboardPageHeaderProps) {
+export default function DashboardPageHeader({ title, meta, actions }: DashboardPageHeaderProps) {
   return (
-    <div className="mb-6 flex flex-col gap-4 border-b border-foreground pb-4 sm:flex-row sm:items-end sm:justify-between">
-      <div>
-        <p className="mb-1 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
-          {label}
-        </p>
-        <h1 className="text-2xl font-bold text-foreground">{title}</h1>
+    <header className="mb-6 border-b border-border pb-4">
+      <h1 className="text-2xl font-bold leading-8 text-foreground">{title}</h1>
+      <div className="mt-3 flex min-h-10 flex-wrap items-center justify-between gap-3">
+        {meta && <div className="text-sm text-muted-foreground tabular-nums">{meta}</div>}
+        {actions && <div className="ml-auto flex max-w-full flex-wrap items-center justify-end gap-2">{actions}</div>}
       </div>
-      {(meta || actions) && (
-        <div className="flex flex-col gap-3 sm:items-end">
-          {meta && <div className="text-sm text-muted-foreground tabular-nums">{meta}</div>}
-          {actions}
-        </div>
-      )}
-    </div>
+    </header>
   );
 }
