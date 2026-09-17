@@ -299,7 +299,7 @@ export default function SettingsPage() {
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-colors ${
                     settings?.theme === value
                       ? 'border-primary bg-primary/10 text-primary'
-                      : 'border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
+                      : 'border-border hover:bg-muted '
                   }`}
                 >
                   <Icon className="w-4 h-4" />
@@ -355,7 +355,7 @@ export default function SettingsPage() {
               type="checkbox"
               checked={settings.trackingEnabled}
               onChange={(e) => void updateSettings({ trackingEnabled: e.target.checked })}
-              className="size-5 border-gray-300 text-primary focus:ring-ring"
+              className="size-5 border-border text-primary focus:ring-ring"
             />
           </label>
 
@@ -376,7 +376,7 @@ export default function SettingsPage() {
                   await withLockdownCheck(applyChange);
                 }
               }}
-              className="size-5 border-gray-300 text-primary focus:ring-ring"
+              className="size-5 border-border text-primary focus:ring-ring"
             />
           </label>
 
@@ -389,7 +389,7 @@ export default function SettingsPage() {
               type="checkbox"
               checked={settings.youtubeTrackingEnabled}
               onChange={(e) => void updateSettings({ youtubeTrackingEnabled: e.target.checked })}
-              className="size-5 border-gray-300 text-primary focus:ring-ring"
+              className="size-5 border-border text-primary focus:ring-ring"
             />
           </label>
 
@@ -450,7 +450,7 @@ export default function SettingsPage() {
                     className={`px-2 py-1 text-xs ${
                       settings.idleThreshold === val
                         ? 'bg-primary text-primary-foreground'
-                        : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                        : 'bg-muted text-muted-foreground hover:bg-accent '
                     }`}
                   >
                     {val < 60 ? `${val}s` : `${val / 60}m`}
@@ -458,7 +458,7 @@ export default function SettingsPage() {
                 ))}
               </div>
             </div>
-            <p className="text-xs text-gray-400 dark:text-muted-foreground mt-1">
+            <p className="text-xs text-muted-foreground mt-1">
               Minimum: 15 seconds (Chrome API limit). Tracking also pauses when windows are minimized.
             </p>
           </div>
@@ -480,7 +480,7 @@ export default function SettingsPage() {
               type="checkbox"
               checked={settings.forcePasteEnabled}
               onChange={(e) => void updateSettings({ forcePasteEnabled: e.target.checked })}
-              className="size-5 shrink-0 border-gray-300 text-primary focus:ring-ring"
+              className="size-5 shrink-0 border-border text-primary focus:ring-ring"
             />
           </label>
 
@@ -495,7 +495,7 @@ export default function SettingsPage() {
               type="checkbox"
               checked={settings.blobVideoDownloaderEnabled}
               onChange={(e) => void updateSettings({ blobVideoDownloaderEnabled: e.target.checked })}
-              className="size-5 shrink-0 border-gray-300 text-primary focus:ring-ring"
+              className="size-5 shrink-0 border-border text-primary focus:ring-ring"
             />
           </label>
         </div>
@@ -507,7 +507,7 @@ export default function SettingsPage() {
         <p className="text-sm text-muted-foreground mb-4">
           Set a master password for unlocking password-protected blocked sites.
           {settings.passwordHash && (
-            <span className="ml-1 text-green-600">(Currently set)</span>
+            <span className="ml-1 text-success">(Currently set)</span>
           )}
         </p>
 
@@ -533,18 +533,18 @@ export default function SettingsPage() {
             className="w-full rounded-md border border-input bg-background px-3 py-2 focus:border-ring focus:ring-2 focus:ring-ring/45"
           />
           {passwordError && (
-            <p className="text-sm text-red-600">{passwordError}</p>
+            <p className="text-sm text-danger">{passwordError}</p>
           )}
           <Button
             onClick={setMasterPassword}
-            className="bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 px-4 py-2 rounded-lg transition-colors"
+            className="bg-muted hover:bg-accent text-foreground px-4 py-2 rounded-lg transition-colors"
           >
             {settings.passwordHash ? 'Update Password' : 'Set Password'}
           </Button>
         </div>
 
         {/* Lockdown Mode */}
-        <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+        <div className="mt-6 pt-6 border-t border-border ">
           <div className="mb-4">
             <span className="font-medium">Lockdown Authentication Method</span>
             <p className="text-sm text-muted-foreground mt-1">
@@ -563,8 +563,8 @@ export default function SettingsPage() {
                 className={`flex items-center gap-2 p-3 border rounded-lg transition-colors ${
                   settings.lockdownAuthMethod === 'password'
                     ? 'border-primary bg-primary/10 text-primary'
-                    : 'border-gray-200 dark:border-gray-600'
-                } ${!settings.passwordHash ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+                    : 'border-border '
+                } ${!settings.passwordHash ? 'opacity-50 cursor-not-allowed' : 'hover:bg-muted '}`}
               >
                 <Lock className="w-4 h-4" />
                 Master password
@@ -581,8 +581,8 @@ export default function SettingsPage() {
                 className={`flex items-center gap-2 p-3 border rounded-lg transition-colors ${
                   settings.lockdownAuthMethod === 'totp'
                     ? 'border-primary bg-primary/10 text-primary'
-                    : 'border-gray-200 dark:border-gray-600'
-                } ${!settings.lockdownTotpSecret ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+                    : 'border-border '
+                } ${!settings.lockdownTotpSecret ? 'opacity-50 cursor-not-allowed' : 'hover:bg-muted '}`}
               >
                 <ShieldCheck className="w-4 h-4" />
                 Authenticator app
@@ -598,7 +598,7 @@ export default function SettingsPage() {
                 <p className="text-sm text-muted-foreground">
                   Require the selected Lockdown authentication method to disable blocking, remove sites, or disable limits.
                   {!hasLockdownMethod && (
-                    <span className="block text-amber-600 dark:text-amber-400 mt-1">
+                    <span className="block text-warning mt-1">
                       Set up a master password or authenticator app first to enable this feature.
                     </span>
                   )}
@@ -621,7 +621,7 @@ export default function SettingsPage() {
                 }
               }}
               disabled={!hasLockdownMethod}
-              className="size-5 border-gray-300 text-primary focus:ring-ring disabled:cursor-not-allowed"
+              className="size-5 border-border text-primary focus:ring-ring disabled:cursor-not-allowed"
             />
           </label>
         </div>
@@ -632,7 +632,7 @@ export default function SettingsPage() {
         <p className="text-sm text-muted-foreground mb-4">
           Set up a TOTP authenticator app as an alternative Lockdown authentication method.
           {settings.lockdownTotpSecret && (
-            <span className="ml-1 text-green-600">(Currently set)</span>
+            <span className="ml-1 text-success">(Currently set)</span>
           )}
         </p>
 
@@ -640,14 +640,14 @@ export default function SettingsPage() {
           <div className="flex items-center gap-3">
             <Button
               onClick={beginTotpSetup}
-              className="bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 px-4 py-2 rounded-lg transition-colors"
+              className="bg-muted hover:bg-accent text-foreground px-4 py-2 rounded-lg transition-colors"
             >
               {settings.lockdownTotpSecret ? 'Replace Authenticator Setup' : 'Set Up Authenticator'}
             </Button>
             {settings.lockdownTotpSecret && (
               <Button
                 onClick={clearTotpSetup}
-                className="px-4 py-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                className="px-4 py-2 text-danger hover:bg-danger-subtle rounded-lg transition-colors"
               >
                 Remove Authenticator
               </Button>
@@ -655,8 +655,8 @@ export default function SettingsPage() {
           </div>
         ) : (
           <div className="flex flex-col gap-4">
-            <div className="rounded-lg bg-gray-50 dark:bg-gray-700/50 p-4">
-              <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
+            <div className="rounded-lg bg-muted p-4">
+              <p className="text-sm text-muted-foreground mb-4">
                 Scan this QR code with your authenticator app, then enter the 6-digit code to confirm setup.
               </p>
               <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-start">
@@ -696,7 +696,7 @@ export default function SettingsPage() {
               className="w-full rounded-md border border-input bg-background px-3 py-2 focus:border-ring focus:ring-2 focus:ring-ring/45"
             />
             {totpError && (
-              <p className="text-sm text-red-600">{totpError}</p>
+              <p className="text-sm text-danger">{totpError}</p>
             )}
 
             <div className="flex gap-3">
@@ -712,7 +712,7 @@ export default function SettingsPage() {
                   setTotpCode('');
                   setTotpError('');
                 }}
-                className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                className="px-4 py-2 text-foreground hover:bg-muted rounded-lg transition-colors"
               >
                 Cancel
               </Button>
@@ -752,12 +752,12 @@ export default function SettingsPage() {
             </Button>
           </div>
 
-          <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
-            <div className="flex items-start gap-3 p-4 bg-red-50 dark:bg-red-900/20 rounded-lg">
-              <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+          <div className="pt-4 border-t border-border ">
+            <div className="flex items-start gap-3 p-4 bg-danger-subtle rounded-lg">
+              <AlertTriangle className="w-5 h-5 text-danger flex-shrink-0 mt-0.5" />
               <div>
-                <h3 className="font-medium text-red-900 dark:text-red-300">Danger Zone</h3>
-                <p className="text-sm text-red-700 dark:text-red-400 mb-3">
+                <h3 className="font-medium text-danger ">Danger Zone</h3>
+                <p className="text-sm text-danger mb-3">
                   This will permanently delete all your data including tracking history, blocked sites, and settings.
                 </p>
                 <Button

@@ -6,12 +6,13 @@ import '../styles/index.css';
 import { initTheme } from '../shared/theme';
 
 // Initialize theme before render to avoid flash
-initTheme();
+initTheme().then(() => {
+  ReactDOM.createRoot(document.getElementById('root')!).render(
+    <React.StrictMode>
+      <HashRouter>
+        <App />
+      </HashRouter>
+    </React.StrictMode>
+  );
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>
-    <HashRouter>
-      <App />
-    </HashRouter>
-  </React.StrictMode>
-);
+});

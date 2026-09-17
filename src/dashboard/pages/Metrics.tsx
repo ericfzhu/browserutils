@@ -838,11 +838,11 @@ export default function Metrics() {
           <p className="mt-5 text-3xl font-bold tabular-nums">{formatTime(totalTime)}</p>
           <div className="mt-1 flex items-center gap-1">
             {timeChange > 0 ? (
-              <TrendingUp className="w-4 h-4 text-red-500" />
+              <TrendingUp className="w-4 h-4 text-danger" />
             ) : (
-              <TrendingDown className="w-4 h-4 text-green-500" />
+              <TrendingDown className="w-4 h-4 text-success" />
             )}
-            <span className={`text-sm tabular-nums ${timeChange > 0 ? 'text-red-500' : 'text-green-600 dark:text-green-400'}`}>
+            <span className={`text-sm tabular-nums ${timeChange > 0 ? 'text-danger' : 'text-success '}`}>
               {Math.abs(timeChange).toFixed(0)}% vs prev {getPeriodLabel()}
             </span>
           </div>
@@ -1102,12 +1102,12 @@ export default function Metrics() {
       {settings?.youtubeTrackingEnabled && (
         <div id="youtube-channels" className={analyticsPanelClass}>
           <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-            <Video className="w-5 h-5 text-red-600" />
+            <Video className="w-5 h-5 text-danger" />
             YouTube channels
           </h2>
           {loadingSessions ? (
             <div className="flex items-center justify-center py-8">
-              <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-red-600"></div>
+              <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-danger/30"></div>
             </div>
           ) : (() => {
             const allYouTubeSessions = sessionData.youtubeSessions;
@@ -1156,7 +1156,7 @@ export default function Metrics() {
                               href={channelUrl}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="transition-colors duration-150 ease-out hover:text-red-600 hover:underline"
+                              className="transition-colors duration-150 ease-out hover:text-danger hover:underline"
                             >
                               {channel}
                             </a>

@@ -558,26 +558,26 @@ export default function Overview() {
         const exceeded = getLimitsExceeded();
         if (exceeded.length === 0) return null;
         return (
-          <div className="mb-6 rounded-lg border border-red-300 bg-red-50 p-4 dark:border-red-700 dark:bg-red-950/30">
-            <h3 className="mb-2 text-sm font-semibold text-red-800 dark:text-red-300">Limits exceeded</h3>
+          <div className="mb-6 rounded-lg border border-danger/30 bg-danger-subtle p-4 ">
+            <h3 className="mb-2 text-sm font-semibold text-danger ">Limits exceeded</h3>
             <div className="space-y-2">
               {exceeded.map(({ limit, timeSpent, percent }) => (
                 <div key={limit.id} className="flex items-center gap-3">
                   <div className="flex-1">
                     <div className="mb-1 flex items-center justify-between">
-                      <span className="text-sm font-medium text-red-900 dark:text-red-200">{limit.pattern}</span>
-                      <span className="text-xs text-red-700 dark:text-red-300 tabular-nums">
+                      <span className="text-sm font-medium text-danger ">{limit.pattern}</span>
+                      <span className="text-xs text-danger tabular-nums">
                         {formatTime(timeSpent)} / {formatTime(limit.limitSeconds)}
                       </span>
                     </div>
-                    <div className="h-2 overflow-hidden rounded-full bg-red-100 dark:bg-red-900/50">
+                    <div className="h-2 overflow-hidden rounded-full bg-danger-subtle ">
                       <div
                         className="h-full rounded-full bg-red-500 transition-[width] duration-300 ease-out"
                         style={{ width: `${Math.min(100, percent)}%` }}
                       />
                     </div>
                   </div>
-                  <span className="text-xs font-medium text-red-600 dark:text-red-300 tabular-nums">
+                  <span className="text-xs font-medium text-danger tabular-nums">
                     {percent.toFixed(0)}%
                   </span>
                 </div>
@@ -592,19 +592,19 @@ export default function Overview() {
         const approaching = getLimitsApproaching();
         if (approaching.length === 0) return null;
         return (
-          <div className="mb-6 rounded-lg border border-amber-300 bg-amber-50 p-4 dark:border-amber-700 dark:bg-amber-900/20">
-            <h3 className="text-sm font-semibold text-amber-800 dark:text-amber-300 mb-2">Limits approaching</h3>
+          <div className="mb-6 rounded-lg border border-warning/30 bg-warning-subtle p-4 ">
+            <h3 className="text-sm font-semibold text-warning mb-2">Limits approaching</h3>
             <div className="space-y-2">
               {approaching.map(({ limit, timeSpent, percent }) => (
                 <div key={limit.id} className="flex items-center gap-3">
                   <div className="flex-1">
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-sm font-medium text-amber-900 dark:text-amber-200">{limit.pattern}</span>
-                      <span className="text-xs text-amber-700 dark:text-amber-400 tabular-nums">
+                      <span className="text-sm font-medium text-warning ">{limit.pattern}</span>
+                      <span className="text-xs text-warning tabular-nums">
                         {formatTime(timeSpent)} / {formatTime(limit.limitSeconds)}
                       </span>
                     </div>
-                    <div className="h-2 overflow-hidden rounded-full bg-amber-100 dark:bg-amber-900/50">
+                    <div className="h-2 overflow-hidden rounded-full bg-warning-subtle ">
                       <div
                         className={`h-full rounded-full transition-[width] duration-300 ease-out ${
                           percent >= 90 ? 'bg-orange-500' : 'bg-amber-500'
@@ -613,7 +613,7 @@ export default function Overview() {
                       />
                     </div>
                   </div>
-                  <span className="text-xs font-medium text-amber-600 tabular-nums">
+                  <span className="text-xs font-medium text-warning tabular-nums">
                     {percent.toFixed(0)}%
                   </span>
                 </div>
@@ -628,7 +628,7 @@ export default function Overview() {
         <div className={`${analyticsPanelClass} mb-6`}>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold flex items-center gap-2">
-              <Video className="w-5 h-5 text-red-600" />
+              <Video className="w-5 h-5 text-danger" />
               YouTube channels
             </h2>
             <Link to="/metrics#youtube-channels" className={analyticsLinkClass}>
@@ -673,7 +673,7 @@ export default function Overview() {
                             href={channelUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="truncate font-medium transition-colors duration-150 ease-out hover:text-red-600 hover:underline"
+                            className="truncate font-medium transition-colors duration-150 ease-out hover:text-danger hover:underline"
                           >
                             {channel}
                           </a>
@@ -721,7 +721,7 @@ export default function Overview() {
                 <span
                   className={`text-xs px-2 py-1 rounded-full flex-shrink-0 ${
                     site.enabled
-                      ? 'bg-red-100 dark:bg-red-700/80 text-red-700 dark:text-red-200'
+                      ? 'bg-danger-subtle text-danger '
                       : 'bg-muted text-muted-foreground'
                   }`}
                 >

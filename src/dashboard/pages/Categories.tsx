@@ -632,7 +632,7 @@ export default function Categories() {
         </div>
       </div>
 
-      <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+      <p className="text-sm text-muted-foreground mb-6">
         {selectMode
           ? "Click sites to select them, then choose a category to move them to."
           : "Drag categories to reorder. Click to expand/collapse. Drag sites between categories."
@@ -655,16 +655,16 @@ export default function Categories() {
                   <div className={`overflow-hidden border bg-card shadow-[var(--shadow-card)] transition-colors ${
                     isDraggingOver && isCollapsed
                       ? 'border-primary ring-2 ring-primary/40'
-                      : 'border-gray-200 dark:border-gray-700'
+                      : 'border-border '
                   }`}>
                     {/* Category Header */}
                     <div className={`flex items-center gap-2 px-4 py-3 transition-colors ${
                       isDraggingOver && isCollapsed
                         ? 'bg-primary/10'
-                        : 'bg-gray-50 dark:bg-gray-700/50'
-                    } ${isCollapsed ? '' : 'border-b border-gray-200 dark:border-gray-700'}`}>
+                        : 'bg-muted '
+                    } ${isCollapsed ? '' : 'border-b border-border '}`}>
                       {!isOther && (
-                        <div {...dragHandleProps} className="text-gray-300 dark:text-gray-600 hover:text-gray-500 dark:hover:text-gray-400 cursor-grab">
+                        <div {...dragHandleProps} className="text-muted-foreground hover:text-muted-foreground cursor-grab">
                           <GripVertical className="w-4 h-4" />
                         </div>
                       )}
@@ -672,17 +672,17 @@ export default function Categories() {
                         className="flex items-center gap-3 flex-1 cursor-pointer"
                         onClick={() => toggleCollapse(categoryId)}
                       >
-                        <span className="text-gray-500 dark:text-gray-400">
+                        <span className="text-muted-foreground ">
                           <ChevronRight className={`w-5 h-5 transition-transform duration-200 ${isCollapsed ? '' : 'rotate-90'}`} />
                         </span>
                         <div className={`size-3 ${info.color}`} />
-                        <span className="font-medium text-gray-900 dark:text-gray-100">{info.name}</span>
+                        <span className="font-medium text-foreground ">{info.name}</span>
                         {!isCustom && (
-                          <span className="bg-gray-100 px-1.5 py-0.5 text-xs text-gray-400 dark:bg-gray-600 dark:text-gray-500">
+                          <span className="bg-muted px-1.5 py-0.5 text-xs text-muted-foreground ">
                             default
                           </span>
                         )}
-                        <span className="text-sm text-gray-500 dark:text-gray-400">
+                        <span className="text-sm text-muted-foreground ">
                           {sites.length} site{sites.length !== 1 ? 's' : ''} · {formatTime(totalTime)}
                         </span>
                       </div>
@@ -727,7 +727,7 @@ export default function Categories() {
                                   setShowModal(true);
                                 }
                               }}
-                              className="p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-300"
+                              className="p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-muted-foreground "
                               title={isCustom ? "Edit category" : "Rename category"}
                             >
                               <Pencil className="w-4 h-4" />
@@ -738,7 +738,7 @@ export default function Categories() {
                                   e.stopPropagation();
                                   handleDeleteCategory(categoryId);
                                 }}
-                                className="p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-red-600 dark:hover:bg-gray-700 dark:hover:text-red-400"
+                                className="p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-danger "
                                 title="Delete category"
                               >
                                 <Trash2 className="w-4 h-4" />
@@ -759,7 +759,7 @@ export default function Categories() {
                           isDraggingOver && !isCollapsed ? 'bg-primary/10' : ''
                         }`}>
                           {sites.length === 0 ? (
-                            <div className="text-center py-4 text-sm text-gray-400 dark:text-gray-500">
+                            <div className="text-center py-4 text-sm text-muted-foreground ">
                               {categoryId === 'other'
                                 ? 'No uncategorized sites'
                                 : 'Drag sites here to add them to this category'}
@@ -780,10 +780,10 @@ export default function Categories() {
                                           selectMode ? 'cursor-pointer' : 'cursor-grab'
                                         } ${
                                           snapshot.isDragging
-                                            ? 'bg-white dark:bg-gray-700 shadow-lg ring-2 ring-primary'
+                                            ? 'bg-card shadow-lg ring-2 ring-primary'
                                             : isSelected
                                             ? 'bg-primary/10 ring-1 ring-primary'
-                                            : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                                            : 'hover:bg-muted '
                                         }`}
                                       >
                                         {selectMode ? (
@@ -796,17 +796,17 @@ export default function Categories() {
                                           </div>
                                         ) : (
                                           <div
-                                            className={`text-gray-300 dark:text-gray-600 ${
+                                            className={`text-muted-foreground  ${
                                               snapshot.isDragging ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
                                             } transition-opacity`}
                                           >
                                             <GripVertical className="w-4 h-4" />
                                           </div>
                                         )}
-                                        <span className="flex-1 text-sm text-gray-700 dark:text-gray-300 truncate">
+                                        <span className="flex-1 text-sm text-foreground truncate">
                                           {site.domain}
                                         </span>
-                                        <span className="text-sm text-gray-500 dark:text-gray-400">
+                                        <span className="text-sm text-muted-foreground ">
                                           {formatTime(site.time)}
                                         </span>
                                       </div>
@@ -863,14 +863,14 @@ export default function Categories() {
               className={`mt-4 border-2 border-dashed p-6 text-center transition-colors ${
                 snapshot.isDraggingOver
                   ? 'border-primary bg-primary/10'
-                  : 'border-gray-300 dark:border-gray-600'
+                  : 'border-border '
               }`}
             >
               <Plus className={`w-8 h-8 mx-auto mb-2 ${
-                snapshot.isDraggingOver ? 'text-primary' : 'text-gray-400'
+                snapshot.isDraggingOver ? 'text-primary' : 'text-muted-foreground'
               }`} />
               <p className={`text-sm font-medium ${
-                snapshot.isDraggingOver ? 'text-primary' : 'text-gray-500 dark:text-gray-400'
+                snapshot.isDraggingOver ? 'text-primary' : 'text-muted-foreground '
               }`}>
                 Drop here to create new category
               </p>

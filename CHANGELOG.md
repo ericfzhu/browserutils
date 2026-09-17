@@ -8,6 +8,7 @@ It follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) and semantic
 
 ### Added
 - A public interactive showcase demonstrates daily limits, browsing activity, focus sessions, local storage, and installation
+- Folder editing can optionally apply one unlock method, password, timer, or blocking schedule to every site in that folder without changing individual site settings by default
 
 ### Changed
 - The dashboard uses a sharper visual system with consistent page headers, bordered surfaces, controls, and navigation states

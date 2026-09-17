@@ -1,3 +1,4 @@
+import { runTrackingTransition, trackingEvent } from './trackingTransitions';
 import {
   getBlockedSites,
   setBlockedSites,
@@ -318,7 +319,7 @@ async function startFocusedWindowSession(): Promise<void> {
     if (window.focused && window.state !== 'minimized' && window.id) {
       const [tab] = await chrome.tabs.query({ active: true, windowId: window.id });
       if (tab?.url && tab.id) {
-        await startSession(tab.id, tab.url, window.id);
+        await startSession(tab.id, tab.url);
       }
     }
   } catch {
@@ -327,7 +328,7 @@ async function startFocusedWindowSession(): Promise<void> {
 }
 
 // Initialize extension
-chrome.runtime.onInstalled.addListener(async () => {
+chrome.runtime.onInstalled.addListener(trackingEvent('install', async () => {
   try {
     console.log('BrowserUtils extension installed/updated');
     await restrictStorageToExtensionContexts();
@@ -339,16 +340,16 @@ chrome.runtime.onInstalled.addListener(async () => {
   } catch (error) {
     console.error('[Startup] Failed to install or update extension state', error);
   }
-});
+}));
 
 // Service worker startup - restore state and recover session
-(async () => {
+runTrackingTransition(async () => {
   await restrictStorageToExtensionContexts();
   const settings = await getCachedSettings();
   await syncOptionalContentScripts(settings);
   await setupIdleDetection();
   await recoverSession();
-})().catch(error => {
+}).catch(error => {
   console.error('[Startup] Failed to initialize extension state', error);
 });
 
@@ -363,7 +364,7 @@ async function setupIdleDetection(): Promise<void> {
 }
 
 // Handle idle state changes
-chrome.idle.onStateChanged.addListener(async (state) => {
+chrome.idle.onStateChanged.addListener(trackingEvent('idle change', async (state) => {
   const settings = await getCachedSettings();
 
   // If idle detection is disabled, ignore
@@ -398,13 +399,44 @@ chrome.idle.onStateChanged.addListener(async (state) => {
       }
     }
   }
-});
+}));
 
+
+// Tracking messages and reset/settings mutations share the event queue. Reads,
+// downloads and unrelated UI operations do not hold up tracking checkpoints.
+// Other settings writers also join the queue to keep cachedSettings coherent.
+const CONTENT_TRACKING_MESSAGES = new Set<MessageType['type']>([
+  'HEARTBEAT', 'VISIBILITY_CHANGE', 'CONTENT_SCRIPT_READY',
+  'YOUTUBE_CHANNEL_UPDATE', 'YOUTUBE_VISIBILITY_CHANGE',
+]);
+const TRACKING_MUTATIONS = new Set<MessageType['type']>([
+  ...CONTENT_TRACKING_MESSAGES, 'UPDATE_SETTINGS', 'CLEAR_ALL_DATA', 'IMPORT_DATA',
+  'START_GLOBAL_FOCUS_SESSION', 'STOP_GLOBAL_FOCUS_SESSION', 'LOCKDOWN_AUTHENTICATE',
+]);
+
+async function handleTrackingMessage(message: MessageType, sender: chrome.runtime.MessageSender): Promise<unknown> {
+  if (CONTENT_TRACKING_MESSAGES.has(message.type)) {
+    if (sender.tab?.id === undefined) return { success: true };
+    let tab: chrome.tabs.Tab;
+    try {
+      // A queued message's sender is a snapshot. Recheck ownership and URL after
+      // earlier transitions: a closed, switched or navigated tab cannot revive it.
+      tab = await chrome.tabs.get(sender.tab.id);
+    } catch {
+      return { success: true };
+    }
+    if (tab.url !== sender.tab.url) return { success: true };
+    sender = { ...sender, tab };
+  }
+  return handleMessage(message, sender);
+}
 
 // Handle messages from popup, dashboard, and content scripts
 chrome.runtime.onMessage.addListener((message: MessageType, sender, sendResponse) => {
-  handleMessage(message, sender)
-    .then(sendResponse)
+  const response = TRACKING_MUTATIONS.has(message.type)
+    ? runTrackingTransition(() => handleTrackingMessage(message, sender))
+    : handleMessage(message, sender);
+  response.then(sendResponse)
     .catch(error => {
       console.error(`[Message] ${message?.type || 'unknown'} failed`, error);
       sendResponse({
@@ -499,6 +531,11 @@ async function handleMessage(message: MessageType, sender?: chrome.runtime.Messa
       const previousSettings = await getCachedSettings();
       const settings = await updateSettings(message.payload);
       cachedSettings = settings;
+      if (!settings.trackingEnabled) await endAllSessions();
+      if (!settings.youtubeTrackingEnabled) await endAllYouTubeSessions();
+      if (!previousSettings.trackingEnabled && settings.trackingEnabled) {
+        await startFocusedWindowSession();
+      }
       await syncOptionalContentScripts(settings);
       for (const script of OPTIONAL_CONTENT_SCRIPTS) {
         if (
@@ -878,6 +915,10 @@ async function handleHeartbeat(sender?: chrome.runtime.MessageSender): Promise<v
 
   const settings = await getCachedSettings();
   if (!settings.trackingEnabled) return;
+  if (!sender.tab.active) {
+    await endSession(sender.tab.id);
+    return;
+  }
 
   const tabId = sender.tab.id;
   const url = sender.tab.url;
@@ -1382,7 +1423,7 @@ async function endAllSessions(): Promise<void> {
 }
 
 // Start a session for a specific tab
-async function startSession(tabId: number, url: string, windowId?: number): Promise<void> {
+async function startSession(tabId: number, url: string): Promise<void> {
   const settings = await getCachedSettings();
   if (!settings.trackingEnabled) return;
 
@@ -1397,19 +1438,16 @@ async function startSession(tabId: number, url: string, windowId?: number): Prom
     return;
   }
 
-  // Get window ID if not provided
-  let actualWindowId = windowId;
-  if (!actualWindowId) {
-    try {
-      const tab = await chrome.tabs.get(tabId);
-      actualWindowId = tab.windowId;
-    } catch {
-      // Tab or window doesn't exist
-      return;
-    }
+  let actualWindowId: number;
+  // Tab activation/update events can be queued behind another transition.
+  // Confirm that their snapshot still describes the active document.
+  try {
+    const tab = await chrome.tabs.get(tabId);
+    if (!tab.active || tab.url !== url) return;
+    actualWindowId = tab.windowId;
+  } catch {
+    return;
   }
-
-  if (!actualWindowId) return;
 
   try {
     const window = await chrome.windows.get(actualWindowId);
@@ -1447,7 +1485,7 @@ async function startSession(tabId: number, url: string, windowId?: number): Prom
 }
 
 // Tab change listeners
-chrome.tabs.onActivated.addListener(async (activeInfo) => {
+chrome.tabs.onActivated.addListener(trackingEvent('tab activation', async (activeInfo) => {
   if (isUserIdle) return;
 
   try {
@@ -1463,23 +1501,23 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
 
     // Start session for newly activated tab
     if (tab.url) {
-      await startSession(activeInfo.tabId, tab.url, tab.windowId);
+      await startSession(activeInfo.tabId, tab.url);
     }
   } catch {
     // Tab might not exist
   }
-});
+}));
 
-chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+chrome.tabs.onUpdated.addListener(trackingEvent('tab update', async (tabId, changeInfo, tab) => {
   if (changeInfo.status === 'complete' && tab.active && tab.url) {
-    await startSession(tabId, tab.url, tab.windowId);
+    await startSession(tabId, tab.url);
   }
-});
+}));
 
-chrome.tabs.onRemoved.addListener(async (tabId) => {
+chrome.tabs.onRemoved.addListener(trackingEvent('tab removal', async (tabId) => {
   await endSession(tabId);
   await endYouTubeSession(tabId);
-});
+}));
 
 // Intercept navigations to blocked sites and redirect to blocked page
 // This handles cases where declarativeNetRequest redirect fails (e.g., cross-origin link clicks)
@@ -1513,7 +1551,7 @@ chrome.webNavigation.onBeforeNavigate.addListener(async (details) => {
   }
 });
 
-chrome.windows.onFocusChanged.addListener(async (windowId) => {
+chrome.windows.onFocusChanged.addListener(trackingEvent('window focus', async (windowId) => {
   if (windowId === chrome.windows.WINDOW_ID_NONE) {
     await endAllSessions();
     return;
@@ -1540,13 +1578,13 @@ chrome.windows.onFocusChanged.addListener(async (windowId) => {
     if (window.state !== 'minimized') {
       const [tab] = await chrome.tabs.query({ active: true, windowId });
       if (tab?.url && tab.id) {
-        await startSession(tab.id, tab.url, windowId);
+        await startSession(tab.id, tab.url);
       }
     }
   } catch {
     // No active tab or window
   }
-});
+}));
 
 // Handle window state changes (minimize/restore)
 // Note: onBoundsChanged does not fire for minimize, so a periodic check backs up
@@ -1573,7 +1611,7 @@ chrome.alarms.create('saveSession', { periodInMinutes: 1 });
 chrome.alarms.create('cleanup', { periodInMinutes: 60 });
 chrome.alarms.create('checkMinimized', { periodInMinutes: 0.5 }); // Chrome's production minimum: 30 seconds
 
-chrome.alarms.onAlarm.addListener(async (alarm) => {
+chrome.alarms.onAlarm.addListener(trackingEvent('alarm', async (alarm) => {
   // Restore idle state in case service worker was restarted
   await restoreIdleState();
 
@@ -1643,4 +1681,4 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
     await pruneDailyStats(cutoffStr);
     await pruneFocusSessions(cutoffStr);
   }
-});
+}));

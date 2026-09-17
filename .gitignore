@@ -8,3 +8,6 @@ dist/
 .wrangler/
 
 AGENTS.md
+
+.playwright-cli/
+output/playwright/

@@ -1,0 +1,9 @@
+  .status-success { @apply border-success/30 bg-success-subtle text-success; }
+  .status-warning { @apply border-warning/30 bg-warning-subtle text-warning; }
+  .status-danger { @apply border-danger/30 bg-danger-subtle text-danger; }
+  .status-info { @apply border-info/30 bg-info-subtle text-info; }
+  .swatch-background { @apply bg-background; }
+  .swatch-card { @apply bg-card; }
+  .swatch-muted { @apply bg-muted; }
+  .swatch-accent { @apply bg-accent; }
+  .swatch-primary { @apply bg-primary; }

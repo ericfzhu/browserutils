@@ -77,7 +77,7 @@ interface FocusInfo {
   focusUntil: number;
 }
 
-const blockedPageClass = 'flex min-h-screen items-center justify-center bg-[rgb(244,244,245)] p-6 dark:bg-[rgb(18,18,18)]';
+const blockedPageClass = 'flex min-h-screen items-center justify-center bg-background p-6';
 const blockedCardClass = 'w-full max-w-md rounded-lg border border-border bg-card p-2 shadow-[var(--shadow-card)]';
 const blockedHeaderClass = 'justify-items-center px-8 pb-2 pt-8 text-center';
 

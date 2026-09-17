@@ -4,71 +4,61 @@ type ThemeSetting = Settings['theme'];
 type ColorThemeSetting = NonNullable<Settings['colorTheme']>;
 type EffectiveTheme = 'light' | 'dark';
 
-// Get the effective theme based on setting and system preference
-export function getEffectiveTheme(setting: ThemeSetting): EffectiveTheme {
-  if (setting === 'system') {
-    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-  }
-  return setting;
-}
-
-function applyColorTheme(setting: ColorThemeSetting = 'monochrome'): void {
-  document.documentElement.dataset.colorTheme = setting;
-}
-
-// Apply theme by adding/removing 'dark' class on <html>
-export function applyTheme(setting: ThemeSetting, colorTheme: ColorThemeSetting = 'monochrome'): void {
-  const effectiveTheme = getEffectiveTheme(setting);
-  if (effectiveTheme === 'dark') {
-    document.documentElement.classList.add('dark');
-  } else {
-    document.documentElement.classList.remove('dark');
-  }
-  applyColorTheme(colorTheme);
-}
-
-// Initialize theme on page load
-export async function initTheme(): Promise<void> {
-  try {
-    const result = await chrome.storage.local.get('settings');
-    const settings = result.settings as Settings | undefined;
-    const theme = settings?.theme || 'system';
-    applyTheme(theme, settings?.colorTheme || 'monochrome');
-
-    // If using system theme, listen for changes
-    if (theme === 'system') {
-      watchSystemTheme();
-    }
-  } catch {
-    // Default to system theme if storage access fails
-    applyTheme('system', 'monochrome');
-    watchSystemTheme();
-  }
-}
-
-// Watch for system theme changes
+let currentTheme: ThemeSetting = 'system';
+let currentColor: ColorThemeSetting = 'monochrome';
 let mediaQuery: MediaQueryList | null = null;
+let initialized = false;
+
+export function getEffectiveTheme(setting: ThemeSetting): EffectiveTheme {
+  return setting === 'system'
+    ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+    : setting;
+}
+
+export function applyTheme(setting: ThemeSetting, colorTheme: ColorThemeSetting = 'monochrome'): void {
+  currentTheme = setting;
+  currentColor = colorTheme;
+  document.documentElement.classList.toggle('dark', getEffectiveTheme(setting) === 'dark');
+  document.documentElement.dataset.colorTheme = colorTheme;
+  if (setting === 'system') watchSystemTheme();
+  else unwatchSystemTheme();
+}
+
+function onSystemThemeChange(): void {
+  if (currentTheme === 'system') applyTheme(currentTheme, currentColor);
+}
 
 export function watchSystemTheme(): void {
-  if (mediaQuery) return; // Already watching
-
+  if (mediaQuery) return;
   mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-  mediaQuery.addEventListener('change', (e) => {
-    // Only apply if current setting is 'system'
-    chrome.storage.local.get('settings').then((result) => {
-      const settings = result.settings as Settings | undefined;
-      if (!settings?.theme || settings.theme === 'system') {
-        if (e.matches) {
-          document.documentElement.classList.add('dark');
-        } else {
-          document.documentElement.classList.remove('dark');
-        }
-      }
-    });
-  });
+  mediaQuery.addEventListener('change', onSystemThemeChange);
 }
 
-// Stop watching system theme
 export function unwatchSystemTheme(): void {
+  mediaQuery?.removeEventListener('change', onSystemThemeChange);
   mediaQuery = null;
+}
+
+function applySettings(settings?: Settings): void {
+  applyTheme(settings?.theme ?? 'system', settings?.colorTheme ?? 'monochrome');
+}
+
+export async function initTheme(): Promise<void> {
+  if (initialized) return;
+  initialized = true;
+  // Paint a system-appropriate canvas while persisted preferences load.
+  applySettings();
+  try {
+    let changedDuringLoad = false;
+    chrome.storage.onChanged.addListener((changes, area) => {
+      if (area === 'local' && changes.settings) {
+        changedDuringLoad = true;
+        applySettings(changes.settings.newValue as Settings | undefined);
+      }
+    });
+    const result = await chrome.storage.local.get('settings');
+    if (!changedDuringLoad) applySettings(result.settings as Settings | undefined);
+  } catch {
+    applySettings();
+  }
 }

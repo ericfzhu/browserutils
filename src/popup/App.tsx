@@ -238,7 +238,7 @@ export default function App() {
         {/* Inline Lockdown credential input */}
         {showPasswordInput && (
           <form onSubmit={handlePasswordSubmit} className="mt-3 flex flex-col gap-2">
-            <div className="flex items-center gap-2 text-xs text-white/80">
+            <div className="flex items-center gap-2 text-xs text-primary-foreground/80">
               <Lock className="size-3" />
               <span>
                 {lockdownStatus?.authMethod === 'totp'
@@ -260,7 +260,7 @@ export default function App() {
                   setAuthError('');
                 }}
                 placeholder={lockdownStatus?.authMethod === 'totp' ? '123456' : 'Master password'}
-                className="h-9 flex-1 border-white/20 bg-white/10 text-primary-foreground placeholder:text-white/50"
+                className="h-9 flex-1 border-primary-foreground/20 bg-primary-foreground/10 text-primary-foreground placeholder:text-primary-foreground/60"
                 aria-invalid={!!authError}
                 autoFocus
               />

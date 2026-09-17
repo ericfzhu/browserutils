@@ -21,6 +21,7 @@ const changelog: ChangelogEntry[] = [
     date: '2026-08-31',
     added: [
       'A public interactive showcase demonstrates daily limits, browsing activity, focus sessions, local storage, and installation',
+      'Folder editing can optionally apply one unlock method, password, timer, or blocking schedule to every site in that folder without changing individual site settings by default',
     ],
     changed: [
       'The dashboard uses a sharper visual system with consistent page headers, bordered surfaces, controls, and navigation states',
@@ -635,20 +636,20 @@ export default function Changelog() {
                     </span>
                   )}
                 </div>
-                <p className="text-sm text-gray-500 dark:text-gray-400">{formatDate(entry.date)}</p>
+                <p className="text-sm text-muted-foreground ">{formatDate(entry.date)}</p>
               </div>
             </div>
 
             <div className="space-y-4">
               {entry.added && entry.added.length > 0 && (
                 <div>
-                  <div className="flex items-center gap-2 text-green-600 mb-2">
+                  <div className="flex items-center gap-2 text-success mb-2">
                     <Plus className="w-4 h-4" />
                     <span className="text-sm font-medium">Added</span>
                   </div>
                   <ul className="space-y-1 ml-6">
                     {entry.added.map((item, i) => (
-                      <li key={i} className="text-sm text-gray-600 dark:text-gray-300 list-disc">
+                      <li key={i} className="text-sm text-muted-foreground list-disc">
                         {item}
                       </li>
                     ))}
@@ -658,13 +659,13 @@ export default function Changelog() {
 
               {entry.changed && entry.changed.length > 0 && (
                 <div>
-                  <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 mb-2">
+                  <div className="flex items-center gap-2 text-warning mb-2">
                     <Wrench className="w-4 h-4" />
                     <span className="text-sm font-medium">Changed</span>
                   </div>
                   <ul className="space-y-1 ml-6">
                     {entry.changed.map((item, i) => (
-                      <li key={i} className="text-sm text-gray-600 dark:text-gray-300 list-disc">
+                      <li key={i} className="text-sm text-muted-foreground list-disc">
                         {item}
                       </li>
                     ))}
@@ -674,13 +675,13 @@ export default function Changelog() {
 
               {entry.fixed && entry.fixed.length > 0 && (
                 <div>
-                  <div className="flex items-center gap-2 text-red-600 dark:text-red-400 mb-2">
+                  <div className="flex items-center gap-2 text-danger mb-2">
                     <Bug className="w-4 h-4" />
                     <span className="text-sm font-medium">Fixed</span>
                   </div>
                   <ul className="space-y-1 ml-6">
                     {entry.fixed.map((item, i) => (
-                      <li key={i} className="text-sm text-gray-600 dark:text-gray-300 list-disc">
+                      <li key={i} className="text-sm text-muted-foreground list-disc">
                         {item}
                       </li>
                     ))}
@@ -689,13 +690,13 @@ export default function Changelog() {
               )}
               {entry.removed && entry.removed.length > 0 && (
                 <div>
-                  <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400 mb-2">
+                  <div className="flex items-center gap-2 text-muted-foreground mb-2">
                     <Minus className="w-4 h-4" />
                     <span className="text-sm font-medium">Removed</span>
                   </div>
                   <ul className="space-y-1 ml-6">
                     {entry.removed.map((item, i) => (
-                      <li key={i} className="text-sm text-gray-600 dark:text-gray-300 list-disc">
+                      <li key={i} className="text-sm text-muted-foreground list-disc">
                         {item}
                       </li>
                     ))}

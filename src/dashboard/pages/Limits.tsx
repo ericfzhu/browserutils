@@ -299,8 +299,8 @@ export default function Limits() {
                       aria-label={limit.enabled ? `Disable limit for ${limit.pattern}` : `Enable limit for ${limit.pattern}`}
                       className={`w-[72px] border py-1 text-xs transition-colors ${
                         limit.enabled
-                          ? 'bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-700/80 dark:text-red-200 dark:hover:bg-red-700'
-                          : 'bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-gray-600/80 dark:text-gray-300 dark:hover:bg-gray-600'
+                          ? 'bg-danger-subtle text-danger hover:bg-danger-subtle '
+                          : 'bg-muted text-muted-foreground hover:bg-accent '
                       }`}
                     >
                       {limit.enabled ? 'Limiting' : 'Disabled'}
@@ -393,7 +393,7 @@ export default function Limits() {
                   How can you continue after reaching the limit?
                 </p>
                 <div className="flex flex-col gap-2">
-                  <label className="flex items-center gap-3 p-3 border border-gray-200 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700">
+                  <label className="flex items-center gap-3 p-3 border border-border rounded-lg cursor-pointer hover:bg-muted ">
                     <input
                       type="radio"
                       name="bypassType"
@@ -406,7 +406,7 @@ export default function Limits() {
                       <p className="text-xs text-muted-foreground">Must wait before bypassing</p>
                     </div>
                   </label>
-                  <label className="flex items-center gap-3 p-3 border border-gray-200 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700">
+                  <label className="flex items-center gap-3 p-3 border border-border rounded-lg cursor-pointer hover:bg-muted ">
                     <input
                       type="radio"
                       name="bypassType"
@@ -419,7 +419,7 @@ export default function Limits() {
                       <p className="text-xs text-muted-foreground">Enter password to continue</p>
                     </div>
                   </label>
-                  <label className="flex items-center gap-3 p-3 border border-gray-200 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700">
+                  <label className="flex items-center gap-3 p-3 border border-border rounded-lg cursor-pointer hover:bg-muted ">
                     <input
                       type="radio"
                       name="bypassType"

@@ -5,6 +5,10 @@ import { BlockedSite, BlockedSiteFolder } from '../../shared/types';
 import { hashPassword } from '../../shared/storage';
 import { assertRuntimeMutationSucceeded } from '../../shared/runtimeMessages';
 import { useLockdown } from '../hooks/useLockdown';
+import {
+  applyBlockedSiteRuleSettings,
+  BlockedSiteRuleSettings,
+} from '../blockedSiteRules';
 
 type UnlockType = BlockedSite['unlockType'];
 
@@ -85,6 +89,9 @@ export default function BlockedSites() {
   const [editingFolder, setEditingFolder] = useState<BlockedSiteFolder | null>(null);
   const [formData, setFormData] = useState<FormData>(defaultFormData);
   const [folderName, setFolderName] = useState('');
+  const [applyFolderRules, setApplyFolderRules] = useState(false);
+  const [folderRuleData, setFolderRuleData] = useState<FormData>(defaultFormData);
+  const [folderRuleError, setFolderRuleError] = useState('');
   const [timerStatuses, setTimerStatuses] = useState<Record<string, TimerStatus>>({});
   const [focusStatuses, setFocusStatuses] = useState<Record<string, FocusStatus>>({});
   const [globalFocusStatus, setGlobalFocusStatus] = useState<FocusStatus | null>(null);
@@ -94,6 +101,7 @@ export default function BlockedSites() {
   const [focusDuration, setFocusDuration] = useState(30);
   const [minimumFocusDuration, setMinimumFocusDuration] = useState(1);
   const siteFormRef = useRef<HTMLFormElement>(null);
+  const folderFormRef = useRef<HTMLFormElement>(null);
   const { withLockdownCheck } = useLockdown();
 
   useEffect(() => {
@@ -233,13 +241,40 @@ export default function BlockedSites() {
   function openAddFolderModal() {
     setEditingFolder(null);
     setFolderName('');
+    setApplyFolderRules(false);
+    setFolderRuleData(defaultFormData);
+    setFolderRuleError('');
     setShowFolderModal(true);
   }
 
   function openEditFolderModal(folder: BlockedSiteFolder) {
     setEditingFolder(folder);
     setFolderName(folder.name);
+    setApplyFolderRules(false);
+    setFolderRuleData(defaultFormData);
+    setFolderRuleError('');
     setShowFolderModal(true);
+  }
+
+  function closeFolderModal() {
+    setShowFolderModal(false);
+    setFolderRuleError('');
+  }
+
+  function handleFolderModalKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+      closeFolderModal();
+      return;
+    }
+
+    if (e.key === 'Enter' && !e.repeat) {
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'BUTTON') return;
+      e.preventDefault();
+      folderFormRef.current?.requestSubmit();
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -301,24 +336,83 @@ export default function BlockedSites() {
     e.preventDefault();
     if (!folderName.trim()) return;
 
+    if (applyFolderRules && folderRuleData.unlockType === 'password' && !folderRuleData.password) {
+      setFolderRuleError('Enter the password to apply to this folder.');
+      return;
+    }
+
+    if (applyFolderRules && folderRuleData.unlockType === 'schedule' && folderRuleData.scheduleDays.length === 0) {
+      setFolderRuleError('Select at least one blocked day.');
+      return;
+    }
+
+    setFolderRuleError('');
+
     try {
-      if (editingFolder) {
-        const result = await chrome.runtime.sendMessage({
-          type: 'UPDATE_BLOCKED_SITE_FOLDER',
-          payload: { ...editingFolder, name: folderName.trim() },
-        });
-        assertRuntimeMutationSucceeded(result, 'Failed to update folder');
+      const saveFolder = async () => {
+        if (editingFolder) {
+          if (applyFolderRules) {
+            let ruleSettings: BlockedSiteRuleSettings;
+
+            if (folderRuleData.unlockType === 'password') {
+              ruleSettings = {
+                unlockType: 'password',
+                passwordHash: await hashPassword(folderRuleData.password),
+              };
+            } else if (folderRuleData.unlockType === 'timer') {
+              ruleSettings = {
+                unlockType: 'timer',
+                timerDuration: folderRuleData.timerDuration,
+              };
+            } else if (folderRuleData.unlockType === 'schedule') {
+              ruleSettings = {
+                unlockType: 'schedule',
+                schedule: {
+                  days: folderRuleData.scheduleDays,
+                  startTime: folderRuleData.scheduleStart,
+                  endTime: folderRuleData.scheduleEnd,
+                },
+              };
+            } else {
+              ruleSettings = { unlockType: 'none' };
+            }
+
+            const updatedSites = sites.map(site =>
+              site.folderId === editingFolder.id
+                ? applyBlockedSiteRuleSettings(site, ruleSettings)
+                : site
+            );
+            const sitesResult = await chrome.runtime.sendMessage({
+              type: 'UPDATE_BLOCKED_SITES',
+              payload: updatedSites,
+            });
+            assertRuntimeMutationSucceeded(sitesResult, 'Failed to apply folder settings');
+          }
+
+          const result = await chrome.runtime.sendMessage({
+            type: 'UPDATE_BLOCKED_SITE_FOLDER',
+            payload: { ...editingFolder, name: folderName.trim() },
+          });
+          assertRuntimeMutationSucceeded(result, 'Failed to update folder');
+        } else {
+          const result = await chrome.runtime.sendMessage({
+            type: 'ADD_BLOCKED_SITE_FOLDER',
+            payload: { name: folderName.trim(), order: folders.length },
+          });
+          assertRuntimeMutationSucceeded(result, 'Failed to add folder');
+        }
+        await loadData();
+        closeFolderModal();
+      };
+
+      if (editingFolder && applyFolderRules) {
+        await withLockdownCheck(saveFolder);
       } else {
-        const result = await chrome.runtime.sendMessage({
-          type: 'ADD_BLOCKED_SITE_FOLDER',
-          payload: { name: folderName.trim(), order: folders.length },
-        });
-        assertRuntimeMutationSucceeded(result, 'Failed to add folder');
+        await saveFolder();
       }
-      await loadData();
-      setShowFolderModal(false);
     } catch (err) {
       console.error('Failed to save folder:', err);
+      setFolderRuleError('The folder could not be saved. Try again.');
     }
   }
 
@@ -834,21 +928,21 @@ export default function BlockedSites() {
           <div
             ref={provided.innerRef}
             {...provided.draggableProps}
-            className="flex items-center gap-3 px-4 py-3 bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700 last:border-b-0 hover:bg-gray-50 dark:hover:bg-gray-700/50"
+            className="flex items-center gap-3 px-4 py-3 bg-card border-b border-border last:border-b-0 hover:bg-muted "
           >
-            <div {...provided.dragHandleProps} className="text-gray-300 dark:text-gray-600 hover:text-gray-500 dark:hover:text-gray-400 cursor-grab">
+            <div {...provided.dragHandleProps} className="text-muted-foreground hover:text-muted-foreground cursor-grab">
               <GripVertical className="w-4 h-4" />
             </div>
             <div className="flex-1 min-w-0">
-              <span className="font-medium text-gray-900 dark:text-gray-100">{site.pattern}</span>
+              <span className="font-medium text-foreground ">{site.pattern}</span>
             </div>
             {/* Show time remaining before the label when timer is active */}
             {isTimerActive && timerStatus && (
-              <span className="text-xs text-red-600 dark:text-red-400 font-medium">
+              <span className="text-xs text-danger font-medium">
                 {formatTimerRemaining(timerStatus.remainingMs)}
               </span>
             )}
-            <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400 text-sm">
+            <div className="flex items-center gap-2 text-muted-foreground text-sm">
               {getUnlockIcon(site.unlockType)}
               <span className="hidden sm:inline">{getUnlockLabel(site)}</span>
             </div>
@@ -857,7 +951,7 @@ export default function BlockedSites() {
               isTimerActive ? (
                 <button
                   onClick={() => clearTimerBlock(site.id)}
-                  className="w-[72px] border border-red-300 bg-red-100 py-1 text-xs text-red-700 transition-colors hover:bg-red-200 dark:border-red-700 dark:bg-red-700/80 dark:text-red-200 dark:hover:bg-red-700"
+                  className="w-[72px] border border-danger/30 bg-danger-subtle py-1 text-xs text-danger transition-colors hover:bg-danger-subtle "
                 >
                   Stop
                 </button>
@@ -875,17 +969,17 @@ export default function BlockedSites() {
                 onClick={() => toggleSite(site)}
                 className={`w-[72px] border py-1 text-xs transition-colors ${
                   site.enabled
-                    ? 'bg-red-100 dark:bg-red-700/80 text-red-700 dark:text-red-200 hover:bg-red-200 dark:hover:bg-red-700'
-                    : 'bg-gray-100 dark:bg-gray-600/80 text-gray-500 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                    ? 'bg-danger-subtle text-danger hover:bg-danger-subtle '
+                    : 'bg-muted text-muted-foreground hover:bg-accent '
                 }`}
               >
                 {site.enabled ? 'Blocking' : 'Disabled'}
               </button>
             )}
-            <button onClick={() => openEditModal(site)} className="p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-200">
+            <button onClick={() => openEditModal(site)} className="p-1.5 text-muted-foreground hover:bg-muted hover:text-muted-foreground ">
               <Edit2 className="w-4 h-4" />
             </button>
-            <button onClick={() => deleteSite(site.id)} className="p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/30">
+            <button onClick={() => deleteSite(site.id)} className="p-1.5 text-muted-foreground hover:bg-danger-subtle hover:text-danger ">
               <Trash2 className="w-4 h-4" />
             </button>
           </div>
@@ -907,9 +1001,9 @@ export default function BlockedSites() {
 
     const content = (dragHandleProps?: React.HTMLAttributes<HTMLDivElement>) => (
       <div className="overflow-hidden border border-border bg-card shadow-[var(--shadow-card)]">
-        <div className={`flex items-center gap-2 px-4 py-3 bg-gray-100 dark:bg-gray-700 ${isCollapsed ? '' : 'border-b border-gray-200 dark:border-gray-600'}`}>
+        <div className={`flex items-center gap-2 px-4 py-3 bg-muted  ${isCollapsed ? '' : 'border-b border-border '}`}>
           {folder && (
-            <div {...dragHandleProps} className="text-gray-300 dark:text-gray-600 hover:text-gray-500 dark:hover:text-gray-400 cursor-grab">
+            <div {...dragHandleProps} className="text-muted-foreground hover:text-muted-foreground cursor-grab">
               <GripVertical className="w-4 h-4" />
             </div>
           )}
@@ -918,11 +1012,11 @@ export default function BlockedSites() {
             onClick={() => folder && toggleFolderCollapse(folder)}
           >
             {folder && (
-              <span className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-transform duration-200">
+              <span className="text-muted-foreground hover:text-foreground transition-transform duration-200">
                 <ChevronRight className={`w-5 h-5 transition-transform duration-200 ${isCollapsed ? '' : 'rotate-90'}`} />
               </span>
             )}
-            <span className="font-semibold text-gray-900 dark:text-gray-100">
+            <span className="font-semibold text-foreground ">
               {folder?.name || 'Uncategorized'} ({folderSites.length})
             </span>
           </div>
@@ -962,9 +1056,9 @@ export default function BlockedSites() {
             <button
               onClick={() => toggleFolderSitesEnabled(folderId, !allEnabled)}
               className={`w-[82px] border py-1 text-xs transition-colors ${
-                allEnabled ? 'bg-red-100 dark:bg-red-700/80 text-red-700 dark:text-red-200 hover:bg-red-200 dark:hover:bg-red-700' :
-                someEnabled ? 'bg-yellow-100 dark:bg-yellow-600/80 text-yellow-700 dark:text-yellow-200 hover:bg-yellow-200 dark:hover:bg-yellow-600' :
-                'bg-gray-100 dark:bg-gray-600/80 text-gray-500 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                allEnabled ? 'bg-danger-subtle text-danger hover:bg-danger-subtle ' :
+                someEnabled ? 'bg-warning-subtle text-warning hover:bg-warning-subtle ' :
+                'bg-muted text-muted-foreground hover:bg-accent '
               }`}
             >
               {allEnabled ? 'Disable All' : 'Enable All'}
@@ -972,10 +1066,10 @@ export default function BlockedSites() {
           )}
           {folder && (
             <>
-              <button onClick={() => openEditFolderModal(folder)} className="p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700 dark:hover:text-gray-200">
+              <button onClick={() => openEditFolderModal(folder)} className="p-1.5 text-muted-foreground hover:bg-muted hover:text-muted-foreground ">
                 <Edit2 className="w-4 h-4" />
               </button>
-              <button onClick={() => deleteFolder(folder.id)} className="p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/30">
+              <button onClick={() => deleteFolder(folder.id)} className="p-1.5 text-muted-foreground hover:bg-danger-subtle hover:text-danger ">
                 <Trash2 className="w-4 h-4" />
               </button>
             </>
@@ -992,7 +1086,7 @@ export default function BlockedSites() {
                   {folderSites.length > 0 ? (
                     folderSites.map((site, idx) => renderSiteRow(site, idx))
                   ) : (
-                    <div className="px-4 py-6 text-center text-gray-400 dark:text-gray-500 text-sm">
+                    <div className="px-4 py-6 text-center text-muted-foreground text-sm">
                       Drag sites here or add new ones
                     </div>
                   )}
@@ -1032,7 +1126,7 @@ export default function BlockedSites() {
           {sites.length > 0 && (
             globalFocusStatus?.isActive ? (
               <div className="flex items-center gap-2">
-                <span className="text-xs text-purple-600 dark:text-purple-400 font-medium">
+                <span className="text-xs text-info font-medium">
                   {formatTimerRemaining(globalFocusStatus.remainingMs)}
                 </span>
                 <button
@@ -1092,9 +1186,9 @@ export default function BlockedSites() {
 
       {sites.length === 0 && folders.length === 0 && (
         <div className="mt-4 border border-border bg-card p-12 text-center shadow-[var(--shadow-card)]">
-          <Shield className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">No blocked sites</h3>
-          <p className="text-gray-500 dark:text-gray-400 mb-4">Add sites you want to block to help stay focused.</p>
+          <Shield className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-foreground mb-2">No blocked sites</h3>
+          <p className="text-muted-foreground mb-4">Add sites you want to block to help stay focused.</p>
           <button
             onClick={openAddModal}
             className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-primary-foreground transition-colors hover:bg-primary/85"
@@ -1108,7 +1202,7 @@ export default function BlockedSites() {
       {/* Add/Edit Modal */}
       {showModal && (
         <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+          className="fixed inset-0 bg-overlay flex items-center justify-center z-50"
           onMouseDown={(e) => {
             if (e.target === e.currentTarget) closeSiteModal();
           }}
@@ -1118,9 +1212,9 @@ export default function BlockedSites() {
             role="dialog"
             aria-modal="true"
             aria-labelledby="blocked-site-dialog-title"
-            className="bg-white dark:bg-gray-800 rounded-lg border border-gray-300 shadow-[var(--shadow-card)] dark:border-gray-600 w-full max-w-lg mx-4 overflow-hidden"
+            className="bg-card rounded-lg border border-border shadow-[var(--shadow-card)] w-full max-w-lg mx-4 overflow-hidden"
           >
-            <div className="flex items-center justify-between px-6 py-4 border-b dark:border-gray-700">
+            <div className="flex items-center justify-between px-6 py-4 border-b ">
               <h2 id="blocked-site-dialog-title" className="text-lg font-semibold">
                 {editingSite ? 'Edit Blocked Site' : 'Add Blocked Site'}
               </h2>
@@ -1128,7 +1222,7 @@ export default function BlockedSites() {
                 type="button"
                 onClick={closeSiteModal}
                 aria-label="Close"
-                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+                className="p-2 hover:bg-muted rounded-lg"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1137,7 +1231,7 @@ export default function BlockedSites() {
             <form ref={siteFormRef} onSubmit={handleSubmit} className="p-6 space-y-4">
               {/* Pattern Input */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label className="block text-sm font-medium text-foreground mb-1">
                   Site Pattern
                 </label>
                 <input
@@ -1149,14 +1243,14 @@ export default function BlockedSites() {
                   required
                   autoFocus
                 />
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                <p className="text-xs text-muted-foreground mt-1">
                   Use *.domain.com to block all subdomains
                 </p>
               </div>
 
               {/* Unlock Type */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <label className="block text-sm font-medium text-foreground mb-2">
                   Unlock Method
                 </label>
                 <div className="grid grid-cols-2 gap-2">
@@ -1173,7 +1267,7 @@ export default function BlockedSites() {
                       className={`flex items-center gap-2 p-3 border rounded-lg transition-colors ${
                         formData.unlockType === value
                           ? 'border-primary bg-primary/10 text-primary'
-                          : 'border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
+                          : 'border-border hover:bg-muted '
                       }`}
                     >
                       <Icon className="w-5 h-5" />
@@ -1186,7 +1280,7 @@ export default function BlockedSites() {
               {/* Password Input */}
               {formData.unlockType === 'password' && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label className="block text-sm font-medium text-foreground mb-1">
                     Unlock Password
                   </label>
                   <input
@@ -1203,7 +1297,7 @@ export default function BlockedSites() {
               {/* Timer Duration */}
               {formData.unlockType === 'timer' && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label className="block text-sm font-medium text-foreground mb-1">
                     Block Duration (minutes)
                   </label>
                   <input
@@ -1228,7 +1322,7 @@ export default function BlockedSites() {
                     max={480}
                     className="w-full rounded-md border border-input bg-background px-3 py-2 focus:border-ring focus:ring-2 focus:ring-ring/45"
                   />
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  <p className="text-xs text-muted-foreground mt-1">
                     Enable timer to block site for this duration
                   </p>
                 </div>
@@ -1238,7 +1332,7 @@ export default function BlockedSites() {
               {formData.unlockType === 'schedule' && (
                 <div className="space-y-3">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <label className="block text-sm font-medium text-foreground mb-2">
                       Block on these days
                     </label>
                     <div className="flex gap-1">
@@ -1255,7 +1349,7 @@ export default function BlockedSites() {
                           className={`flex-1 py-2 text-xs font-medium rounded transition-colors ${
                             formData.scheduleDays.includes(index)
                               ? 'bg-primary text-primary-foreground'
-                              : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                              : 'bg-muted text-muted-foreground hover:bg-accent '
                           }`}
                         >
                           {day}
@@ -1265,7 +1359,7 @@ export default function BlockedSites() {
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      <label className="block text-sm font-medium text-foreground mb-1">
                         Start Time
                       </label>
                       <input
@@ -1278,7 +1372,7 @@ export default function BlockedSites() {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      <label className="block text-sm font-medium text-foreground mb-1">
                         End Time
                       </label>
                       <input
@@ -1297,7 +1391,7 @@ export default function BlockedSites() {
               {/* Folder */}
               {folders.length > 0 && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label className="block text-sm font-medium text-foreground mb-1">
                     Folder
                   </label>
                   <select
@@ -1318,7 +1412,7 @@ export default function BlockedSites() {
                 <button
                   type="button"
                   onClick={closeSiteModal}
-                  className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                  className="px-4 py-2 text-foreground hover:bg-muted rounded-lg transition-colors"
                 >
                   Cancel
                 </button>
@@ -1336,23 +1430,36 @@ export default function BlockedSites() {
 
       {/* Add/Edit Folder Modal */}
       {showFolderModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-300 shadow-[var(--shadow-card)] dark:border-gray-600 w-full max-w-md mx-4 overflow-hidden">
-            <div className="flex items-center justify-between px-6 py-4 border-b dark:border-gray-700">
-              <h2 className="text-lg font-semibold">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-overlay"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) closeFolderModal();
+          }}
+          onKeyDown={handleFolderModalKeyDown}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="blocked-site-folder-dialog-title"
+            className="mx-4 flex max-h-[calc(100vh-2rem)] w-full max-w-lg flex-col overflow-hidden border border-border bg-card shadow-[var(--shadow-card)] "
+          >
+            <div className="flex items-center justify-between px-6 py-4 border-b ">
+              <h2 id="blocked-site-folder-dialog-title" className="text-lg font-semibold">
                 {editingFolder ? 'Edit Folder' : 'Add Folder'}
               </h2>
               <button
-                onClick={() => setShowFolderModal(false)}
-                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+                type="button"
+                onClick={closeFolderModal}
+                aria-label="Close"
+                className="p-2 transition-colors hover:bg-muted "
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleFolderSubmit} className="p-6 space-y-4">
+            <form ref={folderFormRef} onSubmit={handleFolderSubmit} className="space-y-5 overflow-y-auto p-6">
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label className="block text-sm font-medium text-foreground mb-1">
                   Folder Name
                 </label>
                 <input
@@ -1366,11 +1473,195 @@ export default function BlockedSites() {
                 />
               </div>
 
+              {editingFolder && (
+                <div className="border border-border bg-muted/30">
+                  <label className="flex cursor-pointer items-start gap-3 p-4">
+                    <input
+                      type="checkbox"
+                      checked={applyFolderRules}
+                      onChange={(e) => {
+                        setApplyFolderRules(e.target.checked);
+                        setFolderRuleError('');
+                      }}
+                      className="mt-0.5 size-4 accent-primary"
+                    />
+                    <span>
+                      <span className="block text-sm font-medium text-foreground">
+                        Apply blocking settings to every site
+                      </span>
+                      <span className="mt-1 block text-xs leading-5 text-muted-foreground">
+                        Leave this off to keep each site's current unlock method and schedule.
+                      </span>
+                    </span>
+                  </label>
+
+                  {applyFolderRules && (
+                    <div className="space-y-4 border-t border-border bg-background p-4">
+                      <div className="flex items-center justify-between gap-4">
+                        <span className="text-xs font-medium uppercase text-muted-foreground">
+                          One-time bulk update
+                        </span>
+                        <span className="text-xs tabular-nums text-muted-foreground">
+                          {sites.filter(site => site.folderId === editingFolder.id).length} sites
+                        </span>
+                      </div>
+
+                      <div>
+                        <label className="mb-2 block text-sm font-medium text-foreground ">
+                          Unlock Method
+                        </label>
+                        <div className="grid grid-cols-2 gap-2">
+                          {[
+                            { value: 'none', label: 'Always Blocked', icon: Shield },
+                            { value: 'password', label: 'Password', icon: Lock },
+                            { value: 'timer', label: 'Timer', icon: Clock },
+                            { value: 'schedule', label: 'Schedule', icon: Calendar },
+                          ].map(({ value, label, icon: Icon }) => (
+                            <button
+                              key={value}
+                              type="button"
+                              onClick={() => {
+                                setFolderRuleData({ ...folderRuleData, unlockType: value as UnlockType });
+                                setFolderRuleError('');
+                              }}
+                              className={`flex min-h-11 items-center gap-2 border p-3 text-left transition-colors ${
+                                folderRuleData.unlockType === value
+                                  ? 'border-primary bg-primary/10 text-primary'
+                                  : 'border-border hover:bg-muted'
+                              }`}
+                            >
+                              <Icon className="size-5 shrink-0" />
+                              <span className="text-sm font-medium">{label}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {folderRuleData.unlockType === 'password' && (
+                        <div>
+                          <label className="mb-1 block text-sm font-medium text-foreground ">
+                            Shared Unlock Password
+                          </label>
+                          <input
+                            type="password"
+                            value={folderRuleData.password}
+                            onChange={(e) => {
+                              setFolderRuleData({ ...folderRuleData, password: e.target.value });
+                              setFolderRuleError('');
+                            }}
+                            placeholder="Enter password"
+                            className="w-full rounded-md border border-input bg-background px-3 py-2 focus:border-ring focus:ring-2 focus:ring-ring/45"
+                            required
+                          />
+                        </div>
+                      )}
+
+                      {folderRuleData.unlockType === 'timer' && (
+                        <div>
+                          <label className="mb-1 block text-sm font-medium text-foreground ">
+                            Block Duration (minutes)
+                          </label>
+                          <input
+                            type="number"
+                            value={folderRuleData.timerDuration || ''}
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              setFolderRuleData({
+                                ...folderRuleData,
+                                timerDuration: value === '' ? 0 : parseInt(value) || 0,
+                              });
+                            }}
+                            onBlur={(e) => {
+                              const value = parseInt(e.target.value);
+                              if (!value || value < 1) {
+                                setFolderRuleData({ ...folderRuleData, timerDuration: 30 });
+                              }
+                            }}
+                            min={1}
+                            max={480}
+                            required
+                            className="w-full rounded-md border border-input bg-background px-3 py-2 focus:border-ring focus:ring-2 focus:ring-ring/45"
+                          />
+                        </div>
+                      )}
+
+                      {folderRuleData.unlockType === 'schedule' && (
+                        <div className="space-y-3">
+                          <div>
+                            <label className="mb-2 block text-sm font-medium text-foreground ">
+                              Block on these days
+                            </label>
+                            <div className="grid grid-cols-7 gap-1">
+                              {DAYS.map((day, index) => (
+                                <button
+                                  key={day}
+                                  type="button"
+                                  onClick={() => {
+                                    const days = folderRuleData.scheduleDays.includes(index)
+                                      ? folderRuleData.scheduleDays.filter(dayIndex => dayIndex !== index)
+                                      : [...folderRuleData.scheduleDays, index];
+                                    setFolderRuleData({ ...folderRuleData, scheduleDays: days });
+                                    setFolderRuleError('');
+                                  }}
+                                  className={`min-h-9 border py-2 text-xs font-medium transition-colors ${
+                                    folderRuleData.scheduleDays.includes(index)
+                                      ? 'border-primary bg-primary text-primary-foreground'
+                                      : 'border-border bg-muted text-muted-foreground hover:bg-muted/70'
+                                  }`}
+                                >
+                                  {day}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <label className="mb-1 block text-sm font-medium text-foreground ">
+                                Start Time
+                              </label>
+                              <input
+                                type="time"
+                                value={folderRuleData.scheduleStart}
+                                onChange={(e) => setFolderRuleData({ ...folderRuleData, scheduleStart: e.target.value })}
+                                className="w-full rounded-md border border-input bg-background px-3 py-2 focus:border-ring focus:ring-2 focus:ring-ring/45"
+                                required
+                              />
+                            </div>
+                            <div>
+                              <label className="mb-1 block text-sm font-medium text-foreground ">
+                                End Time
+                              </label>
+                              <input
+                                type="time"
+                                value={folderRuleData.scheduleEnd}
+                                onChange={(e) => setFolderRuleData({ ...folderRuleData, scheduleEnd: e.target.value })}
+                                className="w-full rounded-md border border-input bg-background px-3 py-2 focus:border-ring focus:ring-2 focus:ring-ring/45"
+                                required
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      <p className="border-l-2 border-primary pl-3 text-xs leading-5 text-muted-foreground">
+                        Saving replaces these settings on every site currently in this folder. Sites can still be edited individually afterward.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {folderRuleError && (
+                <p role="alert" className="border-l-2 border-destructive pl-3 text-sm text-destructive">
+                  {folderRuleError}
+                </p>
+              )}
+
               <div className="flex justify-end gap-3 pt-4">
                 <button
                   type="button"
-                  onClick={() => setShowFolderModal(false)}
-                  className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                  onClick={closeFolderModal}
+                  className="px-4 py-2 text-foreground transition-colors hover:bg-muted "
                 >
                   Cancel
                 </button>
@@ -1388,9 +1679,9 @@ export default function BlockedSites() {
 
       {/* Focus Session Modal */}
       {showFocusModal && focusTarget && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-overlay flex items-center justify-center z-50">
           <div className="mx-4 w-full max-w-sm overflow-hidden border border-border bg-card shadow-[var(--shadow-card)]">
-            <div className="flex items-center justify-between px-6 py-4 border-b dark:border-gray-700">
+            <div className="flex items-center justify-between px-6 py-4 border-b ">
               <h2 className="text-lg font-semibold flex items-center gap-2">
                 <Focus className="size-5 text-foreground" />
                 {focusModalMode === 'edit' ? 'Extend Focus Session' : 'Start Focus Session'}
@@ -1402,14 +1693,14 @@ export default function BlockedSites() {
                   setFocusModalMode('start');
                   setMinimumFocusDuration(1);
                 }}
-                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+                className="p-2 hover:bg-muted rounded-lg"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <div className="p-6 space-y-4">
-              <p className="text-sm text-gray-600 dark:text-gray-400">
+              <p className="text-sm text-muted-foreground ">
                 {focusTarget.type === 'global'
                   ? (focusModalMode === 'edit' ? 'Set the new total remaining time for all blocked sites:' : 'Block all blocked sites for:')
                   : (focusModalMode === 'edit'
@@ -1418,7 +1709,7 @@ export default function BlockedSites() {
               </p>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label className="block text-sm font-medium text-foreground mb-1">
                   Duration (minutes)
                 </label>
                 <div className="flex gap-2">
@@ -1426,7 +1717,7 @@ export default function BlockedSites() {
                     type="button"
                     onClick={() => setFocusDuration(Math.max(minimumFocusDuration, (focusDuration || 30) - 30))}
                     disabled={(focusDuration || 0) - 30 < minimumFocusDuration}
-                    className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    className="px-3 py-2 rounded-lg border border-border bg-muted text-foreground hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
                     -30m
                   </button>
@@ -1449,12 +1740,12 @@ export default function BlockedSites() {
                   <button
                     type="button"
                     onClick={() => setFocusDuration((focusDuration || 0) + 30)}
-                    className="px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                    className="px-3 py-2 rounded-lg border border-border bg-muted text-foreground hover:bg-accent transition-colors"
                   >
                     +30m
                   </button>
                 </div>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                <p className="text-xs text-muted-foreground mt-1">
                   Use 30-minute steps or enter any positive number for a custom duration.
                 </p>
                 {focusModalMode === 'edit' && (
@@ -1474,7 +1765,7 @@ export default function BlockedSites() {
                     className={`flex-1 border py-1.5 text-sm transition-colors ${
                       focusDuration === mins
                         ? 'border-foreground bg-foreground text-background'
-                        : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                        : 'bg-muted text-foreground hover:bg-accent '
                     } disabled:opacity-50 disabled:cursor-not-allowed`}
                   >
                     {mins === 90 ? '1.5h' : mins >= 60 ? `${mins / 60}h` : `${mins}m`}
@@ -1491,7 +1782,7 @@ export default function BlockedSites() {
                     setFocusModalMode('start');
                     setMinimumFocusDuration(1);
                   }}
-                  className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                  className="px-4 py-2 text-foreground hover:bg-muted rounded-lg transition-colors"
                 >
                   Cancel
                 </button>
