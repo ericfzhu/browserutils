@@ -125,6 +125,7 @@ export interface DailyStats {
 
 export interface Settings {
   trackingEnabled: boolean;
+  excludedDomains?: string[]; // Exact domains and their subdomains; tracking only
   blockingEnabled: boolean;
   youtubeTrackingEnabled: boolean; // track YouTube channel watch time
   forcePasteEnabled: boolean; // allow paste in fields that block paste handlers
@@ -176,6 +177,7 @@ export interface StorageData {
 
 export const DEFAULT_SETTINGS: Settings = {
   trackingEnabled: true,
+  excludedDomains: [],
   blockingEnabled: true,
   youtubeTrackingEnabled: false, // off by default
   forcePasteEnabled: false,
@@ -199,6 +201,7 @@ export interface DailyStatsSummary {
 
 export type MessageType =
   | { type: 'GET_STATS'; payload?: { date?: string } }
+  | { type: 'DELETE_HISTORY_RANGE'; payload: { startDate: string; endDate: string } }
   | { type: 'GET_STATS_SUMMARY' } // Returns all stats without sessions (faster)
   | { type: 'GET_SESSIONS_FOR_RANGE'; payload: { startDate: string; endDate: string } } // Get browsing and focus sessions for timeline and metrics
   | { type: 'ADD_BLOCKED_SITE'; payload: Omit<BlockedSite, 'id' | 'createdAt'> }

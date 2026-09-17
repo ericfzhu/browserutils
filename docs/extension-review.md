@@ -45,3 +45,9 @@ This serializes operations within a running worker; it is not a cross-storage tr
 ## Follow-up: content tracking overhead
 
 Preference-gated content tracking is now implemented, along with cancellable YouTube discovery retries, removable navigation listeners, old-video detachment and pause-aware hidden playback timers. Existing tabs receive configuration changes without reloading. The before/after operation-count benchmark and its limitations are documented in [benchmarks/README.md](../benchmarks/README.md). Disabled scenarios drop to zero steady-state tracking messages/timer callbacks; active tracking cadence is unchanged. Real CPU and battery measurements remain outstanding.
+
+## Follow-up: blocking synchronization
+
+Blocking synchronization now lives in its own module, caches compiled definitions, reevaluates timed state without rereading storage, and only updates Chrome when effective rules change. Startup reconciles persisted native rules; failed updates are retried on the next check. Minute checks and existing unlock alarms retain their timing. [Before/after measurements](../benchmarks/blocking.md) show 60 → 0 native updates per simulated hour for unchanged rules, and 60 → 1 for the timer-expiry scenario. The suite now has 143 passing tests.
+
+Remaining roadmap areas: efficient history-summary reads; further separation of the background worker; real-Chrome lifecycle coverage; excluded domains and selective history deletion. Broader YouTube extraction robustness and real CPU/power measurements are also still outstanding.

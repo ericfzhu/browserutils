@@ -68,7 +68,10 @@ describe('background service worker integration', () => {
     };
     sessionStore = {};
     runtimeMessage = event();
-    updateDynamicRules = vi.fn(async () => undefined);
+    let dynamicRules: chrome.declarativeNetRequest.Rule[] = [{ id: 99 } as chrome.declarativeNetRequest.Rule];
+    updateDynamicRules = vi.fn(async (update: { removeRuleIds: number[]; addRules: chrome.declarativeNetRequest.Rule[] }) => {
+      dynamicRules = dynamicRules.filter(rule => !update.removeRuleIds.includes(rule.id)).concat(structuredClone(update.addRules));
+    });
     downloadsDownload = vi.fn(async () => 1);
 
     vi.stubGlobal('chrome', {
@@ -84,7 +87,7 @@ describe('background service worker integration', () => {
       declarativeNetRequest: {
         RuleActionType: { REDIRECT: 'redirect' },
         ResourceType: { MAIN_FRAME: 'main_frame' },
-        getDynamicRules: vi.fn(async () => [{ id: 99 }]),
+        getDynamicRules: vi.fn(async () => structuredClone(dynamicRules)),
         updateDynamicRules,
       },
       scripting: {
@@ -163,7 +166,7 @@ describe('background service worker integration', () => {
     await expect(send({ type: 'UPDATE_BLOCKED_SITES', payload: sites })).resolves.toEqual({ success: true });
     const calls = updateDynamicRules.mock.calls;
     const update = calls[calls.length - 1]?.[0];
-    expect(update.removeRuleIds).toEqual([99]);
+    expect(update.removeRuleIds).toEqual([]); // Startup already removed the obsolete rule.
     expect(update.addRules).toHaveLength(1);
     expect(update.addRules[0].action.redirect.regexSubstitution).toContain('&returnUrl=\\0');
 
@@ -416,6 +419,88 @@ describe('background service worker integration', () => {
     expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(1, {
       type: 'TRACKING_STATE_CHANGED', payload: restored,
     }, { frameId: 0 });
+  });
+
+
+  function permanentSite(overrides: Record<string, unknown> = {}) {
+    return { id: 'site', pattern: 'example.com', enabled: true, unlockType: 'none', createdAt: Date.now(), ...overrides };
+  }
+
+  it('does not reread definitions or submit unchanged rules on minute checkpoints', async () => {
+    await send({ type: 'UPDATE_BLOCKED_SITES', payload: [permanentSite()] });
+    updateDynamicRules.mockClear();
+    vi.mocked(chrome.declarativeNetRequest.getDynamicRules).mockClear();
+    vi.mocked(chrome.storage.local.get).mockClear();
+    for (let i = 0; i < 60; i++) await emit(chrome.alarms.onAlarm, { name: 'saveSession' });
+    expect(updateDynamicRules).not.toHaveBeenCalled();
+    expect(chrome.declarativeNetRequest.getDynamicRules).not.toHaveBeenCalled();
+    const keys = vi.mocked(chrome.storage.local.get).mock.calls.map(([key]) => key);
+    expect(keys).not.toContain('blockedSites');
+    expect(keys).not.toContain('blockedSiteFolders');
+    expect(keys).not.toContain('settings');
+  });
+
+  it.each(['timer', 'password'])('updates once at a %s boundary', async kind => {
+    const now = Date.now();
+    const clock = vi.spyOn(Date, 'now').mockReturnValue(now);
+    await send({ type: 'UPDATE_BLOCKED_SITES', payload: [permanentSite(kind === 'timer'
+      ? { unlockType: 'timer', timerBlockedUntil: now + 60_000 }
+      : { unlockType: 'password', unlockedUntil: now + 60_000 })] });
+    updateDynamicRules.mockClear();
+    clock.mockReturnValue(now + 60_000);
+    await emit(chrome.alarms.onAlarm, { name: kind === 'password' ? 'siteUnlock:site' : 'saveSession' });
+    expect(updateDynamicRules).toHaveBeenCalledTimes(1);
+    const rules = await chrome.declarativeNetRequest.getDynamicRules();
+    expect(rules).toHaveLength(kind === 'timer' ? 0 : 1);
+    await emit(chrome.alarms.onAlarm, { name: 'saveSession' });
+    expect(updateDynamicRules).toHaveBeenCalledTimes(1);
+  });
+
+  it('preserves schedule start and inclusive end-minute behavior', async () => {
+    const noon = new Date('2026-09-18T12:00:00').getTime();
+    const clock = vi.spyOn(Date, 'now').mockReturnValue(noon);
+    await send({ type: 'UPDATE_BLOCKED_SITES', payload: [permanentSite({ unlockType: 'schedule', schedule: { days: [5], startTime: '12:10', endTime: '12:20' } })] });
+    updateDynamicRules.mockClear();
+    clock.mockReturnValue(noon + 10 * 60_000);
+    await emit(chrome.alarms.onAlarm, { name: 'saveSession' });
+    expect(await chrome.declarativeNetRequest.getDynamicRules()).toHaveLength(1);
+    clock.mockReturnValue(noon + 20 * 60_000);
+    await emit(chrome.alarms.onAlarm, { name: 'saveSession' });
+    expect(updateDynamicRules).toHaveBeenCalledTimes(1);
+    clock.mockReturnValue(noon + 21 * 60_000);
+    await emit(chrome.alarms.onAlarm, { name: 'saveSession' });
+    expect(await chrome.declarativeNetRequest.getDynamicRules()).toHaveLength(0);
+    expect(updateDynamicRules).toHaveBeenCalledTimes(2);
+  });
+
+  it('invalidates cached folders and reevaluates focus expiry', async () => {
+    const now = Date.now();
+    const clock = vi.spyOn(Date, 'now').mockReturnValue(now);
+    await send({ type: 'UPDATE_BLOCKED_SITES', payload: [permanentSite({ enabled: false, folderId: 'folder' })] });
+    await send({ type: 'UPDATE_BLOCKED_SITE_FOLDERS', payload: [{ id: 'folder', name: 'Work', order: 0, focusUntil: now + 60_000 }] });
+    expect(await chrome.declarativeNetRequest.getDynamicRules()).toHaveLength(1);
+    clock.mockReturnValue(now + 60_000);
+    await emit(chrome.alarms.onAlarm, { name: 'saveSession' });
+    expect(await chrome.declarativeNetRequest.getDynamicRules()).toHaveLength(0);
+  });
+
+  it('recovers a rejected native rule update on the next checkpoint', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    updateDynamicRules.mockRejectedValueOnce(new Error('Temporary native failure'));
+    const result = await send({ type: 'UPDATE_BLOCKED_SITES', payload: [permanentSite()] });
+    expect(result.success).toBe(false);
+    await emit(chrome.alarms.onAlarm, { name: 'saveSession' });
+    expect(await chrome.declarativeNetRequest.getDynamicRules()).toHaveLength(1);
+  });
+
+  it('reconciles native rules after a worker-module restart without resubmitting identical rules', async () => {
+    await send({ type: 'UPDATE_BLOCKED_SITES', payload: [permanentSite()] });
+    updateDynamicRules.mockClear();
+    vi.resetModules();
+    const { updateBlockingRules } = await import('./blockingRuleSync');
+    await updateBlockingRules();
+    expect(updateDynamicRules).not.toHaveBeenCalled();
+    expect(await chrome.declarativeNetRequest.getDynamicRules()).toHaveLength(1);
   });
 
 });

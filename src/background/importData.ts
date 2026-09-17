@@ -1,3 +1,4 @@
+import { SUMMARY_DATES_KEY, SUMMARY_PREFIX } from '../shared/storage';
 import { validateImportData } from '../shared/backup';
 
 interface ImportStorageArea {
@@ -15,6 +16,8 @@ export async function replaceImportedData(
   if (validationError) throw new Error(validationError);
 
   const durableData = { ...(data as Record<string, unknown>) };
+  delete durableData[SUMMARY_DATES_KEY];
+  for (const key of Object.keys(durableData)) if (key.startsWith(SUMMARY_PREFIX)) delete durableData[key];
   delete durableData.activeSessions;
   delete durableData.activeYouTubeSessions;
   const previousData = await storage.get(null);

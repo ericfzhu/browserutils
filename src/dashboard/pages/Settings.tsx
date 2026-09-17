@@ -1,3 +1,4 @@
+import TrackingPrivacySettings from '../components/TrackingPrivacySettings';
 import { useEffect, useState } from 'react';
 import { Trash2, AlertTriangle, Sun, Moon, Monitor, Lock, GitBranch, ShieldCheck, Download, Upload } from 'lucide-react';
 import QRCode from 'react-qr-code';
@@ -465,6 +466,8 @@ export default function SettingsPage() {
         </div>
 
       </div>
+
+      <TrackingPrivacySettings settings={settings} onSave={updateSettings} />
 
       {/* Browser Utilities */}
       <div className="mb-6 border bg-card p-6 shadow-[var(--shadow-card)]">

@@ -1,5 +1,10 @@
+import { isTrackingExcluded, normalizeExcludedDomains, validateHistoryRange } from '../shared/trackingPrivacy';
 import { runTrackingTransition, trackingEvent } from './trackingTransitions';
+import { updateBlockingRules, refreshBlockingRules } from './blockingRuleSync';
 import {
+  deleteHistoryRange,
+  SUMMARY_DATES_KEY,
+  SUMMARY_PREFIX,
   getBlockedSites,
   setBlockedSites,
   addBlockedSite,
@@ -25,7 +30,6 @@ import {
   verifyPassword,
   hashPassword,
   passwordHashNeedsUpgrade,
-  buildUrlPatternRegex,
   getDomainCategories,
   setDomainCategory,
   getDailyLimits,
@@ -56,7 +60,7 @@ import {
 } from './lockdownGuards';
 import { ActiveSession, BlockedSite, MessageType, Settings, TrackingState } from '../shared/types';
 import { verifyTotpCode } from '../shared/totp';
-import { findBlockingSite, isSiteRuleActive } from './blockingRules';
+import { findBlockingSite } from './blockingRules';
 import { decryptBackup, encryptBackup, isEncryptedBackup, validateImportData } from '../shared/backup';
 import { replaceImportedData } from './importData';
 
@@ -121,7 +125,8 @@ async function getCachedSettings(): Promise<Settings> {
   return cachedSettings;
 }
 
-function trackingState(settings: Settings): TrackingState {
+function trackingState(settings: Settings, url?: string): TrackingState {
+  if (url && isTrackingExcluded(url, settings)) return { trackingEnabled: false, youtubeTrackingEnabled: false };
   return { trackingEnabled: settings.trackingEnabled, youtubeTrackingEnabled: settings.youtubeTrackingEnabled };
 }
 
@@ -131,7 +136,7 @@ async function publishTrackingState(settings: Settings): Promise<void> {
     if (tab.id === undefined) return;
     try {
       await chrome.tabs.sendMessage(tab.id, {
-        type: 'TRACKING_STATE_CHANGED', payload: trackingState(settings),
+        type: 'TRACKING_STATE_CHANGED', payload: trackingState(settings, tab.url),
       }, { frameId: 0 });
     } catch {
       // Closed tabs and documents without a content script need no update.
@@ -255,6 +260,7 @@ async function requiresLockdownAuthentication(message: MessageType): Promise<boo
     'STOP_GLOBAL_FOCUS_SESSION',
     'REMOVE_DAILY_LIMIT',
     'CLEAR_ALL_DATA',
+    'DELETE_HISTORY_RANGE',
     'IMPORT_DATA',
   ]);
 
@@ -366,6 +372,7 @@ runTrackingTransition(async () => {
   const settings = await getCachedSettings();
   await syncOptionalContentScripts(settings);
   await setupIdleDetection();
+  await updateBlockingRules();
   await recoverSession();
 }).catch(error => {
   console.error('[Startup] Failed to initialize extension state', error);
@@ -428,7 +435,7 @@ const CONTENT_TRACKING_MESSAGES = new Set<MessageType['type']>([
   'YOUTUBE_CHANNEL_UPDATE', 'YOUTUBE_VISIBILITY_CHANGE',
 ]);
 const TRACKING_MUTATIONS = new Set<MessageType['type']>([
-  ...CONTENT_TRACKING_MESSAGES, 'GET_TRACKING_STATE', 'UPDATE_SETTINGS', 'CLEAR_ALL_DATA', 'IMPORT_DATA',
+  ...CONTENT_TRACKING_MESSAGES, 'GET_TRACKING_STATE', 'UPDATE_SETTINGS', 'CLEAR_ALL_DATA', 'IMPORT_DATA', 'DELETE_HISTORY_RANGE',
   'START_GLOBAL_FOCUS_SESSION', 'STOP_GLOBAL_FOCUS_SESSION', 'LOCKDOWN_AUTHENTICATE',
 ]);
 
@@ -444,6 +451,11 @@ async function handleTrackingMessage(message: MessageType, sender: chrome.runtim
       return { success: true };
     }
     if (tab.url !== sender.tab.url) return { success: true };
+    if (tab.url && isTrackingExcluded(tab.url, await getCachedSettings())) {
+      await endSession(tab.id!);
+      await endYouTubeSession(tab.id!);
+      return { success: true };
+    }
     sender = { ...sender, tab };
   }
   return handleMessage(message, sender);
@@ -537,7 +549,7 @@ async function handleMessage(message: MessageType, sender?: chrome.runtime.Messa
       return getBlockedSites();
     }
     case 'GET_TRACKING_STATE': {
-      return trackingState(await getCachedSettings());
+      return trackingState(await getCachedSettings(), sender?.tab?.url);
     }
     case 'GET_SETTINGS': {
       return getCachedSettings();
@@ -549,10 +561,23 @@ async function handleMessage(message: MessageType, sender?: chrome.runtime.Messa
       };
     }
     case 'UPDATE_SETTINGS': {
+      if (message.payload.excludedDomains !== undefined) {
+        message.payload.excludedDomains = normalizeExcludedDomains(message.payload.excludedDomains);
+      }
       const previousSettings = await getCachedSettings();
       const settings = await updateSettings(message.payload);
       cachedSettings = settings;
-      if (previousSettings.trackingEnabled !== settings.trackingEnabled ||
+      if (message.payload.excludedDomains !== undefined) {
+        const active = await getActiveSessions();
+        for (const session of Object.values(active)) {
+          if (isTrackingExcluded(session.domain, settings)) await endSession(session.tabId);
+        }
+        const playback = await getActiveYouTubeSessions();
+        if (isTrackingExcluded('www.youtube.com', settings)) {
+          for (const session of Object.values(playback)) await endYouTubeSession(session.tabId);
+        }
+      }
+      if (message.payload.excludedDomains !== undefined || previousSettings.trackingEnabled !== settings.trackingEnabled ||
           previousSettings.youtubeTrackingEnabled !== settings.youtubeTrackingEnabled) {
         await publishTrackingState(settings);
       }
@@ -577,12 +602,23 @@ async function handleMessage(message: MessageType, sender?: chrome.runtime.Messa
       }
       return settings;
     }
+    case 'DELETE_HISTORY_RANGE': {
+      const { startDate, endDate } = message.payload;
+      validateHistoryRange(startDate, endDate);
+      await endAllSessions();
+      await endAllYouTubeSessions();
+      const deletedDays = await deleteHistoryRange(startDate, endDate);
+      await startFocusedWindowSession();
+      return { success: true, deletedDays };
+    }
     case 'CLEAR_ALL_DATA': {
       await resetAllData();
       return { success: true };
     }
     case 'EXPORT_DATA': {
       const data = await chrome.storage.local.get(null);
+      delete data[SUMMARY_DATES_KEY];
+      for (const key of Object.keys(data)) if (key.startsWith(SUMMARY_PREFIX)) delete data[key];
       delete data.activeSessions;
       delete data.activeYouTubeSessions;
       return { success: true, backup: await encryptBackup(data, message.payload.password) };
@@ -629,14 +665,18 @@ async function handleMessage(message: MessageType, sender?: chrome.runtime.Messa
       return getBlockedSiteFolders();
     }
     case 'ADD_BLOCKED_SITE_FOLDER': {
-      return addBlockedSiteFolder(message.payload);
+      const folder = await addBlockedSiteFolder(message.payload);
+      await updateBlockingRules();
+      return folder;
     }
     case 'UPDATE_BLOCKED_SITE_FOLDER': {
       await updateBlockedSiteFolder(message.payload);
+      await updateBlockingRules();
       return { success: true };
     }
     case 'UPDATE_BLOCKED_SITE_FOLDERS': {
       await setBlockedSiteFolders(message.payload);
+      await updateBlockingRules();
       return { success: true };
     }
     case 'REMOVE_BLOCKED_SITE_FOLDER': {
@@ -1361,59 +1401,6 @@ async function checkIfBlocked(url: string): Promise<{ blocked: boolean; site?: B
   return site ? { blocked: true, site } : { blocked: false };
 }
 
-async function updateBlockingRules(): Promise<void> {
-  const settings = await getCachedSettings();
-  const sites = await getBlockedSites();
-  const folders = await getBlockedSiteFolders();
-  const now = Date.now();
-  const globalFocus = getGlobalFocusStatus(settings, now);
-
-  const existingRules = await chrome.declarativeNetRequest.getDynamicRules();
-  const ruleIdsToRemove = existingRules.map(r => r.id);
-
-  // Build a set of folder IDs with active focus sessions
-  const activeFocusFolders = new Set<string>();
-  for (const folder of folders) {
-    if (folder.focusUntil && now < folder.focusUntil) {
-      activeFocusFolders.add(folder.id);
-    }
-  }
-
-  const rules: chrome.declarativeNetRequest.Rule[] = [];
-  let ruleId = 1;
-
-  for (const [siteIndex, site] of (settings.blockingEnabled ? sites : []).entries()) {
-    if (!isSiteRuleActive(site, {
-      now,
-      globalFocusActive: globalFocus.isActive,
-      activeFocusFolderIds: activeFocusFolders,
-    })) continue;
-
-    const regexFilter = buildUrlPatternRegex(site.pattern);
-    if (!regexFilter) continue;
-
-    rules.push({
-      id: ruleId++,
-      priority: sites.length - siteIndex,
-      action: {
-        type: chrome.declarativeNetRequest.RuleActionType.REDIRECT,
-        redirect: {
-          regexSubstitution: `${chrome.runtime.getURL('blocked.html')}#site=${encodeURIComponent(site.id)}&returnUrl=\\0`,
-        },
-      },
-      condition: {
-        regexFilter,
-        resourceTypes: [chrome.declarativeNetRequest.ResourceType.MAIN_FRAME],
-      },
-    });
-  }
-
-  await chrome.declarativeNetRequest.updateDynamicRules({
-    removeRuleIds: ruleIdsToRemove,
-    addRules: rules,
-  });
-}
-
 // Time tracking
 function getDomainFromUrl(url: string): string | null {
   try {
@@ -1451,7 +1438,7 @@ async function endAllSessions(): Promise<void> {
 // Start a session for a specific tab
 async function startSession(tabId: number, url: string): Promise<void> {
   const settings = await getCachedSettings();
-  if (!settings.trackingEnabled) return;
+  if (!settings.trackingEnabled || isTrackingExcluded(url, settings)) return;
 
   // Don't start session if user is idle
   if (isUserIdle) return;
@@ -1642,7 +1629,7 @@ chrome.alarms.onAlarm.addListener(trackingEvent('alarm', async (alarm) => {
   await restoreIdleState();
 
   if (alarm.name.startsWith('siteUnlock:')) {
-    await updateBlockingRules();
+    await refreshBlockingRules();
     return;
   }
 
@@ -1689,8 +1676,8 @@ chrome.alarms.onAlarm.addListener(trackingEvent('alarm', async (alarm) => {
       }
     }
 
-    // Refresh blocking rules (for timer-based unlocks that may have expired)
-    await updateBlockingRules();
+    // Only apply rules if a schedule, unlock, timer or focus boundary changed.
+    await refreshBlockingRules();
   }
 
   if (alarm.name === 'checkMinimized') {

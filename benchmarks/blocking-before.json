@@ -1,0 +1,55 @@
+{
+  "sourceSha256": "debd1edda400976677caf9fdc0a7e0b56ee6be03068fc169dee53535d61ed432",
+  "simulatedSeconds": 3600,
+  "methodology": "Actual worker bundle in VM, mocked Chrome APIs, 60 save alarms after startup/install. Counts include the whole alarm handler. No CPU or battery measurement.",
+  "results": [
+    {
+      "scenario": "0-permanent-rules",
+      "setup": {
+        "localReads": 7,
+        "dnrReads": 1,
+        "dnrUpdates": 1,
+        "submittedRules": 0
+      },
+      "observation": {
+        "localReads": 180,
+        "dnrReads": 60,
+        "dnrUpdates": 60,
+        "submittedRules": 0
+      },
+      "finalRuleCount": 0
+    },
+    {
+      "scenario": "100-permanent-rules",
+      "setup": {
+        "localReads": 7,
+        "dnrReads": 1,
+        "dnrUpdates": 1,
+        "submittedRules": 100
+      },
+      "observation": {
+        "localReads": 180,
+        "dnrReads": 60,
+        "dnrUpdates": 60,
+        "submittedRules": 6000
+      },
+      "finalRuleCount": 100
+    },
+    {
+      "scenario": "100-timers-expire-at-30-minutes",
+      "setup": {
+        "localReads": 7,
+        "dnrReads": 1,
+        "dnrUpdates": 1,
+        "submittedRules": 100
+      },
+      "observation": {
+        "localReads": 180,
+        "dnrReads": 60,
+        "dnrUpdates": 60,
+        "submittedRules": 2900
+      },
+      "finalRuleCount": 0
+    }
+  ]
+}

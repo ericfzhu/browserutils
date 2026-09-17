@@ -1,0 +1,50 @@
+{
+  "sourceSha256": "976ce4a15c0b5da46f93bcbd4c0752160322b57006e3afb51d115ae462cb80cd",
+  "methodology": "Actual storage module with synthetic history (20 domains × 30 intervals per day). Counts JSON payload bytes crossing mocked local storage, not real Chrome CPU/latency or stored byte quotas.",
+  "results": [
+    {
+      "days": 30,
+      "summaryDays": 30,
+      "cold": {
+        "reads": 3,
+        "readBytes": 459654,
+        "writes": 1,
+        "writtenBytes": 16108
+      },
+      "warm": {
+        "reads": 2,
+        "readBytes": 16109,
+        "writes": 0,
+        "writtenBytes": 0
+      },
+      "checkpoint": {
+        "reads": 3,
+        "readBytes": 15765,
+        "writes": 1,
+        "writtenBytes": 15868
+      }
+    },
+    {
+      "days": 365,
+      "summaryDays": 365,
+      "cold": {
+        "reads": 3,
+        "readBytes": 5591854,
+        "writes": 1,
+        "writtenBytes": 195668
+      },
+      "warm": {
+        "reads": 2,
+        "readBytes": 195669,
+        "writes": 0,
+        "writtenBytes": 0
+      },
+      "checkpoint": {
+        "reads": 3,
+        "readBytes": 20120,
+        "writes": 1,
+        "writtenBytes": 15868
+      }
+    }
+  ]
+}

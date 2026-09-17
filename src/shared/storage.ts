@@ -1,4 +1,5 @@
-import { BlockedSite, BlockedSiteFolder, DailyStats, SiteSession, ActiveSession, Settings, DEFAULT_SETTINGS, SiteCategory, DailyLimit, YouTubeChannelSession, ActiveYouTubeSession, CustomCategory, CompactSessions, CompactYouTubeSessions, FocusSession } from './types';
+import { validateHistoryRange } from './trackingPrivacy';
+import { BlockedSite, BlockedSiteFolder, DailyStatsSummary, DailyStats, SiteSession, ActiveSession, Settings, DEFAULT_SETTINGS, SiteCategory, DailyLimit, YouTubeChannelSession, ActiveYouTubeSession, CustomCategory, CompactSessions, CompactYouTubeSessions, FocusSession } from './types';
 import { getLocalDateString, splitIntervalByLocalDay } from './time';
 
 const STORAGE_KEYS = {
@@ -16,6 +17,8 @@ const STORAGE_KEYS = {
 } as const;
 
 const DAILY_STATS_PREFIX = 'dailyStats:';
+export const SUMMARY_DATES_KEY = 'dailyStatsSummaryDates';
+export const SUMMARY_PREFIX = 'dailyStatsSummary:';
 const STORAGE_SCHEMA_VERSION_KEY = 'storageSchemaVersion';
 const DAILY_STATS_SCHEMA_VERSION = 2;
 
@@ -331,6 +334,19 @@ export async function getAllDailyStats(): Promise<Record<string, DailyStats>> {
   return dailyStatsFromStorage(await chrome.storage.local.get(null));
 }
 
+export async function deleteHistoryRange(startDate: string, endDate: string): Promise<number> {
+  validateHistoryRange(startDate, endDate);
+  return queueDailyStatsWrite(async () => {
+    await ensureDailyStatsStorageMigrated();
+    const allItems = await chrome.storage.local.get(null);
+    const keys = Object.keys(allItems).filter(key => key.startsWith(DAILY_STATS_PREFIX) &&
+      key.slice(DAILY_STATS_PREFIX.length) >= startDate && key.slice(DAILY_STATS_PREFIX.length) <= endDate);
+    await chrome.storage.local.remove([...keys, SUMMARY_DATES_KEY,
+      ...keys.map(key => SUMMARY_PREFIX + key.slice(DAILY_STATS_PREFIX.length))]);
+    return keys.length;
+  });
+}
+
 export async function pruneDailyStats(cutoffDate: string): Promise<void> {
   await queueDailyStatsWrite(async () => {
     await ensureDailyStatsStorageMigrated();
@@ -338,26 +354,53 @@ export async function pruneDailyStats(cutoffDate: string): Promise<void> {
     const expiredKeys = Object.keys(allItems).filter(key =>
       key.startsWith(DAILY_STATS_PREFIX) && key.slice(DAILY_STATS_PREFIX.length) < cutoffDate
     );
-    if (expiredKeys.length > 0) await chrome.storage.local.remove(expiredKeys);
+    if (expiredKeys.length > 0) {
+      await chrome.storage.local.remove([...expiredKeys, SUMMARY_DATES_KEY,
+        ...expiredKeys.map(key => SUMMARY_PREFIX + key.slice(DAILY_STATS_PREFIX.length))]);
+    }
   });
 }
 
-// Get all stats without session arrays (much faster for aggregate views)
-export async function getAllDailyStatsSummary(): Promise<Record<string, { date: string; totalTime: number; sites: Record<string, number>; visits: number; blockedAttempts: number }>> {
-  const allStats = await getAllDailyStats();
+function summarizeDay(stats: DailyStats): DailyStatsSummary {
+  return { date: stats.date, totalTime: stats.totalTime, sites: stats.sites,
+    visits: stats.visits, blockedAttempts: stats.blockedAttempts };
+}
 
-  // Strip out sessions and youtubeSessions to reduce data size
-  const summary: Record<string, { date: string; totalTime: number; sites: Record<string, number>; visits: number; blockedAttempts: number }> = {};
-  for (const [date, stats] of Object.entries(allStats)) {
-    summary[date] = {
-      date: stats.date,
-      totalTime: stats.totalTime,
-      sites: stats.sites,
-      visits: stats.visits,
-      blockedAttempts: stats.blockedAttempts,
-    };
+// Disposable derived data: first read builds the index; subsequent reads never
+// load detailed intervals. This does not change the authoritative history format.
+export async function getAllDailyStatsSummary(): Promise<Record<string, DailyStatsSummary>> {
+  return queueDailyStatsWrite(async () => {
+    const cached = await chrome.storage.local.get(SUMMARY_DATES_KEY);
+    const dates = cached[SUMMARY_DATES_KEY] as string[] | undefined;
+    if (dates) {
+      const entries = await chrome.storage.local.get(dates.map(date => SUMMARY_PREFIX + date));
+      return Object.fromEntries(dates.map(date => [date, entries[SUMMARY_PREFIX + date]]));
+    }
+    const history = await getAllDailyStats();
+    const summaries = Object.fromEntries(Object.entries(history).map(([date, stats]) => [date, summarizeDay(stats)]));
+    await chrome.storage.local.set({
+      [SUMMARY_DATES_KEY]: Object.keys(summaries),
+      ...Object.fromEntries(Object.entries(summaries).map(([date, summary]) => [SUMMARY_PREFIX + date, summary])),
+    });
+    return summaries;
+  });
+}
+
+// Called only inside the history write queue. Keep cached summaries in the same
+// storage.set as their source day so readers cannot see mismatched versions.
+async function writeDailyStats(updates: Record<string, DailyStats>): Promise<void> {
+  const cached = await chrome.storage.local.get(SUMMARY_DATES_KEY);
+  const dates = cached[SUMMARY_DATES_KEY] as string[] | undefined;
+  const payload: Record<string, unknown> = { ...updates };
+  if (dates) {
+    const knownDates = new Set(dates);
+    for (const stats of Object.values(updates)) {
+      payload[SUMMARY_PREFIX + stats.date] = summarizeDay(stats);
+      knownDates.add(stats.date);
+    }
+    if (knownDates.size !== dates.length) payload[SUMMARY_DATES_KEY] = [...knownDates];
   }
-  return summary;
+  await chrome.storage.local.set(payload);
 }
 
 // Get sessions and YouTube sessions for a specific date range (for timeline)
@@ -419,7 +462,7 @@ export async function getSessionsForRange(startDate: string, endDate: string): P
 export async function updateDailyStats(date: string, stats: DailyStats): Promise<void> {
   await queueDailyStatsWrite(async () => {
     await ensureDailyStatsStorageMigrated();
-    await chrome.storage.local.set({ [dailyStatsKey(date)]: normalizeDailyStats(date, stats) });
+    await writeDailyStats({ [dailyStatsKey(date)]: normalizeDailyStats(date, stats) });
   });
 }
 
@@ -434,7 +477,7 @@ export async function incrementBlockedAttempt(_domain: string): Promise<void> {
       : createEmptyDailyStats(today);
 
     stats.blockedAttempts++;
-    await chrome.storage.local.set({ [key]: stats });
+    await writeDailyStats({ [key]: stats });
   });
 }
 
@@ -557,7 +600,7 @@ export async function recordSession(session: SiteSession, options: { countVisit?
       updates[key] = stats;
     }
 
-    await chrome.storage.local.set(updates);
+    await writeDailyStats(updates);
   });
 }
 
@@ -665,7 +708,7 @@ export async function recordYouTubeSession(session: YouTubeChannelSession): Prom
       updates[key] = existingStats;
     }
 
-    await chrome.storage.local.set(updates);
+    await writeDailyStats(updates);
   });
 }
 

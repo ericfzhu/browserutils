@@ -34,3 +34,7 @@ Raw snapshots: [before](tracking-before.json), [after](tracking-after.json).
 All 136 tests pass, including ten content-lifecycle tests and three new worker configuration tests. TypeScript and the production build pass. Tests cover runtime enable/disable, blocking independence, separate browsing/playback flags, hidden pause/resume, late video discovery, SPA listener detachment, retry cancellation, stale initial settings responses, extension-context teardown, settings broadcasts and reset defaults.
 
 These are deterministic operation counts, not measurements of real CPU, energy, memory, Chrome timer throttling or service-worker suspension. Worker alarms and rule rebuilds are unchanged and still run. No battery improvement or complete worker idleness is claimed. A real-Chrome CPU/power comparison would need a controlled profile and repeated workloads; do not infer a battery percentage from these counts.
+
+## Subsequent changes
+
+- [Blocking rule synchronization](blocking.md): measured separately on 18 September 2026; eliminates unchanged native rule submissions and repeated definition reads.
