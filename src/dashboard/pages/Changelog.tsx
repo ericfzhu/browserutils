@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import DashboardPageHeader from '../components/DashboardPageHeader';
 
 // Changelog data - update this when releasing new versions
-const CURRENT_VERSION = '1.0.1';
+const CURRENT_VERSION = '1.1.0';
 
 interface ChangelogEntry {
   version: string;
@@ -16,6 +16,33 @@ interface ChangelogEntry {
 }
 
 const changelog: ChangelogEntry[] = [
+  {
+    version: '1.1.0',
+    date: '2026-09-18',
+    added: [
+      'Tracking exclusions stop future browsing and YouTube recording for selected domains and their subdomains',
+      'Confirmed date-range deletion removes selected browsing, YouTube, and blocked-attempt history while preserving settings and focus-session history; Lockdown protects this action',
+      'Repeatable tracking, blocking, and history benchmarks plus real Chromium lifecycle and dashboard layout checks',
+    ],
+    changed: [
+      'Disabled content trackers stop unnecessary timers and listeners, and hidden paused YouTube videos stop playback polling',
+      'Blocking definitions are cached and native rules update only when effective rules change',
+      'Cached daily summaries reduce repeated history reads, with cold-read and recording costs documented in the benchmarks',
+      'Light and dark modes share consistent semantic colors across the monochrome and blue palettes',
+      'All dashboard pages share aligned titles, toolbars, content widths, and navigation scroll behavior, without redundant section labels',
+      'Narrow layouts use a compact sidebar and wrapping controls; categories and action buttons have clearer labels and keyboard support',
+      'Playback tracking, session freshness, and optional content-script registration live in separate background modules',
+    ],
+    fixed: [
+      'Serialized tracking transitions prevent overlapping tab, heartbeat, checkpoint, and playback events from reviving ended sessions',
+      'YouTube navigation and video replacement detach old listeners and cancel stale discovery retries',
+      'Theme changes follow system preferences and stay synchronized across open extension pages',
+      'Summary cache creation cannot race history resets, and selective deletion refreshes summaries correctly',
+      'Long domains no longer overlap blocking controls or hide daily-limit actions on narrow screens',
+      'The custom date picker stays within the viewport and supports Escape and focus restoration; dialogs scroll within short windows',
+      'History deletion handles busy and error states correctly after delayed Lockdown authentication',
+    ],
+  },
   {
     version: '1.0.1',
     date: '2026-08-31',

@@ -51,7 +51,7 @@ These features stay dormant until enabled.
 
 ## install.
 
-1. Download `browserutils-v1.0.1.zip` from the [latest GitHub release](https://github.com/ericfzhu/browserutils/releases/latest).
+1. Download the BrowserUtils ZIP from the [latest GitHub release](https://github.com/ericfzhu/browserutils/releases/latest).
 2. Extract the archive somewhere permanent.
 3. Open `chrome://extensions`.
 4. Turn on **Developer mode**.
