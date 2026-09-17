@@ -385,4 +385,37 @@ describe('background service worker integration', () => {
     expect(sessionStore.activeSessions).toEqual({});
   });
 
+
+  it('returns only the two tracking flags to content scripts', async () => {
+    await expect(send({ type: 'GET_TRACKING_STATE' })).resolves.toEqual({
+      trackingEnabled: true, youtubeTrackingEnabled: false,
+    });
+  });
+
+  it('broadcasts tracking preferences to open tabs, tolerating missing content scripts', async () => {
+    vi.mocked(chrome.tabs.query).mockResolvedValue([{ id: 1 }, { id: 2 }] as chrome.tabs.Tab[]);
+    vi.mocked(chrome.tabs.sendMessage).mockRejectedValueOnce(new Error('No receiving end'));
+    const result = await send({ type: 'UPDATE_SETTINGS', payload: { trackingEnabled: false } });
+    expect(result.trackingEnabled).toBe(false);
+    expect(chrome.tabs.sendMessage).toHaveBeenCalledTimes(2);
+    expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(2, {
+      type: 'TRACKING_STATE_CHANGED',
+      payload: { trackingEnabled: false, youtubeTrackingEnabled: false },
+    }, { frameId: 0 });
+    vi.mocked(chrome.tabs.sendMessage).mockClear();
+    await send({ type: 'UPDATE_SETTINGS', payload: { theme: 'dark' } });
+    expect(chrome.tabs.sendMessage).not.toHaveBeenCalled();
+  });
+
+  it('publishes restored tracking defaults after clearing data', async () => {
+    await send({ type: 'UPDATE_SETTINGS', payload: { trackingEnabled: false } });
+    vi.mocked(chrome.tabs.query).mockResolvedValue([{ id: 1 }] as chrome.tabs.Tab[]);
+    await send({ type: 'CLEAR_ALL_DATA' });
+    const restored = await send({ type: 'GET_TRACKING_STATE' });
+    expect(restored.trackingEnabled).toBe(true);
+    expect(chrome.tabs.sendMessage).toHaveBeenCalledWith(1, {
+      type: 'TRACKING_STATE_CHANGED', payload: restored,
+    }, { frameId: 0 });
+  });
+
 });

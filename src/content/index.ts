@@ -1,4 +1,5 @@
 import { getBlockRedirect } from './blockRedirect';
+import type { TrackingState } from '../shared/types';
 
 // Content script for accurate time tracking and blocking fallback
 // Sends heartbeats and visibility changes to background
@@ -6,12 +7,18 @@ import { getBlockRedirect } from './blockRedirect';
 
 const HEARTBEAT_INTERVAL = 15000; // 15 seconds
 
+let trackingEnabled = false;
+let youtubeTrackingEnabled = false;
+let disposed = false;
+let initialized = false;
+let stateReceived = false;
+const youtubeTimeouts = new Set<number>();
+
 let heartbeatTimer: number | null = null;
 let lastVisibilityState = !document.hidden;
 
 // YouTube tracking state
 let lastYouTubeChannel: { name: string; id?: string; url?: string } | null = null;
-let youtubeCheckTimer: number | null = null;
 let youtubeBackgroundTimer: number | null = null;
 let isYouTubePlaying = false;
 let currentVideoElement: HTMLVideoElement | null = null;
@@ -29,10 +36,8 @@ function getYouTubeChannelInfo(): { name: string; id?: string; url?: string } | 
 
   // First, try Media Session API - most reliable when video is playing
   // YouTube sets the channel name as the "artist" in media metadata
-  console.log('[YouTube Content] Media Session metadata:', navigator.mediaSession?.metadata);
   if (navigator.mediaSession?.metadata?.artist) {
     const name = navigator.mediaSession.metadata.artist;
-    console.log('[YouTube Content] Got channel from Media Session:', name);
     // Try to get channel ID and URL from DOM as a bonus
     const channelLink = document.querySelector('ytd-channel-name #text a, #owner ytd-channel-name a, #owner #channel-name a') as HTMLAnchorElement | null;
     let id: string | undefined;
@@ -47,7 +52,6 @@ function getYouTubeChannelInfo(): { name: string; id?: string; url?: string } | 
   }
 
   // Fallback: DOM scraping for when video isn't playing yet
-  console.log('[YouTube Content] Media Session not available, trying DOM scraping');
   let channelElement: Element | null = null;
 
   if (window.location.pathname === '/watch') {
@@ -68,11 +72,9 @@ function getYouTubeChannelInfo(): { name: string; id?: string; url?: string } | 
     );
   }
 
-  console.log('[YouTube Content] DOM channel element found:', !!channelElement);
   if (channelElement) {
     const name = channelElement.textContent?.trim();
     const href = channelElement.getAttribute('href');
-    console.log('[YouTube Content] DOM channel name:', name, 'href:', href);
     let id: string | undefined;
     let url: string | undefined;
     if (href) {
@@ -87,25 +89,21 @@ function getYouTubeChannelInfo(): { name: string; id?: string; url?: string } | 
     }
   }
 
-  console.log('[YouTube Content] Could not find channel info');
   return null;
 }
 
 // Handle YouTube video play event - start tracking
 function handleYouTubePlay() {
-  console.log('[YouTube Content] Play event fired');
-  if (!isYouTubeVideoPage()) {
-    console.log('[YouTube Content] Not on video page, ignoring');
+  if (disposed || isYouTubePlaying || !youtubeTrackingEnabled || !isYouTubeVideoPage()) {
     return;
   }
 
   isYouTubePlaying = true;
+  if (document.hidden) startYouTubeBackgroundTracking();
   const channelInfo = getYouTubeChannelInfo();
-  console.log('[YouTube Content] Channel info:', channelInfo);
 
   if (channelInfo) {
     lastYouTubeChannel = channelInfo;
-    console.log('[YouTube Content] Sending YOUTUBE_CHANNEL_UPDATE for:', channelInfo.name);
     sendMessage('YOUTUBE_CHANNEL_UPDATE', {
       channelName: channelInfo.name,
       channelId: channelInfo.id,
@@ -113,21 +111,18 @@ function handleYouTubePlay() {
       url: window.location.href,
       timestamp: Date.now(),
     });
-  } else {
-    console.log('[YouTube Content] Could not get channel info');
   }
 }
 
 // Handle YouTube video pause event - end current segment
 function handleYouTubePause() {
-  console.log('[YouTube Content] Pause/ended event fired, isYouTubePlaying:', isYouTubePlaying);
   if (!isYouTubePlaying) return;
 
   isYouTubePlaying = false;
+  stopYouTubeBackgroundTracking();
 
   // End the current segment by sending visibility change
   if (lastYouTubeChannel) {
-    console.log('[YouTube Content] Sending YOUTUBE_VISIBILITY_CHANGE (pause) for:', lastYouTubeChannel.name);
     sendMessage('YOUTUBE_VISIBILITY_CHANGE', {
       visible: false,
       channelName: lastYouTubeChannel.name,
@@ -141,18 +136,14 @@ function handleYouTubePause() {
 
 // Set up listeners on the YouTube video element
 function setupVideoListeners() {
+  if (!youtubeTrackingEnabled || disposed || !isYouTubeVideoPage()) return;
   // Find the video element
   const video = document.querySelector('video.html5-main-video, video.video-stream') as HTMLVideoElement | null;
-  console.log('[YouTube Content] setupVideoListeners, found video:', !!video, 'current:', !!currentVideoElement);
 
   if (video && video !== currentVideoElement) {
-    console.log('[YouTube Content] Setting up new video element listeners');
     // Remove listeners from old video if any
-    if (currentVideoElement) {
-      currentVideoElement.removeEventListener('play', handleYouTubePlay);
-      currentVideoElement.removeEventListener('pause', handleYouTubePause);
-      currentVideoElement.removeEventListener('ended', handleYouTubePause);
-    }
+    if (currentVideoElement) handleYouTubePause();
+    detachVideoListeners();
 
     // Add listeners to new video
     currentVideoElement = video;
@@ -161,9 +152,7 @@ function setupVideoListeners() {
     video.addEventListener('ended', handleYouTubePause);
 
     // Check if already playing
-    console.log('[YouTube Content] Video state - paused:', video.paused, 'ended:', video.ended);
     if (!video.paused && !video.ended) {
-      console.log('[YouTube Content] Video already playing, triggering play handler');
       handleYouTubePlay();
     }
   }
@@ -172,7 +161,7 @@ function setupVideoListeners() {
 // Send YouTube channel update to background (used for heartbeats)
 // Note: We don't check document.hidden here because YouTube can play in background
 function sendYouTubeChannelUpdate() {
-  if (!isYouTubeVideoPage()) return;
+  if (!youtubeTrackingEnabled || !isYouTubeVideoPage()) return;
 
   // Set up video listeners if not already done
   setupVideoListeners();
@@ -212,6 +201,10 @@ function sendYouTubeChannelUpdate() {
 
 // Handle YouTube SPA navigation
 function handleYouTubeNavigation() {
+  if (!youtubeTrackingEnabled || disposed) return;
+  cancelYouTubeRetries();
+  detachVideoListeners();
+  stopYouTubeBackgroundTracking();
   // End any current segment when navigating
   if (isYouTubePlaying && lastYouTubeChannel) {
     sendMessage('YOUTUBE_VISIBILITY_CHANGE', {
@@ -226,14 +219,13 @@ function handleYouTubeNavigation() {
 
   // Reset state for new page
   isYouTubePlaying = false;
-  currentVideoElement = null;
   lastYouTubeChannel = null;
 
   if (isYouTubeVideoPage()) {
     // On a video page - set up video listeners with retries (video element loads async)
-    setTimeout(setupVideoListeners, 500);
-    setTimeout(setupVideoListeners, 1500);
-    setTimeout(setupVideoListeners, 3000);
+    scheduleYouTubeRetry(setupVideoListeners, 500);
+    scheduleYouTubeRetry(setupVideoListeners, 1500);
+    scheduleYouTubeRetry(setupVideoListeners, 3000);
   }
 }
 
@@ -242,37 +234,63 @@ function startYouTubeTracking() {
   // Always set up navigation listeners when on YouTube (even if not on video page yet)
   // User might navigate to a video page later via SPA navigation
   document.addEventListener('yt-navigate-finish', handleYouTubeNavigation);
+  document.addEventListener('play', handleVideoDiscovery, true);
 
   // Also handle popstate for back/forward navigation
-  window.addEventListener('popstate', () => {
-    setTimeout(handleYouTubeNavigation, 100);
-  });
+  window.addEventListener('popstate', handleYouTubePopstate);
 
   // If already on a video page, set up video listeners
   if (isYouTubeVideoPage()) {
     // Retry a few times in case the video element isn't loaded yet
     setupVideoListeners();
-    setTimeout(setupVideoListeners, 1000);
-    setTimeout(setupVideoListeners, 3000);
+    scheduleYouTubeRetry(setupVideoListeners, 1000);
+    scheduleYouTubeRetry(setupVideoListeners, 3000);
   }
 }
 
-// Stop YouTube tracking
-function stopYouTubeTracking() {
-  if (youtubeCheckTimer) {
-    clearInterval(youtubeCheckTimer);
-    youtubeCheckTimer = null;
+// A video can appear after discovery retries finish, even in a hidden tab.
+// Capture its first play event without a permanent DOM observer or paused poll.
+function handleVideoDiscovery(event: Event) {
+  if (event.target !== currentVideoElement &&
+      (event.target as Element | null)?.matches?.('video.html5-main-video, video.video-stream')) {
+    setupVideoListeners();
   }
+}
+
+function scheduleYouTubeRetry(callback: () => void, delay: number) {
+  if (disposed || !youtubeTrackingEnabled) return;
+  const id = window.setTimeout(() => {
+    youtubeTimeouts.delete(id);
+    if (youtubeTrackingEnabled && !disposed) callback();
+  }, delay);
+  youtubeTimeouts.add(id);
+}
+
+function cancelYouTubeRetries() {
+  for (const id of youtubeTimeouts) window.clearTimeout(id);
+  youtubeTimeouts.clear();
+}
+
+function handleYouTubePopstate() {
+  scheduleYouTubeRetry(handleYouTubeNavigation, 100);
+}
+
+function detachVideoListeners() {
+  if (!currentVideoElement) return;
+  currentVideoElement.removeEventListener('play', handleYouTubePlay);
+  currentVideoElement.removeEventListener('pause', handleYouTubePause);
+  currentVideoElement.removeEventListener('ended', handleYouTubePause);
+  currentVideoElement = null;
+}
+
+// Stop YouTube tracking, including pending navigation/video discovery retries.
+function stopYouTubeTracking() {
+  cancelYouTubeRetries();
   stopYouTubeBackgroundTracking();
   document.removeEventListener('yt-navigate-finish', handleYouTubeNavigation);
-
-  // Remove video element listeners
-  if (currentVideoElement) {
-    currentVideoElement.removeEventListener('play', handleYouTubePlay);
-    currentVideoElement.removeEventListener('pause', handleYouTubePause);
-    currentVideoElement.removeEventListener('ended', handleYouTubePause);
-    currentVideoElement = null;
-  }
+  document.removeEventListener('play', handleVideoDiscovery, true);
+  window.removeEventListener('popstate', handleYouTubePopstate);
+  detachVideoListeners();
 
   // Send final update if we were tracking a channel
   if (isYouTubePlaying && lastYouTubeChannel) {
@@ -291,11 +309,11 @@ function stopYouTubeTracking() {
 
 // Start YouTube background tracking (when tab is hidden but video may still be playing)
 function startYouTubeBackgroundTracking() {
-  if (youtubeBackgroundTimer) return;
+  if (youtubeBackgroundTimer || !youtubeTrackingEnabled || !isYouTubePlaying) return;
 
   // Check every 15 seconds if video is still playing via Media Session
   youtubeBackgroundTimer = window.setInterval(() => {
-    if (isYouTubeVideoPage()) {
+    if (youtubeTrackingEnabled && isYouTubeVideoPage()) {
       sendYouTubeChannelUpdate();
     }
   }, HEARTBEAT_INTERVAL);
@@ -324,7 +342,8 @@ async function checkIfBlocked(): Promise<boolean> {
 // Send message to background
 function sendMessage(type: string, payload?: Record<string, unknown>) {
   try {
-    chrome.runtime.sendMessage({ type, payload });
+    if (disposed) return;
+    chrome.runtime.sendMessage({ type, payload }).catch(cleanup);
   } catch {
     // Extension context invalidated (e.g., extension reloaded)
     cleanup();
@@ -334,13 +353,13 @@ function sendMessage(type: string, payload?: Record<string, unknown>) {
 // Send heartbeat if page is visible
 function sendHeartbeat() {
   if (!document.hidden) {
-    sendMessage('HEARTBEAT', {
+    if (trackingEnabled) sendMessage('HEARTBEAT', {
       url: window.location.href,
       timestamp: Date.now(),
     });
 
     // Also send YouTube channel update if on video page
-    if (isYouTubeVideoPage()) {
+    if (youtubeTrackingEnabled && isYouTubeVideoPage()) {
       sendYouTubeChannelUpdate();
     }
   }
@@ -353,29 +372,21 @@ function handleVisibilityChange() {
   // Only send if state actually changed
   if (isVisible !== lastVisibilityState) {
     lastVisibilityState = isVisible;
-    sendMessage('VISIBILITY_CHANGE', {
+    if (trackingEnabled) sendMessage('VISIBILITY_CHANGE', {
       visible: isVisible,
       url: window.location.href,
       timestamp: Date.now(),
     });
 
-    // Note: We DON'T end YouTube sessions on visibility change
-    // because YouTube can play audio in the background and we want to track that
-    // YouTube sessions only end when navigating away or closing the tab
-
-    // Start/stop heartbeat based on visibility
-    if (isVisible) {
-      startHeartbeat();
-      // Stop background tracking since regular heartbeat takes over
-      stopYouTubeBackgroundTracking();
-    } else {
-      stopHeartbeat();
-      // But keep YouTube tracking alive via separate mechanism
-      if (isYouTubeVideoPage()) {
-        startYouTubeBackgroundTracking();
-      }
-    }
+    syncTrackingTimers();
   }
+}
+
+function syncTrackingTimers() {
+  if (!document.hidden && (trackingEnabled || youtubeTrackingEnabled)) startHeartbeat();
+  else stopHeartbeat();
+  if (document.hidden && youtubeTrackingEnabled && isYouTubePlaying) startYouTubeBackgroundTracking();
+  else stopYouTubeBackgroundTracking();
 }
 
 // Start heartbeat timer
@@ -385,6 +396,7 @@ function startHeartbeat() {
   // Send initial heartbeat
   sendHeartbeat();
 
+  if (disposed) return;
   // Set up interval
   heartbeatTimer = window.setInterval(sendHeartbeat, HEARTBEAT_INTERVAL);
 }
@@ -397,42 +409,61 @@ function stopHeartbeat() {
   }
 }
 
-// Cleanup function
+function applyTrackingState(state: TrackingState) {
+  if (disposed) return;
+  const wasTracking = trackingEnabled;
+  const wasYouTubeTracking = youtubeTrackingEnabled;
+  trackingEnabled = state.trackingEnabled;
+  youtubeTrackingEnabled = state.youtubeTrackingEnabled && window.location.hostname === 'www.youtube.com';
+
+  if (wasYouTubeTracking && !youtubeTrackingEnabled) stopYouTubeTracking();
+  if (disposed) return;
+  if (!wasYouTubeTracking && youtubeTrackingEnabled) startYouTubeTracking();
+  document.removeEventListener('visibilitychange', handleVisibilityChange);
+  lastVisibilityState = !document.hidden;
+  if (trackingEnabled || youtubeTrackingEnabled) {
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+  }
+  syncTrackingTimers();
+  if (!wasTracking && trackingEnabled) {
+    sendMessage('CONTENT_SCRIPT_READY', {
+      visible: !document.hidden, url: window.location.href, timestamp: Date.now(),
+    });
+  }
+}
+
+function handleTrackingStateMessage(message: { type?: string; payload?: TrackingState }) {
+  if (message.type !== 'TRACKING_STATE_CHANGED' || !message.payload) return;
+  stateReceived = true;
+  if (initialized) applyTrackingState(message.payload);
+  else pendingState = message.payload;
+}
+
+let pendingState: TrackingState | null = null;
+
+// Context teardown must not send a final message recursively into an invalid runtime.
 function cleanup() {
+  if (disposed) return;
+  disposed = true;
   stopHeartbeat();
   stopYouTubeTracking();
   document.removeEventListener('visibilitychange', handleVisibilityChange);
+  chrome.runtime.onMessage.removeListener(handleTrackingStateMessage);
 }
 
-// Initialize
 async function init() {
-  // First check if this site should be blocked
-  // This is a fallback for sites with service workers that bypass declarativeNetRequest
-  const blocked = await checkIfBlocked();
-  if (blocked) {
-    return; // Don't initialize tracking if redirecting to blocked page
+  // Blocking remains independent of both tracking preferences.
+  if (await checkIfBlocked()) return;
+  chrome.runtime.onMessage.addListener(handleTrackingStateMessage);
+  try {
+    const state: TrackingState = await chrome.runtime.sendMessage({ type: 'GET_TRACKING_STATE' });
+    initialized = true;
+    // A settings broadcast may arrive while the initial request is in flight.
+    applyTrackingState(stateReceived && pendingState ? pendingState : state);
+    pendingState = null;
+  } catch {
+    cleanup();
   }
-
-  // Listen for visibility changes
-  document.addEventListener('visibilitychange', handleVisibilityChange);
-
-  // Start heartbeat if page is currently visible
-  if (!document.hidden) {
-    startHeartbeat();
-  }
-
-  // Start YouTube tracking if on YouTube
-  if (window.location.hostname === 'www.youtube.com') {
-    startYouTubeTracking();
-  }
-
-  // Send initial state
-  sendMessage('CONTENT_SCRIPT_READY', {
-    visible: !document.hidden,
-    url: window.location.href,
-    timestamp: Date.now(),
-  });
 }
 
-// Run
-init();
+void init();

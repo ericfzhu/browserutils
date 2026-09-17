@@ -19,6 +19,7 @@
         "changelog": "node scripts/generate-changelog.js",
         "test": "vitest",
         "test:run": "vitest run",
+        "benchmark:tracking": "node scripts/benchmark-tracking.mjs",
         "test:coverage": "vitest run --coverage"
     },
     "dependencies": {

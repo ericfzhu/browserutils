@@ -54,7 +54,7 @@ import {
   blockedSitesMutationRequiresAuth,
   dailyLimitMutationRequiresAuth,
 } from './lockdownGuards';
-import { ActiveSession, BlockedSite, MessageType, Settings } from '../shared/types';
+import { ActiveSession, BlockedSite, MessageType, Settings, TrackingState } from '../shared/types';
 import { verifyTotpCode } from '../shared/totp';
 import { findBlockingSite, isSiteRuleActive } from './blockingRules';
 import { decryptBackup, encryptBackup, isEncryptedBackup, validateImportData } from '../shared/backup';
@@ -119,6 +119,24 @@ async function getCachedSettings(): Promise<Settings> {
   if (cachedSettings) return cachedSettings;
   cachedSettings = await getSettings();
   return cachedSettings;
+}
+
+function trackingState(settings: Settings): TrackingState {
+  return { trackingEnabled: settings.trackingEnabled, youtubeTrackingEnabled: settings.youtubeTrackingEnabled };
+}
+
+async function publishTrackingState(settings: Settings): Promise<void> {
+  const tabs = await chrome.tabs.query({ url: ['http://*/*', 'https://*/*'] });
+  await Promise.all(tabs.map(async tab => {
+    if (tab.id === undefined) return;
+    try {
+      await chrome.tabs.sendMessage(tab.id, {
+        type: 'TRACKING_STATE_CHANGED', payload: trackingState(settings),
+      }, { frameId: 0 });
+    } catch {
+      // Closed tabs and documents without a content script need no update.
+    }
+  }));
 }
 
 async function restrictStorageToExtensionContexts(): Promise<void> {
@@ -410,7 +428,7 @@ const CONTENT_TRACKING_MESSAGES = new Set<MessageType['type']>([
   'YOUTUBE_CHANNEL_UPDATE', 'YOUTUBE_VISIBILITY_CHANGE',
 ]);
 const TRACKING_MUTATIONS = new Set<MessageType['type']>([
-  ...CONTENT_TRACKING_MESSAGES, 'UPDATE_SETTINGS', 'CLEAR_ALL_DATA', 'IMPORT_DATA',
+  ...CONTENT_TRACKING_MESSAGES, 'GET_TRACKING_STATE', 'UPDATE_SETTINGS', 'CLEAR_ALL_DATA', 'IMPORT_DATA',
   'START_GLOBAL_FOCUS_SESSION', 'STOP_GLOBAL_FOCUS_SESSION', 'LOCKDOWN_AUTHENTICATE',
 ]);
 
@@ -518,6 +536,9 @@ async function handleMessage(message: MessageType, sender?: chrome.runtime.Messa
     case 'GET_BLOCKED_SITES': {
       return getBlockedSites();
     }
+    case 'GET_TRACKING_STATE': {
+      return trackingState(await getCachedSettings());
+    }
     case 'GET_SETTINGS': {
       return getCachedSettings();
     }
@@ -531,6 +552,10 @@ async function handleMessage(message: MessageType, sender?: chrome.runtime.Messa
       const previousSettings = await getCachedSettings();
       const settings = await updateSettings(message.payload);
       cachedSettings = settings;
+      if (previousSettings.trackingEnabled !== settings.trackingEnabled ||
+          previousSettings.youtubeTrackingEnabled !== settings.youtubeTrackingEnabled) {
+        await publishTrackingState(settings);
+      }
       if (!settings.trackingEnabled) await endAllSessions();
       if (!settings.youtubeTrackingEnabled) await endAllYouTubeSessions();
       if (!previousSettings.trackingEnabled && settings.trackingEnabled) {
@@ -852,6 +877,7 @@ async function resetRuntimeState(): Promise<void> {
   await setupIdleDetection();
   await updateBlockingRules();
   await startFocusedWindowSession();
+  await publishTrackingState(await getCachedSettings());
 }
 
 async function resetAllData(): Promise<void> {

@@ -1,0 +1,109 @@
+{
+  "sourceSha256": "f8c5793b5490fc227db5a810e25ebce2b2addf411b44d7bedab229ae1da6f2b9",
+  "simulatedSeconds": 600,
+  "warmupSeconds": 5,
+  "methodology": "Bundled production content code in a VM with deterministic timers, mocked DOM and Chrome runtime. Hidden scenarios transition to hidden after warmup. No real CPU, power or Chrome scheduling measurements.",
+  "results": [
+    {
+      "scenario": "disabled-visible",
+      "timerCallbacks": 40,
+      "domQueries": 0,
+      "messages": {
+        "HEARTBEAT": 40
+      },
+      "pageListeners": 1,
+      "runtimeListeners": 0,
+      "activeTimers": 1,
+      "setupMessages": {
+        "CHECK_SITE_WITH_REDIRECT": 1,
+        "HEARTBEAT": 1,
+        "CONTENT_SCRIPT_READY": 1
+      }
+    },
+    {
+      "scenario": "enabled-visible",
+      "timerCallbacks": 40,
+      "domQueries": 0,
+      "messages": {
+        "HEARTBEAT": 40
+      },
+      "pageListeners": 1,
+      "runtimeListeners": 0,
+      "activeTimers": 1,
+      "setupMessages": {
+        "CHECK_SITE_WITH_REDIRECT": 1,
+        "HEARTBEAT": 1,
+        "CONTENT_SCRIPT_READY": 1
+      }
+    },
+    {
+      "scenario": "disabled-youtube-playing",
+      "timerCallbacks": 40,
+      "domQueries": 80,
+      "messages": {
+        "HEARTBEAT": 40,
+        "YOUTUBE_CHANNEL_UPDATE": 40
+      },
+      "pageListeners": 6,
+      "runtimeListeners": 0,
+      "activeTimers": 1,
+      "setupMessages": {
+        "CHECK_SITE_WITH_REDIRECT": 1,
+        "HEARTBEAT": 1,
+        "YOUTUBE_CHANNEL_UPDATE": 2,
+        "CONTENT_SCRIPT_READY": 1
+      }
+    },
+    {
+      "scenario": "youtube-paused-hidden",
+      "timerCallbacks": 40,
+      "domQueries": 40,
+      "messages": {},
+      "pageListeners": 6,
+      "runtimeListeners": 0,
+      "activeTimers": 1,
+      "setupMessages": {
+        "CHECK_SITE_WITH_REDIRECT": 1,
+        "HEARTBEAT": 1,
+        "CONTENT_SCRIPT_READY": 1,
+        "VISIBILITY_CHANGE": 1
+      }
+    },
+    {
+      "scenario": "youtube-playing-hidden",
+      "timerCallbacks": 40,
+      "domQueries": 80,
+      "messages": {
+        "YOUTUBE_CHANNEL_UPDATE": 40
+      },
+      "pageListeners": 6,
+      "runtimeListeners": 0,
+      "activeTimers": 1,
+      "setupMessages": {
+        "CHECK_SITE_WITH_REDIRECT": 1,
+        "HEARTBEAT": 1,
+        "YOUTUBE_CHANNEL_UPDATE": 2,
+        "CONTENT_SCRIPT_READY": 1,
+        "VISIBILITY_CHANGE": 1
+      }
+    },
+    {
+      "scenario": "youtube-playing-visible",
+      "timerCallbacks": 40,
+      "domQueries": 80,
+      "messages": {
+        "HEARTBEAT": 40,
+        "YOUTUBE_CHANNEL_UPDATE": 40
+      },
+      "pageListeners": 6,
+      "runtimeListeners": 0,
+      "activeTimers": 1,
+      "setupMessages": {
+        "CHECK_SITE_WITH_REDIRECT": 1,
+        "HEARTBEAT": 1,
+        "YOUTUBE_CHANNEL_UPDATE": 2,
+        "CONTENT_SCRIPT_READY": 1
+      }
+    }
+  ]
+}

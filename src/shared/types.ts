@@ -211,6 +211,7 @@ export type MessageType =
   | { type: 'GET_TIMER_STATUS'; payload: { id: string } }
   | { type: 'GET_BLOCKED_SITES' }
   | { type: 'GET_SETTINGS' }
+  | { type: 'GET_TRACKING_STATE' }
   | { type: 'GET_STORAGE_USAGE' }
   | { type: 'UPDATE_SETTINGS'; payload: Partial<Settings> }
   | { type: 'CLEAR_ALL_DATA' }
@@ -273,3 +274,6 @@ export interface LockdownStatus {
   sessionValid: boolean;
   sessionExpiresAt?: number;
 }
+
+// The only tracking preferences exposed to page content scripts.
+export type TrackingState = Pick<Settings, 'trackingEnabled' | 'youtubeTrackingEnabled'>;

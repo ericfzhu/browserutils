@@ -1,0 +1,99 @@
+{
+  "sourceSha256": "044358e4016de4f23397fd6c37bc0a3bd3107795ca2b98226cac6d444b2fc196",
+  "simulatedSeconds": 600,
+  "warmupSeconds": 5,
+  "methodology": "Bundled production content code in a VM with deterministic timers, mocked DOM and Chrome runtime. Hidden scenarios transition to hidden after warmup. No real CPU, power or Chrome scheduling measurements.",
+  "results": [
+    {
+      "scenario": "disabled-visible",
+      "timerCallbacks": 0,
+      "domQueries": 0,
+      "messages": {},
+      "pageListeners": 0,
+      "runtimeListeners": 1,
+      "activeTimers": 0,
+      "setupMessages": {
+        "CHECK_SITE_WITH_REDIRECT": 1,
+        "GET_TRACKING_STATE": 1
+      }
+    },
+    {
+      "scenario": "enabled-visible",
+      "timerCallbacks": 40,
+      "domQueries": 0,
+      "messages": {
+        "HEARTBEAT": 40
+      },
+      "pageListeners": 1,
+      "runtimeListeners": 1,
+      "activeTimers": 1,
+      "setupMessages": {
+        "CHECK_SITE_WITH_REDIRECT": 1,
+        "GET_TRACKING_STATE": 1,
+        "HEARTBEAT": 1,
+        "CONTENT_SCRIPT_READY": 1
+      }
+    },
+    {
+      "scenario": "disabled-youtube-playing",
+      "timerCallbacks": 0,
+      "domQueries": 0,
+      "messages": {},
+      "pageListeners": 0,
+      "runtimeListeners": 1,
+      "activeTimers": 0,
+      "setupMessages": {
+        "CHECK_SITE_WITH_REDIRECT": 1,
+        "GET_TRACKING_STATE": 1
+      }
+    },
+    {
+      "scenario": "youtube-paused-hidden",
+      "timerCallbacks": 0,
+      "domQueries": 0,
+      "messages": {},
+      "pageListeners": 7,
+      "runtimeListeners": 1,
+      "activeTimers": 0,
+      "setupMessages": {
+        "CHECK_SITE_WITH_REDIRECT": 1,
+        "GET_TRACKING_STATE": 1
+      }
+    },
+    {
+      "scenario": "youtube-playing-hidden",
+      "timerCallbacks": 40,
+      "domQueries": 80,
+      "messages": {
+        "YOUTUBE_CHANNEL_UPDATE": 40
+      },
+      "pageListeners": 7,
+      "runtimeListeners": 1,
+      "activeTimers": 1,
+      "setupMessages": {
+        "CHECK_SITE_WITH_REDIRECT": 1,
+        "GET_TRACKING_STATE": 1,
+        "YOUTUBE_CHANNEL_UPDATE": 2
+      }
+    },
+    {
+      "scenario": "youtube-playing-visible",
+      "timerCallbacks": 40,
+      "domQueries": 80,
+      "messages": {
+        "HEARTBEAT": 40,
+        "YOUTUBE_CHANNEL_UPDATE": 40
+      },
+      "pageListeners": 7,
+      "runtimeListeners": 1,
+      "activeTimers": 1,
+      "setupMessages": {
+        "CHECK_SITE_WITH_REDIRECT": 1,
+        "GET_TRACKING_STATE": 1,
+        "YOUTUBE_CHANNEL_UPDATE": 2,
+        "HEARTBEAT": 1,
+        "CONTENT_SCRIPT_READY": 1
+      }
+    }
+  ]
+}

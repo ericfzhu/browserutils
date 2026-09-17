@@ -40,3 +40,8 @@ Next privacy controls: excluded domains, pause tracking, range/domain deletion, 
 Lifecycle coordination is now implemented. Twelve new integration tests cover overlapping checkpoints, heartbeat/close and tab-switch races, focus loss, idle, disabling tracking, reset, playback closure, stale navigation snapshots and recovery after a failed operation. Storage mocks clone values to match Chrome snapshot semantics. Ten race tests fail when the transition queue is deliberately bypassed and pass with it enabled. The full suite passes (123 tests), as do TypeScript and the production build.
 
 This serializes operations within a running worker; it is not a cross-storage transaction or a guarantee against abrupt process termination between durable and session writes. Existing checkpoint/recovery behavior remains. Timer frequency and other cost optimizations are still pending; no battery or CPU savings are claimed.
+
+
+## Follow-up: content tracking overhead
+
+Preference-gated content tracking is now implemented, along with cancellable YouTube discovery retries, removable navigation listeners, old-video detachment and pause-aware hidden playback timers. Existing tabs receive configuration changes without reloading. The before/after operation-count benchmark and its limitations are documented in [benchmarks/README.md](../benchmarks/README.md). Disabled scenarios drop to zero steady-state tracking messages/timer callbacks; active tracking cadence is unchanged. Real CPU and battery measurements remain outstanding.
