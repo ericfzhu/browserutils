@@ -21,6 +21,7 @@
         "test:run": "vitest run",
         "benchmark:tracking": "node scripts/benchmark-tracking.mjs",
         "benchmark:blocking": "node scripts/benchmark-blocking.mjs",
+        "benchmark:history": "node scripts/benchmark-history.mjs",
         "test:coverage": "vitest run --coverage"
     },
     "dependencies": {

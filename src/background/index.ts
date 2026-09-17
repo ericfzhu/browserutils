@@ -1,3 +1,6 @@
+import { OPTIONAL_CONTENT_SCRIPTS, syncOptionalContentScripts, updateOptionalFeatureInOpenTabs } from './optionalFeatures';
+import { isSessionFresh } from './sessionTiming';
+import { handleYouTubeChannelUpdate, handleYouTubeVisibilityChange, endYouTubeSession, endAllYouTubeSessions } from './playbackTracking';
 import { isTrackingExcluded, normalizeExcludedDomains, validateHistoryRange } from '../shared/trackingPrivacy';
 import { runTrackingTransition, trackingEvent } from './trackingTransitions';
 import { updateBlockingRules, refreshBlockingRules } from './blockingRuleSync';
@@ -37,10 +40,7 @@ import {
   updateDailyLimit,
   removeDailyLimit,
   checkDailyLimitForDomain,
-  recordYouTubeSession,
   getActiveYouTubeSessions,
-  addActiveYouTubeSession,
-  removeActiveYouTubeSession,
   getCustomCategories,
   setCustomCategories,
   addCustomCategory,
@@ -73,29 +73,6 @@ const SESSION_KEYS = {
 // In-memory idle state (restored from session storage on startup)
 let isUserIdle = false;
 let cachedSettings: Settings | null = null;
-
-const OPTIONAL_CONTENT_SCRIPTS = [
-  {
-    id: 'browserutils-force-paste',
-    setting: 'forcePasteEnabled' as const,
-    feature: 'forcePaste',
-    file: 'force-paste.js',
-  },
-  {
-    id: 'browserutils-blob-video-downloader',
-    setting: 'blobVideoDownloaderEnabled' as const,
-    feature: 'blobVideoDownloader',
-    file: 'blob-video-downloader.js',
-  },
-] as const;
-
-// Session freshness: content heartbeats are every 15s, so allow a small buffer
-// before considering a session stale.
-const HEARTBEAT_STALE_MS = 45000;
-
-function isSessionFresh(session: Pick<ActiveSession, 'lastActiveTime'>, now: number = Date.now()): boolean {
-  return now - session.lastActiveTime <= HEARTBEAT_STALE_MS;
-}
 
 async function recordActiveSessionProgress(
   session: ActiveSession,
@@ -146,65 +123,6 @@ async function publishTrackingState(settings: Settings): Promise<void> {
 
 async function restrictStorageToExtensionContexts(): Promise<void> {
   await chrome.storage.local.setAccessLevel({ accessLevel: 'TRUSTED_CONTEXTS' });
-}
-
-async function syncOptionalContentScripts(settings: Settings): Promise<void> {
-  const ids = OPTIONAL_CONTENT_SCRIPTS.map(script => script.id);
-  const registered = await chrome.scripting.getRegisteredContentScripts({ ids });
-  const registeredIds = new Set(registered.map(script => script.id));
-  const removeIds = OPTIONAL_CONTENT_SCRIPTS
-    .filter(script => !settings[script.setting] && registeredIds.has(script.id))
-    .map(script => script.id);
-  if (removeIds.length > 0) {
-    await chrome.scripting.unregisterContentScripts({ ids: removeIds });
-  }
-
-  const additions = OPTIONAL_CONTENT_SCRIPTS
-    .filter(script => settings[script.setting] && !registeredIds.has(script.id))
-    .map(script => ({
-      id: script.id,
-      matches: ['http://*/*', 'https://*/*'],
-      js: [script.file],
-      runAt: 'document_start' as const,
-      allFrames: true,
-      persistAcrossSessions: true,
-    }));
-  if (additions.length > 0) {
-    await chrome.scripting.registerContentScripts(additions);
-  }
-}
-
-async function updateOptionalFeatureInOpenTabs(
-  feature: typeof OPTIONAL_CONTENT_SCRIPTS[number]['feature'],
-  enabled: boolean
-): Promise<void> {
-  const script = OPTIONAL_CONTENT_SCRIPTS.find(candidate => candidate.feature === feature);
-  if (!script) return;
-
-  const tabs = await chrome.tabs.query({ url: ['http://*/*', 'https://*/*'] });
-  await Promise.all(tabs.map(async tab => {
-    if (tab.id === undefined) return;
-    try {
-      if (enabled) {
-        await chrome.scripting.executeScript({
-          target: { tabId: tab.id, allFrames: true },
-          files: [script.file],
-        });
-        return;
-      }
-
-      const frames = await chrome.webNavigation.getAllFrames({ tabId: tab.id });
-      await Promise.all((frames || []).map(frame =>
-        chrome.tabs.sendMessage(tab.id!, {
-          type: 'OPTIONAL_FEATURE_STATE',
-          feature,
-          enabled: false,
-        }, { frameId: frame.frameId }).catch(() => undefined)
-      ));
-    } catch {
-      // Restricted pages and tabs navigating between documents cannot be injected.
-    }
-  }));
 }
 
 function getGlobalFocusStatus(settings: Settings, now: number = Date.now()) {
@@ -1124,149 +1042,6 @@ async function handleContentScriptReady(
 
   // Treat as visibility becoming true
   await handleVisibilityChange(payload, sender);
-}
-
-// Handle YouTube channel update from content script
-async function handleYouTubeChannelUpdate(
-  payload: { channelName: string; channelId?: string; channelUrl?: string; url: string; timestamp: number },
-  sender?: chrome.runtime.MessageSender
-): Promise<void> {
-  console.log('[YouTube] Channel update received:', payload);
-
-  if (!sender?.tab?.id) {
-    console.log('[YouTube] No tab ID, ignoring');
-    return;
-  }
-
-  const settings = await getSettings();
-  if (!settings.youtubeTrackingEnabled) {
-    console.log('[YouTube] Tracking disabled in settings');
-    return;
-  }
-
-  const tabId = sender.tab.id;
-  const windowId = sender.tab.windowId ?? 0;
-  const now = Date.now();
-
-  // Get existing YouTube session for this tab
-  const activeYoutubeSessions = await getActiveYouTubeSessions();
-  const existingSession = activeYoutubeSessions[tabId];
-  console.log('[YouTube] Existing session:', existingSession);
-
-  if (existingSession) {
-    // Compare by name primarily, only use channelId if both have it
-    const nameChanged = existingSession.channelName !== payload.channelName;
-    const idChanged = existingSession.channelId && payload.channelId &&
-                      existingSession.channelId !== payload.channelId;
-    const sessionStale = !isSessionFresh(existingSession, now);
-    const channelChanged = nameChanged || idChanged || sessionStale;
-    if (channelChanged) {
-      console.log('[YouTube] Channel changed or session became stale, ending previous session');
-      await endYouTubeSession(tabId);
-      await addActiveYouTubeSession(tabId, {
-        channelName: payload.channelName,
-        channelId: payload.channelId,
-        channelUrl: payload.channelUrl,
-        startTime: now,
-        lastActiveTime: now,
-        tabId,
-        windowId,
-      });
-      console.log('[YouTube] Started new session for:', payload.channelName);
-    } else {
-      // Same channel - update lastActiveTime and channelId/channelUrl if needed
-      console.log('[YouTube] Same channel, updating lastActiveTime');
-      await addActiveYouTubeSession(tabId, {
-        ...existingSession,
-        lastActiveTime: now,
-        channelId: payload.channelId || existingSession.channelId,
-        channelUrl: payload.channelUrl || existingSession.channelUrl,
-      });
-    }
-    // Same channel - just keep the session alive, don't record yet
-    // Session will be recorded when user leaves or channel changes
-    return;
-  }
-
-  // No existing session - start new one
-  console.log('[YouTube] Starting new session for:', payload.channelName);
-  await addActiveYouTubeSession(tabId, {
-    channelName: payload.channelName,
-    channelId: payload.channelId,
-    channelUrl: payload.channelUrl,
-    startTime: now,
-    lastActiveTime: now,
-    tabId,
-    windowId,
-  });
-}
-
-// Handle YouTube visibility change
-async function handleYouTubeVisibilityChange(
-  payload: { visible: boolean; channelName?: string; channelId?: string; channelUrl?: string; url: string; timestamp: number },
-  sender?: chrome.runtime.MessageSender
-): Promise<void> {
-  console.log('[YouTube] Visibility change received:', payload);
-
-  if (!sender?.tab?.id) {
-    console.log('[YouTube] No tab ID, ignoring');
-    return;
-  }
-
-  const settings = await getSettings();
-  if (!settings.youtubeTrackingEnabled) {
-    console.log('[YouTube] Tracking disabled in settings');
-    return;
-  }
-
-  const tabId = sender.tab.id;
-
-  if (!payload.visible) {
-    console.log('[YouTube] Video paused/ended, ending session for tab:', tabId);
-    // Page became hidden - end YouTube session
-    await endYouTubeSession(tabId);
-  }
-}
-
-// End a YouTube session and record it
-async function endYouTubeSession(tabId: number): Promise<void> {
-  const session = await removeActiveYouTubeSession(tabId);
-  console.log('[YouTube] Ending session:', session);
-
-  if (session && session.startTime) {
-    const now = Date.now();
-    // Cap end time at lastActiveTime + 30 seconds to prevent over-recording
-    const maxEndTime = session.lastActiveTime ? session.lastActiveTime + 30000 : now;
-    const endTime = Math.min(now, maxEndTime);
-    const duration = Math.round((endTime - session.startTime) / 1000);
-    console.log('[YouTube] Session duration:', duration, 'seconds');
-    if (duration > 0) {
-      await recordYouTubeSession({
-        channelName: session.channelName,
-        channelId: session.channelId,
-        channelUrl: session.channelUrl,
-        startTime: session.startTime,
-        endTime,
-        windowId: session.windowId,
-      });
-      console.log('[YouTube] Session recorded for:', session.channelName);
-    } else {
-      console.log('[YouTube] Duration too short, not recording');
-    }
-  } else {
-    console.log('[YouTube] No session to end');
-  }
-}
-
-// End all active YouTube sessions
-async function endAllYouTubeSessions(): Promise<void> {
-  const activeYoutubeSessions = await getActiveYouTubeSessions();
-
-  // Use removeActiveYouTubeSession for each to prevent race conditions
-  // (if endYouTubeSession is called concurrently, we won't double-record)
-  for (const [tabIdStr] of Object.entries(activeYoutubeSessions)) {
-    await endYouTubeSession(parseInt(tabIdStr));
-  }
 }
 
 async function unlockSite(id: string, password?: string): Promise<{ success: boolean; error?: string }> {

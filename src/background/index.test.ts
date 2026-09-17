@@ -503,4 +503,25 @@ describe('background service worker integration', () => {
     expect(await chrome.declarativeNetRequest.getDynamicRules()).toHaveLength(1);
   });
 
+
+  it('gates excluded-domain content configuration and active tracking without changing blocking', async () => {
+    const { tab } = seedTracking();
+    vi.mocked(chrome.tabs.query).mockResolvedValue([tab]);
+    const settings = await send({ type: 'UPDATE_SETTINGS', payload: { excludedDomains: ['Example.COM'] } });
+    expect(settings.excludedDomains).toEqual(['example.com']);
+    expect(settings.blockingEnabled).toBe(true);
+    expect(sessionStore.activeSessions).toEqual({});
+    await expect(send({ type: 'GET_TRACKING_STATE' }, { tab })).resolves.toEqual({ trackingEnabled: false, youtubeTrackingEnabled: false });
+    await send({ type: 'HEARTBEAT' }, { tab });
+    expect(sessionStore.activeSessions).toEqual({});
+    await emit(chrome.tabs.onUpdated, 1, { status: 'complete' }, tab);
+    expect(sessionStore.activeSessions).toEqual({});
+  });
+
+  it('requires Lockdown authentication for history deletion', async () => {
+    await send({ type: 'UPDATE_SETTINGS', payload: { lockdownEnabled: true, passwordHash: 'configured' } });
+    const result = await send({ type: 'DELETE_HISTORY_RANGE', payload: { startDate: '2026-09-18', endDate: '2026-09-18' } });
+    expect(result.requiresAuth).toBe(true);
+  });
+
 });
