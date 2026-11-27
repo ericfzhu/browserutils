@@ -89,8 +89,11 @@ export default function App() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [unlocking, setUnlocking] = useState(false);
-  const [timerStarted, setTimerStarted] = useState(false);
-  const [countdown, setCountdown] = useState(0);
+  const [cooldown, setCooldown] = useState<
+    | { phase: 'ready' | 'submitting' }
+    | { phase: 'waiting'; remaining: number }
+    | { phase: 'failed'; message: string }
+  >({ phase: 'ready' });
   const [timerRemainingMs, setTimerRemainingMs] = useState(0);
   const [timerBlockedUntil, setTimerBlockedUntil] = useState<number | null>(null);
   const [focusInfo, setFocusInfo] = useState<FocusInfo | null>(null);
@@ -147,13 +150,13 @@ export default function App() {
 
   // Countdown effect for daily limit cooldown bypass
   useEffect(() => {
-    if (countdown > 0) {
-      const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
-      return () => clearTimeout(timer);
-    } else if (timerStarted && countdown === 0 && blockType === 'limit') {
-      handleLimitBypass();
-    }
-  }, [countdown, timerStarted, blockType]);
+    if (cooldown.phase !== 'waiting') return;
+    const timer = setTimeout(() => {
+      if (cooldown.remaining <= 1) void handleLimitBypass();
+      else setCooldown({ phase: 'waiting', remaining: cooldown.remaining - 1 });
+    }, 1000);
+    return () => clearTimeout(timer);
+  }, [cooldown, limitInfo]);
 
   async function loadData() {
     try {
@@ -304,13 +307,13 @@ export default function App() {
   function startLimitCooldown() {
     if (!limitInfo) return;
     const cooldownSeconds = limitInfo.limit.cooldownSeconds || 30;
-    setCountdown(cooldownSeconds);
-    setTimerStarted(true);
+    setCooldown({ phase: 'waiting', remaining: cooldownSeconds });
   }
 
   async function handleLimitBypass() {
     if (!limitInfo) return;
 
+    setCooldown({ phase: 'submitting' });
     try {
       const result = await chrome.runtime.sendMessage({
         type: 'BYPASS_DAILY_LIMIT',
@@ -320,11 +323,11 @@ export default function App() {
       if (result.success) {
         returnToBlockedUrl();
       } else {
-        setError(result.error || 'Failed to bypass limit');
+        setCooldown({ phase: 'failed', message: result.error || 'Failed to bypass limit' });
       }
     } catch (err) {
       console.error('Failed to bypass limit:', err);
-      setError('Failed to bypass limit');
+      setCooldown({ phase: 'failed', message: 'Failed to bypass limit' });
     }
   }
 
@@ -396,13 +399,18 @@ export default function App() {
 
             {limitInfo.limit.bypassType === 'cooldown' && (
               <div className="flex flex-col gap-3">
-                {!timerStarted ? (
+                {cooldown.phase === 'ready' ? (
                   <Button onClick={startLimitCooldown} className="w-full" size="lg">
                     Wait {limitInfo.limit.cooldownSeconds || 30}s to continue
                   </Button>
-                ) : countdown > 0 ? (
+                ) : cooldown.phase === 'failed' ? (
+                  <>
+                    <Alert variant="destructive"><AlertDescription>{cooldown.message}</AlertDescription></Alert>
+                    <Button onClick={handleLimitBypass}>Retry</Button>
+                  </>
+                ) : cooldown.phase === 'waiting' ? (
                   <div className="rounded-md bg-muted/40 p-4 text-center shadow-[var(--shadow-border)]">
-                    <div className="text-4xl font-bold leading-none tabular-nums">{countdown}</div>
+                    <div className="text-4xl font-bold leading-none tabular-nums">{cooldown.remaining}</div>
                     <p className="mt-2 text-sm text-muted-foreground">Taking a moment to reconsider...</p>
                   </div>
                 ) : (

@@ -1,6 +1,11 @@
-import { useState, useEffect, useCallback, createContext, useContext, ReactNode } from 'react';
+import { useState, useEffect, useCallback, useRef, createContext, useContext, ReactNode } from 'react';
 import { LockdownStatus } from '../../shared/types';
 import { assertRuntimeMutationSucceeded } from '../../shared/runtimeMessages';
+
+interface AuthRequest {
+  id: number;
+  action: (() => Promise<void>) | null;
+}
 
 interface LockdownContextValue {
   status: LockdownStatus | null;
@@ -8,9 +13,8 @@ interface LockdownContextValue {
   refreshStatus: () => Promise<LockdownStatus | null>;
   authenticate: (credential: string) => Promise<{ success: boolean; error?: string }>;
   clearSession: () => Promise<void>;
-  showAuthModal: boolean;
-  setShowAuthModal: (show: boolean) => void;
-  pendingAction: (() => Promise<void>) | null;
+  request: AuthRequest | null;
+  dismissRequest: (request: AuthRequest) => void;
   withLockdownCheck: (action: () => Promise<void>) => Promise<void>;
 }
 
@@ -31,8 +35,17 @@ interface LockdownProviderProps {
 export function LockdownProvider({ children }: LockdownProviderProps) {
   const [status, setStatus] = useState<LockdownStatus | null>(null);
   const [loading, setLoading] = useState(true);
-  const [showAuthModal, setShowAuthModal] = useState(false);
-  const [pendingAction, setPendingAction] = useState<(() => Promise<void>) | null>(null);
+  const [request, setRequest] = useState<AuthRequest | null>(null);
+  const nextId = useRef(0);
+  const active = useRef<AuthRequest | null>(null);
+
+  function dismissRequest(current: AuthRequest) {
+    current.action = null;
+    if (active.current === current) {
+      active.current = null;
+      setRequest(null);
+    }
+  }
 
   const refreshStatus = useCallback(async (): Promise<LockdownStatus | null> => {
     try {
@@ -91,8 +104,10 @@ export function LockdownProvider({ children }: LockdownProviderProps) {
     }
 
     // Session not valid - show password modal and save action for later
-    setPendingAction(() => action);
-    setShowAuthModal(true);
+    if (active.current) active.current.action = null;
+    const current = { id: ++nextId.current, action };
+    active.current = current;
+    setRequest(current);
   }, [refreshStatus]);
 
   const value: LockdownContextValue = {
@@ -101,9 +116,8 @@ export function LockdownProvider({ children }: LockdownProviderProps) {
     refreshStatus,
     authenticate,
     clearSession,
-    showAuthModal,
-    setShowAuthModal,
-    pendingAction,
+    request,
+    dismissRequest,
     withLockdownCheck,
   };
 

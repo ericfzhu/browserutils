@@ -77,10 +77,10 @@ let cachedSettings: Settings | null = null;
 async function recordActiveSessionProgress(
   session: ActiveSession,
   endTime: number
-): Promise<{ recorded: boolean; visitCounted: boolean }> {
+): Promise<ActiveSession | null> {
   const duration = Math.round((endTime - session.startTime) / 1000);
   if (duration <= 0) {
-    return { recorded: false, visitCounted: false };
+    return null;
   }
 
   const shouldCountVisit = !session.visitRecorded;
@@ -93,7 +93,8 @@ async function recordActiveSessionProgress(
     countVisit: shouldCountVisit,
   });
 
-  return { recorded: true, visitCounted: shouldCountVisit };
+  // Later checkpoints and session closure may record more time, but only this first write counts the visit.
+  return { ...session, startTime: endTime, visitRecorded: true };
 }
 
 async function getCachedSettings(): Promise<Settings> {
@@ -1429,16 +1430,12 @@ chrome.alarms.onAlarm.addListener(trackingEvent('alarm', async (alarm) => {
           const window = await chrome.windows.get(tab.windowId);
           if (window.focused && window.state !== 'minimized') {
             const endTime = Math.min(now, session.lastActiveTime);
-            const progress = await recordActiveSessionProgress(session, endTime);
-            if (progress.recorded) {
+            const checkpoint = await recordActiveSessionProgress(session, endTime);
+            if (checkpoint) {
               if (tab.url && await enforceDailyLimit(tabId, tab.url, session.domain, 0, false)) {
                 continue;
               }
-              await addActiveSession(tabId, {
-                ...session,
-                startTime: endTime,
-                visitRecorded: session.visitRecorded || progress.visitCounted,
-              });
+              await addActiveSession(tabId, checkpoint);
             }
             continue;
           }

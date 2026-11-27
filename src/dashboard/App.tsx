@@ -23,7 +23,7 @@ const navItems = [
 
 // Component that handles the lockdown password modal
 function LockdownModal() {
-  const { status, showAuthModal, setShowAuthModal, authenticate, pendingAction, clearSession } = useLockdown();
+  const { status, request, dismissRequest, authenticate, clearSession } = useLockdown();
 
   // Clear session when dashboard is closed
   useEffect(() => {
@@ -39,9 +39,11 @@ function LockdownModal() {
 
   async function handleAuthSubmit(credential: string) {
     const result = await authenticate(credential);
-    if (result.success && pendingAction) {
+    if (result.success && request) {
+      const action = request.action;
+      request.action = null;
       try {
-        await pendingAction();
+        await action?.();
       } catch (err) {
         return {
           success: false,
@@ -52,10 +54,12 @@ function LockdownModal() {
     return result;
   }
 
+  if (!request) return null;
   return (
     <LockdownAuthModal
-      isOpen={showAuthModal}
-      onClose={() => setShowAuthModal(false)}
+      key={request.id}
+      isOpen
+      onClose={() => dismissRequest(request)}
       onSubmit={handleAuthSubmit}
       authMethod={status?.authMethod ?? 'password'}
     />

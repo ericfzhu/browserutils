@@ -78,17 +78,23 @@ interface FocusStatus {
   focusDuration?: number;
 }
 
-type FocusTarget = { type: 'folder'; folderId: string } | { type: 'global' } | null;
+type FocusTarget = { type: 'folder'; folderId: string } | { type: 'global' };
 type FocusModalMode = 'start' | 'edit';
 
 export default function BlockedSites() {
   const [sites, setSites] = useState<BlockedSite[]>([]);
   const [folders, setFolders] = useState<BlockedSiteFolder[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showModal, setShowModal] = useState(false);
-  const [showFolderModal, setShowFolderModal] = useState(false);
-  const [editingSite, setEditingSite] = useState<BlockedSite | null>(null);
-  const [editingFolder, setEditingFolder] = useState<BlockedSiteFolder | null>(null);
+  const [dialog, setDialog] = useState<
+    | { kind: 'site'; site: BlockedSite | null }
+    | { kind: 'folder'; folder: BlockedSiteFolder | null }
+    | { kind: 'focus'; target: FocusTarget; mode: FocusModalMode }
+    | null
+  >(null);
+  const editingSite = dialog?.kind === 'site' ? dialog.site : null;
+  const editingFolder = dialog?.kind === 'folder' ? dialog.folder : null;
+  const focusTarget = dialog?.kind === 'focus' ? dialog.target : null;
+  const focusModalMode = dialog?.kind === 'focus' ? dialog.mode : null;
   const [formData, setFormData] = useState<FormData>(defaultFormData);
   const [folderName, setFolderName] = useState('');
   const [applyFolderRules, setApplyFolderRules] = useState(false);
@@ -97,9 +103,6 @@ export default function BlockedSites() {
   const [timerStatuses, setTimerStatuses] = useState<Record<string, TimerStatus>>({});
   const [focusStatuses, setFocusStatuses] = useState<Record<string, FocusStatus>>({});
   const [globalFocusStatus, setGlobalFocusStatus] = useState<FocusStatus | null>(null);
-  const [showFocusModal, setShowFocusModal] = useState(false);
-  const [focusTarget, setFocusTarget] = useState<FocusTarget>(null);
-  const [focusModalMode, setFocusModalMode] = useState<FocusModalMode>('start');
   const [focusDuration, setFocusDuration] = useState(30);
   const [minimumFocusDuration, setMinimumFocusDuration] = useState(1);
   const siteFormRef = useRef<HTMLFormElement>(null);
@@ -202,13 +205,11 @@ export default function BlockedSites() {
   }
 
   function openAddModal() {
-    setEditingSite(null);
     setFormData(defaultFormData);
-    setShowModal(true);
+    setDialog({ kind: 'site', site: null });
   }
 
   function openEditModal(site: BlockedSite) {
-    setEditingSite(site);
     setFormData({
       pattern: site.pattern,
       unlockType: site.unlockType,
@@ -219,11 +220,11 @@ export default function BlockedSites() {
       scheduleEnd: site.schedule?.endTime || '17:00',
       folderId: site.folderId,
     });
-    setShowModal(true);
+    setDialog({ kind: 'site', site: site });
   }
 
   function closeSiteModal() {
-    setShowModal(false);
+    setDialog(null);
   }
 
   function handleSiteModalKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
@@ -241,25 +242,23 @@ export default function BlockedSites() {
   }
 
   function openAddFolderModal() {
-    setEditingFolder(null);
     setFolderName('');
     setApplyFolderRules(false);
     setFolderRuleData(defaultFormData);
     setFolderRuleError('');
-    setShowFolderModal(true);
+    setDialog({ kind: 'folder', folder: null });
   }
 
   function openEditFolderModal(folder: BlockedSiteFolder) {
-    setEditingFolder(folder);
     setFolderName(folder.name);
     setApplyFolderRules(false);
     setFolderRuleData(defaultFormData);
     setFolderRuleError('');
-    setShowFolderModal(true);
+    setDialog({ kind: 'folder', folder: folder });
   }
 
   function closeFolderModal() {
-    setShowFolderModal(false);
+    setDialog(null);
     setFolderRuleError('');
   }
 
@@ -321,7 +320,7 @@ export default function BlockedSites() {
           assertRuntimeMutationSucceeded(result, 'Failed to add blocked site');
         }
         await loadData();
-        setShowModal(false);
+        setDialog(null);
       };
 
       if (editingSite) {
@@ -641,37 +640,29 @@ export default function BlockedSites() {
 
   function openFocusModal(folderId: string) {
     const folder = folders.find(f => f.id === folderId);
-    setFocusModalMode('start');
-    setFocusTarget({ type: 'folder', folderId });
     setMinimumFocusDuration(1);
     setFocusDuration(folder?.focusDuration || 30);
-    setShowFocusModal(true);
+    setDialog({ kind: 'focus', mode: 'start', target: { type: 'folder', folderId } });
   }
 
   function openGlobalFocusModal() {
-    setFocusModalMode('start');
-    setFocusTarget({ type: 'global' });
     setMinimumFocusDuration(1);
     setFocusDuration(globalFocusStatus?.focusDuration || 30);
-    setShowFocusModal(true);
+    setDialog({ kind: 'focus', mode: 'start', target: { type: 'global' } });
   }
 
   function openEditFocusModal(folderId: string, remainingMs: number) {
     const minimumMinutes = Math.max(1, Math.ceil(remainingMs / 60000));
-    setFocusModalMode('edit');
-    setFocusTarget({ type: 'folder', folderId });
     setMinimumFocusDuration(minimumMinutes);
     setFocusDuration(minimumMinutes);
-    setShowFocusModal(true);
+    setDialog({ kind: 'focus', mode: 'edit', target: { type: 'folder', folderId } });
   }
 
   function openEditGlobalFocusModal(remainingMs: number) {
     const minimumMinutes = Math.max(1, Math.ceil(remainingMs / 60000));
-    setFocusModalMode('edit');
-    setFocusTarget({ type: 'global' });
     setMinimumFocusDuration(minimumMinutes);
     setFocusDuration(minimumMinutes);
-    setShowFocusModal(true);
+    setDialog({ kind: 'focus', mode: 'edit', target: { type: 'global' } });
   }
 
   async function startFocusSession() {
@@ -709,9 +700,7 @@ export default function BlockedSites() {
           }));
         }
       }
-      setShowFocusModal(false);
-      setFocusTarget(null);
-      setFocusModalMode('start');
+      setDialog(null);
       setMinimumFocusDuration(1);
     } catch (err) {
       console.error('Failed to start focus session:', err);
@@ -1197,7 +1186,7 @@ export default function BlockedSites() {
       )}
 
       {/* Add/Edit Modal */}
-      {showModal && (
+      {dialog?.kind === 'site' && (
         <div
           className="fixed inset-0 bg-overlay flex items-center justify-center z-50"
           onMouseDown={(e) => {
@@ -1426,7 +1415,7 @@ export default function BlockedSites() {
       )}
 
       {/* Add/Edit Folder Modal */}
-      {showFolderModal && (
+      {dialog?.kind === 'folder' && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-overlay"
           onMouseDown={(e) => {
@@ -1675,7 +1664,7 @@ export default function BlockedSites() {
       )}
 
       {/* Focus Session Modal */}
-      {showFocusModal && focusTarget && (
+      {focusTarget && (
         <div className="fixed inset-0 bg-overlay flex items-center justify-center z-50">
           <div className="mx-4 w-full max-w-sm overflow-hidden border border-border bg-card shadow-[var(--shadow-card)]">
             <div className="flex items-center justify-between px-6 py-4 border-b ">
@@ -1685,9 +1674,7 @@ export default function BlockedSites() {
               </h2>
               <button
                 onClick={() => {
-                  setShowFocusModal(false);
-                  setFocusTarget(null);
-                  setFocusModalMode('start');
+                  setDialog(null);
                   setMinimumFocusDuration(1);
                 }}
                 className="p-2 hover:bg-muted rounded-lg"
@@ -1774,9 +1761,7 @@ export default function BlockedSites() {
                 <button
                   type="button"
                   onClick={() => {
-                    setShowFocusModal(false);
-                    setFocusTarget(null);
-                    setFocusModalMode('start');
+                    setDialog(null);
                     setMinimumFocusDuration(1);
                   }}
                   className="px-4 py-2 text-foreground hover:bg-muted rounded-lg transition-colors"

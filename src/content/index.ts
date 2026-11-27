@@ -9,9 +9,14 @@ const HEARTBEAT_INTERVAL = 15000; // 15 seconds
 
 let trackingEnabled = false;
 let youtubeTrackingEnabled = false;
-let disposed = false;
-let initialized = false;
-let stateReceived = false;
+type ContentLifecycle =
+  | { phase: 'starting'; latest?: TrackingState }
+  | { phase: 'running' | 'disposed' };
+let lifecycle: ContentLifecycle = { phase: 'starting' };
+function isDisposed(): boolean {
+  return lifecycle.phase === 'disposed';
+}
+
 const youtubeTimeouts = new Set<number>();
 
 let heartbeatTimer: number | null = null;
@@ -94,7 +99,7 @@ function getYouTubeChannelInfo(): { name: string; id?: string; url?: string } | 
 
 // Handle YouTube video play event - start tracking
 function handleYouTubePlay() {
-  if (disposed || isYouTubePlaying || !youtubeTrackingEnabled || !isYouTubeVideoPage()) {
+  if (isDisposed() || isYouTubePlaying || !youtubeTrackingEnabled || !isYouTubeVideoPage()) {
     return;
   }
 
@@ -136,7 +141,7 @@ function handleYouTubePause() {
 
 // Set up listeners on the YouTube video element
 function setupVideoListeners() {
-  if (!youtubeTrackingEnabled || disposed || !isYouTubeVideoPage()) return;
+  if (!youtubeTrackingEnabled || isDisposed() || !isYouTubeVideoPage()) return;
   // Find the video element
   const video = document.querySelector('video.html5-main-video, video.video-stream') as HTMLVideoElement | null;
 
@@ -201,7 +206,7 @@ function sendYouTubeChannelUpdate() {
 
 // Handle YouTube SPA navigation
 function handleYouTubeNavigation() {
-  if (!youtubeTrackingEnabled || disposed) return;
+  if (!youtubeTrackingEnabled || isDisposed()) return;
   cancelYouTubeRetries();
   detachVideoListeners();
   stopYouTubeBackgroundTracking();
@@ -258,10 +263,10 @@ function handleVideoDiscovery(event: Event) {
 }
 
 function scheduleYouTubeRetry(callback: () => void, delay: number) {
-  if (disposed || !youtubeTrackingEnabled) return;
+  if (isDisposed() || !youtubeTrackingEnabled) return;
   const id = window.setTimeout(() => {
     youtubeTimeouts.delete(id);
-    if (youtubeTrackingEnabled && !disposed) callback();
+    if (youtubeTrackingEnabled && !isDisposed()) callback();
   }, delay);
   youtubeTimeouts.add(id);
 }
@@ -342,7 +347,7 @@ async function checkIfBlocked(): Promise<boolean> {
 // Send message to background
 function sendMessage(type: string, payload?: Record<string, unknown>) {
   try {
-    if (disposed) return;
+    if (isDisposed()) return;
     chrome.runtime.sendMessage({ type, payload }).catch(cleanup);
   } catch {
     // Extension context invalidated (e.g., extension reloaded)
@@ -396,7 +401,7 @@ function startHeartbeat() {
   // Send initial heartbeat
   sendHeartbeat();
 
-  if (disposed) return;
+  if (isDisposed()) return;
   // Set up interval
   heartbeatTimer = window.setInterval(sendHeartbeat, HEARTBEAT_INTERVAL);
 }
@@ -410,14 +415,14 @@ function stopHeartbeat() {
 }
 
 function applyTrackingState(state: TrackingState) {
-  if (disposed) return;
+  if (isDisposed()) return;
   const wasTracking = trackingEnabled;
   const wasYouTubeTracking = youtubeTrackingEnabled;
   trackingEnabled = state.trackingEnabled;
   youtubeTrackingEnabled = state.youtubeTrackingEnabled && window.location.hostname === 'www.youtube.com';
 
   if (wasYouTubeTracking && !youtubeTrackingEnabled) stopYouTubeTracking();
-  if (disposed) return;
+  if (isDisposed()) return;
   if (!wasYouTubeTracking && youtubeTrackingEnabled) startYouTubeTracking();
   document.removeEventListener('visibilitychange', handleVisibilityChange);
   lastVisibilityState = !document.hidden;
@@ -434,17 +439,15 @@ function applyTrackingState(state: TrackingState) {
 
 function handleTrackingStateMessage(message: { type?: string; payload?: TrackingState }) {
   if (message.type !== 'TRACKING_STATE_CHANGED' || !message.payload) return;
-  stateReceived = true;
-  if (initialized) applyTrackingState(message.payload);
-  else pendingState = message.payload;
+  if (lifecycle.phase === 'starting') lifecycle.latest = message.payload;
+  else if (lifecycle.phase === 'running') applyTrackingState(message.payload);
 }
 
-let pendingState: TrackingState | null = null;
 
 // Context teardown must not send a final message recursively into an invalid runtime.
 function cleanup() {
-  if (disposed) return;
-  disposed = true;
+  if (isDisposed()) return;
+  lifecycle = { phase: 'disposed' };
   stopHeartbeat();
   stopYouTubeTracking();
   document.removeEventListener('visibilitychange', handleVisibilityChange);
@@ -457,10 +460,11 @@ async function init() {
   chrome.runtime.onMessage.addListener(handleTrackingStateMessage);
   try {
     const state: TrackingState = await chrome.runtime.sendMessage({ type: 'GET_TRACKING_STATE' });
-    initialized = true;
+    if (lifecycle.phase !== 'starting') return;
+    const latest = lifecycle.latest ?? state;
+    lifecycle = { phase: 'running' };
     // A settings broadcast may arrive while the initial request is in flight.
-    applyTrackingState(stateReceived && pendingState ? pendingState : state);
-    pendingState = null;
+    applyTrackingState(latest);
   } catch {
     cleanup();
   }
